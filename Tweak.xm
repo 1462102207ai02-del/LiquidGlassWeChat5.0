@@ -58,10 +58,10 @@ static NSInteger const kLGBadgeTag = 701005;
 - (UIColor *)lg_pillColor {
     if (@available(iOS 13.0, *)) {
         return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithWhite:1 alpha:0.12]
-            : [UIColor colorWithWhite:1 alpha:0.20];
+            ? [UIColor colorWithWhite:1 alpha:0.14]
+            : [UIColor colorWithWhite:1 alpha:0.24];
     }
-    return [UIColor colorWithWhite:1 alpha:0.18];
+    return [UIColor colorWithWhite:1 alpha:0.20];
 }
 
 %new
@@ -72,8 +72,8 @@ static NSInteger const kLGBadgeTag = 701005;
 
 %new
 - (UIColor *)lg_inactiveTextColor {
-    if (@available(iOS 13.0, *)) return [UIColor.secondaryLabelColor colorWithAlphaComponent:0.95];
-    return [UIColor colorWithWhite:0 alpha:0.6];
+    if (@available(iOS 13.0, *)) return [UIColor.secondaryLabelColor colorWithAlphaComponent:0.92];
+    return [UIColor colorWithWhite:0 alpha:0.58];
 }
 
 %new
@@ -123,11 +123,12 @@ static NSInteger const kLGBadgeTag = 701005;
     btn.tag = kLGButtonBaseTag + index;
     btn.adjustsImageWhenHighlighted = NO;
     btn.backgroundColor = UIColor.clearColor;
+    btn.clipsToBounds = NO;
 
     UIView *pill = [[UIView alloc] init];
     pill.tag = kLGPillTag;
     pill.hidden = YES;
-    pill.alpha = 0;
+    pill.alpha = 0.0;
     pill.userInteractionEnabled = NO;
     [btn addSubview:pill];
 
@@ -147,7 +148,7 @@ static NSInteger const kLGBadgeTag = 701005;
     dot.tag = kLGDotTag;
     dot.hidden = YES;
     dot.backgroundColor = UIColor.systemRedColor;
-    dot.layer.cornerRadius = 5;
+    dot.layer.cornerRadius = 5.0;
     [btn addSubview:dot];
 
     UILabel *badge = [[UILabel alloc] init];
@@ -216,9 +217,10 @@ static NSInteger const kLGBadgeTag = 701005;
     if (!tabBar || !glass) return;
 
     CGRect sourceFrame = tabBar.frame;
-    CGFloat margin = 18.0;
-    CGFloat height = 64.0;
-    CGFloat y = CGRectGetMinY(sourceFrame) + (CGRectGetHeight(sourceFrame) - height) * 0.5;
+    CGFloat margin = 20.0;
+    CGFloat height = 62.0;
+    CGFloat lift = 12.0;
+    CGFloat y = CGRectGetMinY(sourceFrame) + (CGRectGetHeight(sourceFrame) - height) * 0.5 - lift;
     CGFloat x = margin;
     CGFloat width = CGRectGetWidth(self.view.bounds) - margin * 2.0;
 
@@ -259,6 +261,11 @@ static NSInteger const kLGBadgeTag = 701005;
     CGFloat totalH = buttonsWrap.bounds.size.height;
     CGFloat itemW = totalW / MAX(items.count, 1);
 
+    BOOL isDark = NO;
+    if (@available(iOS 13.0, *)) {
+        isDark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    }
+
     for (NSInteger i = 0; i < items.count; i++) {
         UITabBarItem *item = items[i];
         UIButton *btn = (UIButton *)[buttonsWrap viewWithTag:kLGButtonBaseTag + i];
@@ -273,22 +280,35 @@ static NSInteger const kLGBadgeTag = 701005;
         UIView *dot = [btn viewWithTag:kLGDotTag];
         UILabel *badge = (UILabel *)[btn viewWithTag:kLGBadgeTag];
 
-        CGFloat pillW = MIN(58.0, MAX(46.0, itemW - 18.0));
-        CGFloat pillH = 36.0;
-        pill.frame = CGRectMake((itemW - pillW) * 0.5, 5.5, pillW, pillH);
-        pill.layer.cornerRadius = pillH * 0.5;
-        pill.backgroundColor = [self lg_pillColor];
+        CGFloat contentOffsetY = -4.0;
+        CGFloat selectedLift = selected ? -1.5 : 0.0;
 
-        CGFloat iconSize = 24.0;
-        CGFloat iconY = 10.0;
+        CGFloat pillW = MIN(62.0, MAX(48.0, itemW - 16.0));
+        CGFloat pillH = 38.0;
+        pill.frame = CGRectMake((itemW - pillW) * 0.5,
+                                7.0 + contentOffsetY + selectedLift,
+                                pillW,
+                                pillH);
+        pill.layer.cornerRadius = pillH * 0.5;
+        pill.backgroundColor = selected
+            ? (isDark ? [UIColor colorWithWhite:1 alpha:0.16] : [UIColor colorWithWhite:1 alpha:0.28])
+            : [UIColor clearColor];
+        pill.layer.borderWidth = selected ? 0.6 : 0.0;
+        pill.layer.borderColor = selected
+            ? (isDark ? [UIColor colorWithWhite:1 alpha:0.14].CGColor : [UIColor colorWithWhite:1 alpha:0.30].CGColor)
+            : UIColor.clearColor.CGColor;
+
+        CGFloat iconSize = selected ? 24.5 : 23.0;
+        CGFloat iconY = 9.0 + contentOffsetY + selectedLift;
         icon.frame = CGRectMake((itemW - iconSize) * 0.5, iconY, iconSize, iconSize);
         icon.image = [self lg_imageForItem:item selected:selected];
-        icon.alpha = selected ? 1.0 : 0.76;
+        icon.alpha = selected ? 1.0 : 0.70;
 
-        title.frame = CGRectMake(4.0, CGRectGetMaxY(icon.frame) + 3.0, itemW - 8.0, 12.0);
+        CGFloat titleY = CGRectGetMaxY(icon.frame) + 2.5;
+        title.frame = CGRectMake(4.0, titleY, itemW - 8.0, 12.0);
         title.text = item.title ?: @"";
         title.textColor = selected ? [self lg_activeTextColor] : [self lg_inactiveTextColor];
-        title.alpha = selected ? 1.0 : 0.92;
+        title.alpha = selected ? 1.0 : 0.88;
 
         NSString *badgeValue = [self lg_badgeValueForItem:item];
         BOOL showDot = NO;
@@ -303,7 +323,10 @@ static NSInteger const kLGBadgeTag = 701005;
         }
 
         dot.hidden = !showDot;
-        dot.frame = CGRectMake(CGRectGetMaxX(icon.frame) - 1.0, CGRectGetMinY(icon.frame) - 1.0, 10.0, 10.0);
+        dot.frame = CGRectMake(CGRectGetMaxX(icon.frame) - 1.0,
+                               CGRectGetMinY(icon.frame) - 1.0,
+                               10.0,
+                               10.0);
 
         badge.hidden = !showBadge;
         if (showBadge) {
@@ -311,17 +334,22 @@ static NSInteger const kLGBadgeTag = 701005;
             CGSize size = [badgeValue sizeWithAttributes:@{NSFontAttributeName: badge.font}];
             CGFloat bw = MAX(18.0, size.width + 10.0);
             CGFloat bh = 18.0;
-            badge.frame = CGRectMake(CGRectGetMaxX(icon.frame) - 2.0, CGRectGetMinY(icon.frame) - 4.0, bw, bh);
+            badge.frame = CGRectMake(CGRectGetMaxX(icon.frame) - 2.0,
+                                     CGRectGetMinY(icon.frame) - 4.0,
+                                     bw,
+                                     bh);
             badge.layer.cornerRadius = bh * 0.5;
         }
 
         void (^block)(void) = ^{
             pill.hidden = NO;
             pill.alpha = selected ? 1.0 : 0.0;
+            icon.transform = selected ? CGAffineTransformMakeScale(1.02, 1.02) : CGAffineTransformIdentity;
+            title.transform = selected ? CGAffineTransformMakeTranslation(0, -0.5) : CGAffineTransformIdentity;
         };
 
         if (animated) {
-            [UIView animateWithDuration:0.22
+            [UIView animateWithDuration:0.24
                                   delay:0
                  usingSpringWithDamping:0.82
                   initialSpringVelocity:0
