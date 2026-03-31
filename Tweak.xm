@@ -18,22 +18,28 @@ static UITabBar *findTabBar(UIView *view) {
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 
-        UIWindow *keyWindow = nil;
+        UIWindow *targetWindow = nil;
 
-        if (@available(iOS 13.0, *)) {
-            for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-                if (scene.activationState == UISceneActivationStateForegroundActive) {
-                    keyWindow = scene.windows.firstObject;
-                    if (keyWindow) break;
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+
+            UIWindowScene *windowScene = (UIWindowScene *)scene;
+
+            if (windowScene.activationState != UISceneActivationStateForegroundActive) continue;
+
+            for (UIWindow *win in windowScene.windows) {
+                if (win.isKeyWindow) {
+                    targetWindow = win;
+                    break;
                 }
             }
-        } else {
-            keyWindow = [UIApplication sharedApplication].keyWindow;
+
+            if (targetWindow) break;
         }
 
-        if (!keyWindow) return;
+        if (!targetWindow) return;
 
-        UITabBar *tabBar = findTabBar(keyWindow);
+        UITabBar *tabBar = findTabBar(targetWindow);
         if (!tabBar) return;
 
         UIVisualEffectView *glassView = [tabBar viewWithTag:9999];
