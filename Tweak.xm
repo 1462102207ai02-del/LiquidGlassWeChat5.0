@@ -1,11 +1,16 @@
 #import <UIKit/UIKit.h>
 
-%hook UITabBar
+%hook UIViewController
 
-- (void)layoutSubviews {
+- (void)viewDidAppear:(BOOL)animated {
     %orig;
 
-    UIVisualEffectView *glassView = [self viewWithTag:9999];
+    if (![self isKindOfClass:NSClassFromString(@"MMTabBarController")]) return;
+
+    UITabBar *tabBar = self.tabBarController.tabBar;
+    if (!tabBar) return;
+
+    UIVisualEffectView *glassView = [tabBar viewWithTag:9999];
 
     if (!glassView) {
         UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
@@ -19,21 +24,21 @@
         tintView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [glassView.contentView addSubview:tintView];
 
-        [self insertSubview:glassView atIndex:0];
+        [tabBar insertSubview:glassView atIndex:0];
     }
 
     CGFloat margin = 12;
     glassView.frame = CGRectMake(
         margin,
         6,
-        self.bounds.size.width - margin * 2,
-        self.bounds.size.height - 12
+        tabBar.bounds.size.width - margin * 2,
+        tabBar.bounds.size.height - 12
     );
 
-    self.backgroundImage = [UIImage new];
-    self.shadowImage = [UIImage new];
-    self.barTintColor = [UIColor clearColor];
-    self.backgroundColor = [UIColor clearColor];
+    tabBar.backgroundImage = [UIImage new];
+    tabBar.shadowImage = [UIImage new];
+    tabBar.barTintColor = [UIColor clearColor];
+    tabBar.backgroundColor = [UIColor clearColor];
 }
 
 %end
