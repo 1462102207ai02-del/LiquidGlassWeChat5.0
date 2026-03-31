@@ -14,15 +14,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          clang \
-          git \
-          wget \
-          xz-utils \
-          perl \
-          dpkg \
-          dpkg-dev
+        sudo apt-get install -y build-essential clang git wget xz-utils perl dpkg dpkg-dev
 
     - name: Install Theos
       run: |
@@ -33,7 +25,7 @@ jobs:
         rm -rf $HOME/theos/sdks
         git clone https://github.com/theos/sdks.git $HOME/theos/sdks
 
-    - name: Build tweak (不打包)
+    - name: Build tweak
       run: |
         export THEOS=$HOME/theos
         export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
@@ -46,13 +38,15 @@ jobs:
         mkdir -p package/Library/MobileSubstrate/DynamicLibraries
 
         cp .theos/obj/debug/*.dylib package/Library/MobileSubstrate/DynamicLibraries/
-        cp *.plist package/Library/MobileSubstrate/DynamicLibraries/
+        cp LiquidGlassWeChat.plist package/Library/MobileSubstrate/DynamicLibraries/
 
-        echo "Package: com.your.liquidglass
+        cat > package/DEBIAN/control <<EOF
+Package: com.your.liquidglass
 Version: 1.0
 Architecture: iphoneos-arm
 Maintainer: you
-Description: Liquid Glass WeChat" > package/DEBIAN/control
+Description: Liquid Glass WeChat
+EOF
 
         dpkg-deb -b package LiquidGlassWeChat.deb
 
