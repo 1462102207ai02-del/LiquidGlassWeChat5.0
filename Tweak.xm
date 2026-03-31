@@ -1,5 +1,16 @@
 #import <UIKit/UIKit.h>
 
+static UITabBar *findTabBar(UIView *view) {
+    if ([view isKindOfClass:[UITabBar class]]) {
+        return (UITabBar *)view;
+    }
+    for (UIView *sub in view.subviews) {
+        UITabBar *result = findTabBar(sub);
+        if (result) return result;
+    }
+    return nil;
+}
+
 %hook UIApplication
 
 - (void)didFinishLaunching {
@@ -7,16 +18,22 @@
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 
-        UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
-        if (!keyWindow) return;
+        UIWindow *keyWindow = nil;
 
-        UITabBar *tabBar = nil;
-
-        for (UIView *view in keyWindow.subviews) {
-            tabBar = [self findTabBar:view];
-            if (tabBar) break;
+        if (@available(iOS 13.0, *)) {
+            for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                if (scene.activationState == UISceneActivationStateForegroundActive) {
+                    keyWindow = scene.windows.firstObject;
+                    if (keyWindow) break;
+                }
+            }
+        } else {
+            keyWindow = [UIApplication sharedApplication].keyWindow;
         }
 
+        if (!keyWindow) return;
+
+        UITabBar *tabBar = findTabBar(keyWindow);
         if (!tabBar) return;
 
         UIVisualEffectView *glassView = [tabBar viewWithTag:9999];
@@ -50,20 +67,6 @@
         tabBar.backgroundColor = [UIColor clearColor];
 
     });
-}
-
-%new
-- (UITabBar *)findTabBar:(UIView *)view {
-    if ([view isKindOfClass:[UITabBar class]]) {
-        return (UITabBar *)view;
-    }
-
-    for (UIView *sub in view.subviews) {
-        UITabBar *result = [self findTabBar:sub];
-        if (result) return result;
-    }
-
-    return nil;
 }
 
 %end
