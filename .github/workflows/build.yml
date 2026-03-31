@@ -8,50 +8,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential clang git wget xz-utils perl dpkg dpkg-dev
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang git wget xz-utils perl dpkg dpkg-dev
 
-    - name: Install Theos
-      run: |
-        git clone https://github.com/theos/theos.git $HOME/theos
+      - name: Install Theos
+        run: |
+          git clone https://github.com/theos/theos.git $HOME/theos
 
-    - name: Install SDK
-      run: |
-        rm -rf $HOME/theos/sdks
-        git clone https://github.com/theos/sdks.git $HOME/theos/sdks
+      - name: Install SDK
+        run: |
+          rm -rf $HOME/theos/sdks
+          git clone https://github.com/theos/sdks.git $HOME/theos/sdks
 
-    - name: Build tweak
-      run: |
-        export THEOS=$HOME/theos
-        export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
-        make clean
-        make
+      - name: Build tweak
+        run: |
+          export THEOS=$HOME/theos
+          export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
+          make clean
+          make
 
-    - name: Manual package
-      run: |
-        mkdir -p package/DEBIAN
-        mkdir -p package/Library/MobileSubstrate/DynamicLibraries
+      - name: Manual package
+        run: |
+          mkdir -p package/DEBIAN
+          mkdir -p package/Library/MobileSubstrate/DynamicLibraries
 
-        cp .theos/obj/debug/*.dylib package/Library/MobileSubstrate/DynamicLibraries/
-        cp LiquidGlassWeChat.plist package/Library/MobileSubstrate/DynamicLibraries/
+          cp .theos/obj/debug/*.dylib package/Library/MobileSubstrate/DynamicLibraries/
+          cp LiquidGlassWeChat.plist package/Library/MobileSubstrate/DynamicLibraries/
 
-        cat > package/DEBIAN/control <<EOF
-Package: com.your.liquidglass
-Version: 1.0
-Architecture: iphoneos-arm
-Maintainer: you
-Description: Liquid Glass WeChat
-EOF
+          echo "Package: com.your.liquidglass" > package/DEBIAN/control
+          echo "Version: 1.0" >> package/DEBIAN/control
+          echo "Architecture: iphoneos-arm" >> package/DEBIAN/control
+          echo "Maintainer: you" >> package/DEBIAN/control
+          echo "Description: Liquid Glass WeChat" >> package/DEBIAN/control
 
-        dpkg-deb -b package LiquidGlassWeChat.deb
+          dpkg-deb -b package LiquidGlassWeChat.deb
 
-    - name: Upload deb
-      uses: actions/upload-artifact@v4
-      with:
-        name: LiquidGlassWeChat
-        path: LiquidGlassWeChat.deb
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiquidGlassWeChat
+          path: LiquidGlassWeChat.deb
