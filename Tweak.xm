@@ -90,7 +90,9 @@ static NSInteger const kLGHighlightTag = 730003;
         if (![sub isKindOfClass:[UIControl class]]) continue;
 
         NSString *cls = NSStringFromClass([sub class]);
-        if ([cls containsString:@"UITabBarButton"] || [cls containsString:@"TabBarButton"] || [cls containsString:@"MMTabBarButton"]) {
+        if ([cls containsString:@"UITabBarButton"] ||
+            [cls containsString:@"TabBarButton"] ||
+            [cls containsString:@"MMTabBarButton"]) {
             [arr addObject:(UIControl *)sub];
         }
     }
@@ -118,17 +120,13 @@ static NSInteger const kLGHighlightTag = 730003;
     tabBar.opaque = NO;
     tabBar.clipsToBounds = NO;
 
-    if (@available(iOS 15.0, *)) {
-        UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
-        [appearance configureWithTransparentBackground];
-        appearance.backgroundEffect = nil;
-        appearance.backgroundColor = UIColor.clearColor;
-        appearance.shadowColor = UIColor.clearColor;
-        tabBar.standardAppearance = appearance;
-        if (@available(iOS 15.0, *)) {
-            tabBar.scrollEdgeAppearance = appearance;
-        }
-    }
+    UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
+    [appearance configureWithTransparentBackground];
+    appearance.backgroundEffect = nil;
+    appearance.backgroundColor = UIColor.clearColor;
+    appearance.shadowColor = UIColor.clearColor;
+    tabBar.standardAppearance = appearance;
+    tabBar.scrollEdgeAppearance = appearance;
 }
 
 %new
@@ -138,7 +136,6 @@ static NSInteger const kLGHighlightTag = 730003;
     if (!tabBar || !glass) return;
 
     CGRect sourceFrame = tabBar.frame;
-
     CGFloat margin = 20.0;
     CGFloat height = 62.0;
     CGFloat lift = 12.0;
@@ -171,13 +168,13 @@ static NSInteger const kLGHighlightTag = 730003;
     UIVisualEffectView *glass = [self lg_glassBar];
     CGRect glassFrame = glass.frame;
 
-    CGFloat itemW = CGRectGetWidth(glassFrame) / MAX(buttons.count, 1);
+    CGFloat itemW = CGRectGetWidth(glassFrame) / MAX((NSInteger)buttons.count, 1);
     CGFloat contentOffsetY = -9.0;
     CGFloat selectedLift = -1.5;
 
-    for (NSInteger i = 0; i < buttons.count; i++) {
+    for (NSInteger i = 0; i < (NSInteger)buttons.count; i++) {
         UIControl *btn = buttons[i];
-        BOOL selected = (i == self.selectedIndex);
+        BOOL selected = (i == (NSInteger)self.selectedIndex);
 
         CGRect f = btn.frame;
         f.origin.x = CGRectGetMinX(glassFrame) + i * itemW;
@@ -223,9 +220,9 @@ static NSInteger const kLGHighlightTag = 730003;
 
     if (animated) {
         [UIView animateWithDuration:0.24
-                              delay:0
+                              delay:0.0
              usingSpringWithDamping:0.84
-              initialSpringVelocity:0
+              initialSpringVelocity:0.0
                             options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut
                          animations:changes
                          completion:nil];
