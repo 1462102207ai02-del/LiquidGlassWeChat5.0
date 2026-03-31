@@ -1,45 +1,38 @@
-#import <UIKit/UIKit.h>
+name: Build Tweak
 
-%hook UITabBar
+on:
+  workflow_dispatch:
 
-- (void)layoutSubviews {
-    %orig;
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    static UIVisualEffectView *glassView = nil;
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    if (!glassView) {
-        UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
-        glassView = [[UIVisualEffectView alloc] initWithEffect:blur];
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git wget perl build-essential clang make libplist-utils dpkg-dev
 
-        // 圆角
-        glassView.layer.cornerRadius = 30;
-        glassView.layer.masksToBounds = YES;
+      - name: Install Theos (完整环境)
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          export THEOS=$HOME/theos
 
-        // 半透明白
-        UIView *tintView = [[UIView alloc] init];
-        tintView.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.15];
-        tintView.frame = glassView.bounds;
-        tintView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+          # 安装 toolchain（关键）
+          bash $THEOS/bin/install-theos
 
-        [glassView.contentView addSubview:tintView];
+      - name: Build
+        run: |
+          export THEOS=$HOME/theos
+          export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
+          make clean
+          make package FINALPACKAGE=1
 
-        // 放到底层
-        [self insertSubview:glassView atIndex:0];
-    }
-
-    CGFloat margin = 10;
-    glassView.frame = CGRectMake(
-        margin,
-        5,
-        self.bounds.size.width - margin * 2,
-        self.bounds.size.height - 10
-    );
-
-    // 去掉系统背景
-    self.backgroundImage = [UIImage new];
-    self.shadowImage = [UIImage new];
-    self.barTintColor = [UIColor clearColor];
-    self.backgroundColor = [UIColor clearColor];
-}
-
-%end
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: packages/*.deb
