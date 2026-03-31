@@ -6,10 +6,12 @@
 - (void)viewDidLayoutSubviews {
     %orig;
 
-    UIView *container = self.view;
+    UIView *container = [self valueForKey:@"view"];
+    if (!container) return;
+
     UITabBar *tabBar = nil;
     for (UIView *sub in container.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"MMTabBar")]) {
+        if ([NSStringFromClass([sub class]) containsString:@"MMTabBar"]) {
             tabBar = (UITabBar *)sub;
             sub.hidden = YES;
         }
@@ -51,17 +53,14 @@
     CGFloat width = container.bounds.size.width;
     CGFloat height = 87;
     CGFloat margin = 18;
-    CGRect glassFrame = CGRectMake(margin,
-                                   container.bounds.size.height - height - 22,
-                                   width - margin * 2,
-                                   height);
-    glass.frame = glassFrame;
+    glass.frame = CGRectMake(margin,
+                             container.bounds.size.height - height - 22,
+                             width - margin * 2,
+                             height);
 
-    NSArray *buttons = @[];
     NSMutableArray *clonedButtons = [NSMutableArray array];
     for (UIView *sub in tabBar.subviews) {
-        NSString *cls = NSStringFromClass([sub class]);
-        if ([cls containsString:@"TabBarButton"]) {
+        if ([NSStringFromClass([sub class]) containsString:@"TabBarButton"]) {
             UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
             btn.frame = sub.frame;
             for (UIView *label in sub.subviews) {
@@ -92,8 +91,9 @@
 
 - (void)tabButtonTapped:(UIButton *)sender {
     NSInteger index = sender.tag;
-    if (index < self.viewControllers.count) {
-        self.selectedIndex = index;
+    NSArray *viewControllers = [self valueForKey:@"viewControllers"];
+    if (index < viewControllers.count) {
+        [self setValue:@(index) forKey:@"selectedIndex"];
     }
 }
 
