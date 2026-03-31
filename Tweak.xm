@@ -78,10 +78,6 @@
     appearance.shadowColor = nil;
     tabBar.standardAppearance = appearance;
 
-    if ([tabBar respondsToSelector:@selector(setScrollEdgeAppearance:)]) {
-        ((void (*)(id, SEL, id))objc_msgSend)(tabBar, @selector(setScrollEdgeAppearance:), appearance);
-    }
-
     for (UIView *sub in tabBar.subviews) {
         NSString *cls = NSStringFromClass([sub class]);
         if ([cls containsString:@"Background"] ||
