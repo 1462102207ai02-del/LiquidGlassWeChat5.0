@@ -12,6 +12,28 @@ static NSInteger const kMMTitleTag = 881003;
 static NSInteger const kMMDotTag = 881004;
 static NSInteger const kMMBadgeTag = 881005;
 
+@interface MMTabBarController : UIViewController
+@property (nonatomic, assign) NSUInteger selectedIndex;
+@end
+
+@interface MMTabBarController (MMGlassInternal)
+- (UITabBar *)mm_realTabBar;
+- (UIBlurEffectStyle)mm_blurStyle;
+- (UIColor *)mm_strokeColor;
+- (UIColor *)mm_pillColor;
+- (UIColor *)mm_activeTextColor;
+- (UIColor *)mm_inactiveTextColor;
+- (UIVisualEffectView *)mm_ensureGlassBar;
+- (UIButton *)mm_makeButtonAtIndex:(NSInteger)idx;
+- (void)mm_bounceButton:(UIButton *)button;
+- (void)mm_handleCloneTap:(UIButton *)sender;
+- (NSString *)mm_normalizedBadgeValue:(NSString *)badgeValue;
+- (UIImage *)mm_imageForItem:(UITabBarItem *)item selected:(BOOL)selected;
+- (void)mm_reloadCloneButtonsAnimated:(BOOL)animated;
+- (void)mm_updateGlassFrameAndAppearance;
+- (void)mm_prepareRealTabBarForCarrierMode;
+@end
+
 %hook MMTabBarController
 
 %new
@@ -184,10 +206,7 @@ static NSInteger const kMMBadgeTag = 881005;
         tabBar.selectedItem = item;
     }
 
-    if ([self respondsToSelector:@selector(setSelectedIndex:)]) {
-        self.selectedIndex = idx;
-    }
-
+    self.selectedIndex = idx;
     [self mm_reloadCloneButtonsAnimated:YES];
 }
 
@@ -202,10 +221,8 @@ static NSInteger const kMMBadgeTag = 881005;
 - (UIImage *)mm_imageForItem:(UITabBarItem *)item selected:(BOOL)selected {
     UIImage *img = selected ? item.selectedImage : item.image;
     if (!img) img = item.image ?: item.selectedImage;
-    if (@available(iOS 13.0, *)) {
-        return [img imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-    }
-    return img;
+    if (!img) return nil;
+    return [img imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
 }
 
 %new
