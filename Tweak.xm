@@ -5,7 +5,8 @@
 - (void)viewDidLayoutSubviews {
     %orig;
 
-    UITabBar *tabBar = self.tabBar;
+    UITabBarController *tabVC = (UITabBarController *)self;
+    UITabBar *tabBar = tabVC.tabBar;
     if (!tabBar) return;
 
     UIVisualEffectView *glassView = [tabBar viewWithTag:9999];
