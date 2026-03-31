@@ -6,6 +6,8 @@
 - (void)viewDidLayoutSubviews {
     %orig;
 
+    if (![self isKindOfClass:NSClassFromString(@"MMTabBarController")]) return;
+
     UIView *container = [self valueForKey:@"view"];
     if (!container) return;
 
@@ -14,6 +16,7 @@
         if ([NSStringFromClass([sub class]) containsString:@"MMTabBar"]) {
             tabBar = (UITabBar *)sub;
             sub.hidden = YES;
+            break;
         }
     }
     if (!tabBar) return;
@@ -25,28 +28,6 @@
         glass.tag = 8888;
         glass.layer.cornerRadius = 34;
         glass.layer.masksToBounds = YES;
-        glass.layer.borderWidth = 0.6;
-        glass.layer.borderColor = [[UIColor whiteColor] colorWithAlphaComponent:0.5].CGColor;
-        glass.layer.shadowColor = [UIColor blackColor].CGColor;
-        glass.layer.shadowOpacity = 0.12;
-        glass.layer.shadowRadius = 30;
-        glass.layer.shadowOffset = CGSizeMake(0, 10);
-
-        CAGradientLayer *highlight = [CAGradientLayer layer];
-        highlight.colors = @[(__bridge id)[[UIColor whiteColor] colorWithAlphaComponent:0.45].CGColor,
-                             (__bridge id)[[UIColor whiteColor] colorWithAlphaComponent:0.15].CGColor,
-                             (__bridge id)[[UIColor clearColor] CGColor]];
-        highlight.startPoint = CGPointMake(0.5, 0);
-        highlight.endPoint = CGPointMake(0.5, 1);
-        highlight.frame = glass.bounds;
-        highlight.cornerRadius = 34;
-        [glass.layer addSublayer:highlight];
-
-        UIView *tint = [[UIView alloc] initWithFrame:glass.bounds];
-        tint.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.05];
-        tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        [glass.contentView addSubview:tint];
-
         [container addSubview:glass];
     }
 
@@ -58,43 +39,7 @@
                              width - margin * 2,
                              height);
 
-    NSMutableArray *clonedButtons = [NSMutableArray array];
-    for (UIView *sub in tabBar.subviews) {
-        if ([NSStringFromClass([sub class]) containsString:@"TabBarButton"]) {
-            UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-            btn.frame = sub.frame;
-            for (UIView *label in sub.subviews) {
-                if ([label isKindOfClass:[UILabel class]]) {
-                    UILabel *lbl = [[UILabel alloc] initWithFrame:label.frame];
-                    lbl.text = ((UILabel *)label).text;
-                    lbl.font = ((UILabel *)label).font;
-                    lbl.textColor = ((UILabel *)label).textColor;
-                    [btn addSubview:lbl];
-                }
-            }
-            btn.tag = sub.tag;
-            [glass addSubview:btn];
-            [clonedButtons addObject:btn];
-            [btn addTarget:self action:@selector(tabButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-        }
-    }
-
-    for (UIView *btn in clonedButtons) {
-        CGRect f = btn.frame;
-        f.origin.y = 0;
-        f.size.height = glass.bounds.size.height;
-        btn.frame = f;
-    }
-
     [container bringSubviewToFront:glass];
-}
-
-- (void)tabButtonTapped:(UIButton *)sender {
-    NSInteger index = sender.tag;
-    NSArray *viewControllers = [self valueForKey:@"viewControllers"];
-    if (index < viewControllers.count) {
-        [self setValue:@(index) forKey:@"selectedIndex"];
-    }
 }
 
 %end
