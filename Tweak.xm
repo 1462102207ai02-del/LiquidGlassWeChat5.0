@@ -53,17 +53,20 @@
 
     CGFloat height = tabBar.bounds.size.height;
     CGFloat width = container.bounds.size.width;
-
     CGFloat margin = 18;
 
-    glass.frame = CGRectMake(
+    CGRect glassFrame = CGRectMake(
         margin,
         container.bounds.size.height - height - 22,
         width - margin * 2,
         height - 8
     );
 
-    tabBar.frame = glass.bounds;
+    glass.frame = glassFrame;
+
+    // ❗关键：tabBar 不进 glass，单独放
+    tabBar.frame = glassFrame;
+
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = [UIColor clearColor];
@@ -76,6 +79,7 @@
     }
 
     [container bringSubviewToFront:glass];
+    [container bringSubviewToFront:tabBar];
 }
 
 %end
