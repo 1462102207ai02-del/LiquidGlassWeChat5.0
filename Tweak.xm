@@ -72,16 +72,12 @@
     tabBar.backgroundColor = [UIColor clearColor];
     tabBar.translucent = YES;
 
-    if (@available(iOS 13.0, *)) {
-        UITabBarAppearance *appearance = [UITabBarAppearance new];
-        [appearance configureWithTransparentBackground];
-        appearance.backgroundColor = [UIColor clearColor];
-        appearance.shadowColor = nil;
-        tabBar.standardAppearance = appearance;
-        if (@available(iOS 15.0, *)) {
-            tabBar.scrollEdgeAppearance = appearance;
-        }
-    }
+    UITabBarAppearance *appearance = [UITabBarAppearance new];
+    [appearance configureWithTransparentBackground];
+    appearance.backgroundColor = [UIColor clearColor];
+    appearance.shadowColor = nil;
+    tabBar.standardAppearance = appearance;
+    tabBar.scrollEdgeAppearance = appearance;
 
     for (UIView *sub in tabBar.subviews) {
         NSString *cls = NSStringFromClass([sub class]);
