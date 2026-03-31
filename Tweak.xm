@@ -1,66 +1,43 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
-static NSInteger const kMMGlassBarTag = 880001;
-static NSInteger const kMMGlassStrokeTag = 880002;
-static NSInteger const kMMGlassButtonsTag = 880003;
+static NSInteger const kLGGlassTag = 700001;
+static NSInteger const kLGStrokeTag = 700002;
+static NSInteger const kLGButtonsTag = 700003;
 
-static NSInteger const kMMCloneBaseTag = 881000;
-static NSInteger const kMMPillTag = 881001;
-static NSInteger const kMMIconTag = 881002;
-static NSInteger const kMMTitleTag = 881003;
-static NSInteger const kMMDotTag = 881004;
-static NSInteger const kMMBadgeTag = 881005;
+static NSInteger const kLGButtonBaseTag = 701000;
+static NSInteger const kLGPillTag = 701001;
+static NSInteger const kLGIconTag = 701002;
+static NSInteger const kLGTitleTag = 701003;
+static NSInteger const kLGDotTag = 701004;
+static NSInteger const kLGBadgeTag = 701005;
 
-@interface MMTabBarController : UIViewController
-@property (nonatomic, assign) NSUInteger selectedIndex;
+@interface MMTabBarController : UITabBarController
 @end
 
-@interface MMTabBarController (MMGlassInternal)
-- (UITabBar *)mm_realTabBar;
-- (UIBlurEffectStyle)mm_blurStyle;
-- (UIColor *)mm_strokeColor;
-- (UIColor *)mm_pillColor;
-- (UIColor *)mm_activeTextColor;
-- (UIColor *)mm_inactiveTextColor;
-- (UIVisualEffectView *)mm_ensureGlassBar;
-- (UIButton *)mm_makeButtonAtIndex:(NSInteger)idx;
-- (void)mm_bounceButton:(UIButton *)button;
-- (void)mm_handleCloneTap:(UIButton *)sender;
-- (NSString *)mm_normalizedBadgeValue:(NSString *)badgeValue;
-- (UIImage *)mm_imageForItem:(UITabBarItem *)item selected:(BOOL)selected;
-- (void)mm_reloadCloneButtonsAnimated:(BOOL)animated;
-- (void)mm_updateGlassFrameAndAppearance;
-- (void)mm_prepareRealTabBarForCarrierMode;
+@interface MMTabBarController (LiquidGlass)
+- (UIVisualEffectView *)lg_glassBar;
+- (void)lg_prepareRealTabBar;
+- (void)lg_layoutGlassBar;
+- (void)lg_reloadButtonsAnimated:(BOOL)animated;
+- (UIButton *)lg_buildButtonAtIndex:(NSInteger)index;
+- (void)lg_handleTap:(UIButton *)sender;
+- (void)lg_bounce:(UIView *)view;
+- (UIBlurEffectStyle)lg_blurStyle;
+- (UIColor *)lg_strokeColor;
+- (UIColor *)lg_pillColor;
+- (UIColor *)lg_activeTextColor;
+- (UIColor *)lg_inactiveTextColor;
+- (UIImage *)lg_imageForItem:(UITabBarItem *)item selected:(BOOL)selected;
+- (NSString *)lg_badgeValueForItem:(UITabBarItem *)item;
 @end
 
 %hook MMTabBarController
 
 %new
-- (UITabBar *)mm_realTabBar {
-    UIView *root = self.view;
-    if (!root) return nil;
-
-    for (UIView *v in root.subviews) {
-        if ([v isKindOfClass:[UITabBar class]] &&
-            [NSStringFromClass([v class]) containsString:@"MMTabBar"]) {
-            return (UITabBar *)v;
-        }
-    }
-
-    for (UIView *v in root.subviews) {
-        if ([v isKindOfClass:[UITabBar class]]) {
-            return (UITabBar *)v;
-        }
-    }
-
-    return nil;
-}
-
-%new
-- (UIBlurEffectStyle)mm_blurStyle {
+- (UIBlurEffectStyle)lg_blurStyle {
     if (@available(iOS 13.0, *)) {
-        return self.view.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+        return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
             ? UIBlurEffectStyleSystemUltraThinMaterialDark
             : UIBlurEffectStyleSystemThinMaterialLight;
     }
@@ -68,157 +45,39 @@ static NSInteger const kMMBadgeTag = 881005;
 }
 
 %new
-- (UIColor *)mm_strokeColor {
+- (UIColor *)lg_strokeColor {
     if (@available(iOS 13.0, *)) {
-        return self.view.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithWhite:1.0 alpha:0.10]
-            : [UIColor colorWithWhite:1.0 alpha:0.35];
+        return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithWhite:1 alpha:0.10]
+            : [UIColor colorWithWhite:1 alpha:0.32];
     }
-    return [UIColor colorWithWhite:1.0 alpha:0.30];
+    return [UIColor colorWithWhite:1 alpha:0.28];
 }
 
 %new
-- (UIColor *)mm_pillColor {
+- (UIColor *)lg_pillColor {
     if (@available(iOS 13.0, *)) {
-        return self.view.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithWhite:1.0 alpha:0.12]
-            : [UIColor colorWithWhite:1.0 alpha:0.22];
+        return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithWhite:1 alpha:0.12]
+            : [UIColor colorWithWhite:1 alpha:0.20];
     }
-    return [UIColor colorWithWhite:1.0 alpha:0.18];
+    return [UIColor colorWithWhite:1 alpha:0.18];
 }
 
 %new
-- (UIColor *)mm_activeTextColor {
+- (UIColor *)lg_activeTextColor {
     if (@available(iOS 13.0, *)) return UIColor.labelColor;
     return UIColor.blackColor;
 }
 
 %new
-- (UIColor *)mm_inactiveTextColor {
+- (UIColor *)lg_inactiveTextColor {
     if (@available(iOS 13.0, *)) return [UIColor.secondaryLabelColor colorWithAlphaComponent:0.95];
-    return [UIColor colorWithWhite:0 alpha:0.60];
+    return [UIColor colorWithWhite:0 alpha:0.6];
 }
 
 %new
-- (UIVisualEffectView *)mm_ensureGlassBar {
-    UIView *root = self.view;
-    if (!root) return nil;
-
-    UIVisualEffectView *glass = (UIVisualEffectView *)[root viewWithTag:kMMGlassBarTag];
-    if (!glass) {
-        glass = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:[self mm_blurStyle]]];
-        glass.tag = kMMGlassBarTag;
-        glass.clipsToBounds = YES;
-        glass.layer.masksToBounds = YES;
-        [root addSubview:glass];
-
-        UIView *stroke = [[UIView alloc] init];
-        stroke.tag = kMMGlassStrokeTag;
-        stroke.userInteractionEnabled = NO;
-        stroke.backgroundColor = UIColor.clearColor;
-        [glass.contentView addSubview:stroke];
-
-        UIView *buttons = [[UIView alloc] init];
-        buttons.tag = kMMGlassButtonsTag;
-        buttons.backgroundColor = UIColor.clearColor;
-        [glass.contentView addSubview:buttons];
-    }
-
-    return glass;
-}
-
-%new
-- (UIButton *)mm_makeButtonAtIndex:(NSInteger)idx {
-    UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-    btn.tag = kMMCloneBaseTag + idx;
-    btn.adjustsImageWhenHighlighted = NO;
-    btn.backgroundColor = UIColor.clearColor;
-    btn.clipsToBounds = NO;
-
-    UIView *pill = [[UIView alloc] init];
-    pill.tag = kMMPillTag;
-    pill.hidden = YES;
-    pill.alpha = 0.0;
-    pill.userInteractionEnabled = NO;
-    [btn addSubview:pill];
-
-    UIImageView *icon = [[UIImageView alloc] init];
-    icon.tag = kMMIconTag;
-    icon.contentMode = UIViewContentModeScaleAspectFit;
-    [btn addSubview:icon];
-
-    UILabel *title = [[UILabel alloc] init];
-    title.tag = kMMTitleTag;
-    title.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
-    title.textAlignment = NSTextAlignmentCenter;
-    title.numberOfLines = 1;
-    [btn addSubview:title];
-
-    UIView *dot = [[UIView alloc] init];
-    dot.tag = kMMDotTag;
-    dot.hidden = YES;
-    dot.backgroundColor = [UIColor systemRedColor];
-    dot.layer.cornerRadius = 5.0;
-    [btn addSubview:dot];
-
-    UILabel *badge = [[UILabel alloc] init];
-    badge.tag = kMMBadgeTag;
-    badge.hidden = YES;
-    badge.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold];
-    badge.textAlignment = NSTextAlignmentCenter;
-    badge.textColor = UIColor.whiteColor;
-    badge.backgroundColor = [UIColor systemRedColor];
-    badge.clipsToBounds = YES;
-    [btn addSubview:badge];
-
-    [btn addTarget:self action:@selector(mm_handleCloneTap:) forControlEvents:UIControlEventTouchUpInside];
-    return btn;
-}
-
-%new
-- (void)mm_bounceButton:(UIButton *)button {
-    [UIView animateWithDuration:0.10 animations:^{
-        button.transform = CGAffineTransformMakeScale(0.92, 0.92);
-    } completion:^(__unused BOOL finished) {
-        [UIView animateWithDuration:0.22
-                              delay:0
-             usingSpringWithDamping:0.68
-              initialSpringVelocity:0
-                            options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState
-                         animations:^{
-            button.transform = CGAffineTransformIdentity;
-        } completion:nil];
-    }];
-}
-
-%new
-- (void)mm_handleCloneTap:(UIButton *)sender {
-    NSInteger idx = sender.tag - kMMCloneBaseTag;
-    UITabBar *tabBar = [self mm_realTabBar];
-    if (!tabBar) return;
-    if (idx < 0) return;
-    if (idx >= (NSInteger)tabBar.items.count) return;
-
-    [self mm_bounceButton:sender];
-
-    UITabBarItem *item = tabBar.items[idx];
-    if (item) {
-        tabBar.selectedItem = item;
-    }
-
-    self.selectedIndex = idx;
-    [self mm_reloadCloneButtonsAnimated:YES];
-}
-
-%new
-- (NSString *)mm_normalizedBadgeValue:(NSString *)badgeValue {
-    if (![badgeValue isKindOfClass:[NSString class]]) return nil;
-    if (badgeValue.length == 0) return nil;
-    return badgeValue;
-}
-
-%new
-- (UIImage *)mm_imageForItem:(UITabBarItem *)item selected:(BOOL)selected {
+- (UIImage *)lg_imageForItem:(UITabBarItem *)item selected:(BOOL)selected {
     UIImage *img = selected ? item.selectedImage : item.image;
     if (!img) img = item.image ?: item.selectedImage;
     if (!img) return nil;
@@ -226,63 +85,212 @@ static NSInteger const kMMBadgeTag = 881005;
 }
 
 %new
-- (void)mm_reloadCloneButtonsAnimated:(BOOL)animated {
-    UITabBar *tabBar = [self mm_realTabBar];
-    UIView *root = self.view;
-    UIVisualEffectView *glass = (UIVisualEffectView *)[root viewWithTag:kMMGlassBarTag];
-    UIView *buttonsWrap = [glass.contentView viewWithTag:kMMGlassButtonsTag];
-    if (!tabBar || !glass || !buttonsWrap) return;
+- (NSString *)lg_badgeValueForItem:(UITabBarItem *)item {
+    if (![item.badgeValue isKindOfClass:[NSString class]]) return nil;
+    if (item.badgeValue.length == 0) return nil;
+    return item.badgeValue;
+}
 
-    NSArray<UITabBarItem *> *items = tabBar.items;
-    NSInteger count = items.count;
-    if (count <= 0) return;
+%new
+- (UIVisualEffectView *)lg_glassBar {
+    UIVisualEffectView *glass = (UIVisualEffectView *)[self.view viewWithTag:kLGGlassTag];
+    if (glass) return glass;
 
-    while (buttonsWrap.subviews.count < count) {
-        UIButton *btn = [self mm_makeButtonAtIndex:buttonsWrap.subviews.count];
+    glass = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:[self lg_blurStyle]]];
+    glass.tag = kLGGlassTag;
+    glass.clipsToBounds = YES;
+    glass.layer.masksToBounds = YES;
+    glass.userInteractionEnabled = YES;
+
+    UIView *stroke = [[UIView alloc] init];
+    stroke.tag = kLGStrokeTag;
+    stroke.userInteractionEnabled = NO;
+    stroke.backgroundColor = UIColor.clearColor;
+    [glass.contentView addSubview:stroke];
+
+    UIView *buttons = [[UIView alloc] init];
+    buttons.tag = kLGButtonsTag;
+    buttons.backgroundColor = UIColor.clearColor;
+    [glass.contentView addSubview:buttons];
+
+    [self.view addSubview:glass];
+    return glass;
+}
+
+%new
+- (UIButton *)lg_buildButtonAtIndex:(NSInteger)index {
+    UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+    btn.tag = kLGButtonBaseTag + index;
+    btn.adjustsImageWhenHighlighted = NO;
+    btn.backgroundColor = UIColor.clearColor;
+
+    UIView *pill = [[UIView alloc] init];
+    pill.tag = kLGPillTag;
+    pill.hidden = YES;
+    pill.alpha = 0;
+    pill.userInteractionEnabled = NO;
+    [btn addSubview:pill];
+
+    UIImageView *icon = [[UIImageView alloc] init];
+    icon.tag = kLGIconTag;
+    icon.contentMode = UIViewContentModeScaleAspectFit;
+    [btn addSubview:icon];
+
+    UILabel *title = [[UILabel alloc] init];
+    title.tag = kLGTitleTag;
+    title.textAlignment = NSTextAlignmentCenter;
+    title.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
+    title.numberOfLines = 1;
+    [btn addSubview:title];
+
+    UIView *dot = [[UIView alloc] init];
+    dot.tag = kLGDotTag;
+    dot.hidden = YES;
+    dot.backgroundColor = UIColor.systemRedColor;
+    dot.layer.cornerRadius = 5;
+    [btn addSubview:dot];
+
+    UILabel *badge = [[UILabel alloc] init];
+    badge.tag = kLGBadgeTag;
+    badge.hidden = YES;
+    badge.textAlignment = NSTextAlignmentCenter;
+    badge.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold];
+    badge.textColor = UIColor.whiteColor;
+    badge.backgroundColor = UIColor.systemRedColor;
+    badge.clipsToBounds = YES;
+    [btn addSubview:badge];
+
+    [btn addTarget:self action:@selector(lg_handleTap:) forControlEvents:UIControlEventTouchUpInside];
+    return btn;
+}
+
+%new
+- (void)lg_bounce:(UIView *)view {
+    [UIView animateWithDuration:0.10 animations:^{
+        view.transform = CGAffineTransformMakeScale(0.92, 0.92);
+    } completion:^(__unused BOOL finished) {
+        [UIView animateWithDuration:0.22
+                              delay:0
+             usingSpringWithDamping:0.70
+              initialSpringVelocity:0
+                            options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseOut
+                         animations:^{
+            view.transform = CGAffineTransformIdentity;
+        } completion:nil];
+    }];
+}
+
+%new
+- (void)lg_handleTap:(UIButton *)sender {
+    NSInteger idx = sender.tag - kLGButtonBaseTag;
+    NSArray<UITabBarItem *> *items = self.tabBar.items;
+    if (idx < 0 || idx >= (NSInteger)items.count) return;
+
+    [self lg_bounce:sender];
+
+    if (self.selectedIndex != idx) {
+        ((UITabBarController *)self).selectedIndex = idx;
+    }
+
+    [self lg_reloadButtonsAnimated:YES];
+}
+
+%new
+- (void)lg_prepareRealTabBar {
+    UITabBar *tabBar = self.tabBar;
+    if (!tabBar) return;
+
+    tabBar.hidden = NO;
+    tabBar.backgroundImage = [UIImage new];
+    tabBar.shadowImage = [UIImage new];
+    tabBar.backgroundColor = UIColor.clearColor;
+    tabBar.opaque = NO;
+    tabBar.clipsToBounds = NO;
+    tabBar.alpha = 0.01;
+}
+
+%new
+- (void)lg_layoutGlassBar {
+    UITabBar *tabBar = self.tabBar;
+    UIVisualEffectView *glass = [self lg_glassBar];
+    if (!tabBar || !glass) return;
+
+    CGRect sourceFrame = tabBar.frame;
+    CGFloat margin = 18.0;
+    CGFloat height = 64.0;
+    CGFloat y = CGRectGetMinY(sourceFrame) + (CGRectGetHeight(sourceFrame) - height) * 0.5;
+    CGFloat x = margin;
+    CGFloat width = CGRectGetWidth(self.view.bounds) - margin * 2.0;
+
+    glass.effect = [UIBlurEffect effectWithStyle:[self lg_blurStyle]];
+    glass.frame = CGRectMake(x, y, width, height);
+    glass.layer.cornerRadius = height * 0.5;
+
+    UIView *stroke = [glass.contentView viewWithTag:kLGStrokeTag];
+    stroke.frame = glass.contentView.bounds;
+    stroke.layer.cornerRadius = glass.layer.cornerRadius;
+    stroke.layer.borderWidth = 0.6;
+    stroke.layer.borderColor = [self lg_strokeColor].CGColor;
+
+    UIView *buttons = [glass.contentView viewWithTag:kLGButtonsTag];
+    buttons.frame = glass.contentView.bounds;
+
+    [self.view bringSubviewToFront:glass];
+}
+
+%new
+- (void)lg_reloadButtonsAnimated:(BOOL)animated {
+    UIVisualEffectView *glass = [self lg_glassBar];
+    UIView *buttonsWrap = [glass.contentView viewWithTag:kLGButtonsTag];
+    NSArray<UITabBarItem *> *items = self.tabBar.items;
+
+    if (!buttonsWrap || items.count == 0) return;
+
+    while (buttonsWrap.subviews.count < items.count) {
+        UIButton *btn = [self lg_buildButtonAtIndex:buttonsWrap.subviews.count];
         [buttonsWrap addSubview:btn];
     }
 
-    while (buttonsWrap.subviews.count > count) {
+    while (buttonsWrap.subviews.count > items.count) {
         [buttonsWrap.subviews.lastObject removeFromSuperview];
     }
 
     CGFloat totalW = buttonsWrap.bounds.size.width;
     CGFloat totalH = buttonsWrap.bounds.size.height;
-    CGFloat itemW = totalW / MAX(count, 1);
+    CGFloat itemW = totalW / MAX(items.count, 1);
 
-    for (NSInteger i = 0; i < count; i++) {
+    for (NSInteger i = 0; i < items.count; i++) {
         UITabBarItem *item = items[i];
-        UIButton *btn = (UIButton *)[buttonsWrap viewWithTag:kMMCloneBaseTag + i];
+        UIButton *btn = (UIButton *)[buttonsWrap viewWithTag:kLGButtonBaseTag + i];
         if (!btn) continue;
 
-        BOOL selected = (self.selectedIndex == i) || (tabBar.selectedItem == item);
-
+        BOOL selected = (self.selectedIndex == i);
         btn.frame = CGRectMake(i * itemW, 0, itemW, totalH);
 
-        UIView *pill = [btn viewWithTag:kMMPillTag];
-        UIImageView *icon = (UIImageView *)[btn viewWithTag:kMMIconTag];
-        UILabel *title = (UILabel *)[btn viewWithTag:kMMTitleTag];
-        UIView *dot = [btn viewWithTag:kMMDotTag];
-        UILabel *badge = (UILabel *)[btn viewWithTag:kMMBadgeTag];
+        UIView *pill = [btn viewWithTag:kLGPillTag];
+        UIImageView *icon = (UIImageView *)[btn viewWithTag:kLGIconTag];
+        UILabel *title = (UILabel *)[btn viewWithTag:kLGTitleTag];
+        UIView *dot = [btn viewWithTag:kLGDotTag];
+        UILabel *badge = (UILabel *)[btn viewWithTag:kLGBadgeTag];
 
         CGFloat pillW = MIN(58.0, MAX(46.0, itemW - 18.0));
         CGFloat pillH = 36.0;
-        pill.frame = CGRectMake((itemW - pillW) * 0.5, 6.0, pillW, pillH);
+        pill.frame = CGRectMake((itemW - pillW) * 0.5, 5.5, pillW, pillH);
         pill.layer.cornerRadius = pillH * 0.5;
-        pill.backgroundColor = [self mm_pillColor];
+        pill.backgroundColor = [self lg_pillColor];
 
         CGFloat iconSize = 24.0;
-        CGFloat iconY = selected ? 12.0 : 11.0;
+        CGFloat iconY = 10.0;
         icon.frame = CGRectMake((itemW - iconSize) * 0.5, iconY, iconSize, iconSize);
-        icon.image = [self mm_imageForItem:item selected:selected];
+        icon.image = [self lg_imageForItem:item selected:selected];
         icon.alpha = selected ? 1.0 : 0.76;
 
         title.frame = CGRectMake(4.0, CGRectGetMaxY(icon.frame) + 3.0, itemW - 8.0, 12.0);
         title.text = item.title ?: @"";
-        title.textColor = selected ? [self mm_activeTextColor] : [self mm_inactiveTextColor];
+        title.textColor = selected ? [self lg_activeTextColor] : [self lg_inactiveTextColor];
         title.alpha = selected ? 1.0 : 0.92;
 
-        NSString *badgeValue = [self mm_normalizedBadgeValue:item.badgeValue];
+        NSString *badgeValue = [self lg_badgeValueForItem:item];
         BOOL showDot = NO;
         BOOL showBadge = NO;
 
@@ -307,7 +315,7 @@ static NSInteger const kMMBadgeTag = 881005;
             badge.layer.cornerRadius = bh * 0.5;
         }
 
-        void (^applyBlock)(void) = ^{
+        void (^block)(void) = ^{
             pill.hidden = NO;
             pill.alpha = selected ? 1.0 : 0.0;
         };
@@ -317,91 +325,43 @@ static NSInteger const kMMBadgeTag = 881005;
                                   delay:0
                  usingSpringWithDamping:0.82
                   initialSpringVelocity:0
-                                options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState
-                             animations:applyBlock
+                                options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut
+                             animations:block
                              completion:^(__unused BOOL finished) {
                 pill.hidden = !selected;
             }];
         } else {
-            applyBlock();
+            block();
             pill.hidden = !selected;
         }
     }
 }
 
-%new
-- (void)mm_updateGlassFrameAndAppearance {
-    UIView *root = self.view;
-    UIVisualEffectView *glass = [self mm_ensureGlassBar];
-    if (!root || !glass) return;
-
-    glass.effect = [UIBlurEffect effectWithStyle:[self mm_blurStyle]];
-
-    CGFloat margin = 18.0;
-    CGFloat height = 72.0;
-    CGFloat bottomGap = 8.0;
-    CGFloat bottomInset = root.safeAreaInsets.bottom;
-    CGFloat y = root.bounds.size.height - bottomInset - height - bottomGap;
-
-    glass.frame = CGRectMake(margin, y, root.bounds.size.width - margin * 2.0, height);
-    glass.layer.cornerRadius = height * 0.5;
-
-    UIView *stroke = [glass.contentView viewWithTag:kMMGlassStrokeTag];
-    stroke.frame = glass.contentView.bounds;
-    stroke.layer.cornerRadius = glass.layer.cornerRadius;
-    stroke.layer.borderWidth = 0.6;
-    stroke.layer.borderColor = [self mm_strokeColor].CGColor;
-
-    UIView *buttonsWrap = [glass.contentView viewWithTag:kMMGlassButtonsTag];
-    buttonsWrap.frame = glass.contentView.bounds;
-}
-
-%new
-- (void)mm_prepareRealTabBarForCarrierMode {
-    UITabBar *tabBar = [self mm_realTabBar];
-    UIView *root = self.view;
-    if (!tabBar || !root) return;
-
-    tabBar.hidden = NO;
-    tabBar.alpha = 0.01;
-    tabBar.backgroundImage = [UIImage new];
-    tabBar.shadowImage = [UIImage new];
-    tabBar.backgroundColor = UIColor.clearColor;
-    tabBar.opaque = NO;
-    tabBar.clipsToBounds = NO;
-    tabBar.userInteractionEnabled = NO;
-
-    CGRect f = tabBar.frame;
-    f.origin.y = root.bounds.size.height - f.size.height;
-    tabBar.frame = f;
-
-    [root sendSubviewToBack:tabBar];
-}
-
 - (void)viewDidLayoutSubviews {
     %orig;
+    [self lg_prepareRealTabBar];
+    [self lg_layoutGlassBar];
+    [self lg_reloadButtonsAnimated:NO];
+}
 
-    [self mm_prepareRealTabBarForCarrierMode];
-    [self mm_updateGlassFrameAndAppearance];
-    [self mm_reloadCloneButtonsAnimated:NO];
-
-    UIView *root = self.view;
-    UIVisualEffectView *glass = (UIVisualEffectView *)[root viewWithTag:kMMGlassBarTag];
-    if (glass) [root bringSubviewToFront:glass];
+- (void)viewDidAppear:(BOOL)animated {
+    %orig;
+    [self lg_prepareRealTabBar];
+    [self lg_layoutGlassBar];
+    [self lg_reloadButtonsAnimated:NO];
 }
 
 - (void)setSelectedIndex:(NSUInteger)selectedIndex {
     %orig;
-    [self mm_reloadCloneButtonsAnimated:YES];
+    [self lg_reloadButtonsAnimated:YES];
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     %orig;
-
     if (@available(iOS 13.0, *)) {
         if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
-            [self mm_updateGlassFrameAndAppearance];
-            [self mm_reloadCloneButtonsAnimated:NO];
+            [self lg_layoutGlassBar];
+            [self lg_reloadButtonsAnimated:NO];
         }
     }
 }
