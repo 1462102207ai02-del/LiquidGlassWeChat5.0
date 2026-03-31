@@ -14,13 +14,22 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential clang git wget xz-utils perl libplist-utils dpkg-dev
+        sudo apt-get install -y \
+          build-essential \
+          clang \
+          git \
+          wget \
+          xz-utils \
+          perl \
+          libplist-utils \
+          dpkg \
+          dpkg-dev
 
     - name: Install Theos
       run: |
         git clone https://github.com/theos/theos.git $HOME/theos
 
-    - name: Fix SDK (关键步骤)
+    - name: Install iOS SDK
       run: |
         rm -rf $HOME/theos/sdks
         git clone https://github.com/theos/sdks.git $HOME/theos/sdks
