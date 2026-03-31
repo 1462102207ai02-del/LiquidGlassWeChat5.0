@@ -1,38 +1,45 @@
-name: Build Tweak
+#import <UIKit/UIKit.h>
 
-on:
-  workflow_dispatch:
+%hook UITabBar
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+- (void)layoutSubviews {
+    %orig;
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    static UIVisualEffectView *glassView = nil;
 
-      - name: Install deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git wget perl build-essential clang make libplist-utils dpkg-dev
+    if (!glassView) {
+        UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
+        glassView = [[UIVisualEffectView alloc] initWithEffect:blur];
 
-      - name: Install Theos (完整环境)
-        run: |
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          export THEOS=$HOME/theos
+        // 圆角
+        glassView.layer.cornerRadius = 30;
+        glassView.layer.masksToBounds = YES;
 
-          # 安装 toolchain（关键）
-          bash $THEOS/bin/install-theos
+        // 半透明白
+        UIView *tintView = [[UIView alloc] init];
+        tintView.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.15];
+        tintView.frame = glassView.bounds;
+        tintView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 
-      - name: Build
-        run: |
-          export THEOS=$HOME/theos
-          export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
-          make clean
-          make package FINALPACKAGE=1
+        [glassView.contentView addSubview:tintView];
 
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: deb
-          path: packages/*.deb
+        // 放到底层
+        [self insertSubview:glassView atIndex:0];
+    }
+
+    CGFloat margin = 10;
+    glassView.frame = CGRectMake(
+        margin,
+        5,
+        self.bounds.size.width - margin * 2,
+        self.bounds.size.height - 10
+    );
+
+    // 去掉系统背景
+    self.backgroundImage = [UIImage new];
+    self.shadowImage = [UIImage new];
+    self.barTintColor = [UIColor clearColor];
+    self.backgroundColor = [UIColor clearColor];
+}
+
+%end
