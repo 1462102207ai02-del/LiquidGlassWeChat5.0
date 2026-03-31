@@ -11,50 +11,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential clang git wget xz-utils perl dpkg dpkg-dev
+          sudo apt-get install -y git wget perl build-essential clang make libplist-utils dpkg-dev
 
-      - name: Install Theos
+      - name: Install Theos (完整环境)
         run: |
-          git clone https://github.com/theos/theos.git $HOME/theos
-
-      - name: Init Theos
-        run: |
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
           export THEOS=$HOME/theos
-          $THEOS/bin/update-theos
 
-      - name: Install SDK
-        run: |
-          rm -rf $HOME/theos/sdks
-          git clone https://github.com/theos/sdks.git $HOME/theos/sdks
+          # 安装 toolchain（关键）
+          bash $THEOS/bin/install-theos
 
-      - name: Build tweak
+      - name: Build
         run: |
           export THEOS=$HOME/theos
           export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
           make clean
-          make
+          make package FINALPACKAGE=1
 
-      - name: Manual package
-        run: |
-          mkdir -p package/DEBIAN
-          mkdir -p package/Library/MobileSubstrate/DynamicLibraries
-
-          cp .theos/obj/debug/*.dylib package/Library/MobileSubstrate/DynamicLibraries/
-          cp LiquidGlassWeChat.plist package/Library/MobileSubstrate/DynamicLibraries/
-
-          echo "Package: com.your.liquidglass" > package/DEBIAN/control
-          echo "Version: 1.0" >> package/DEBIAN/control
-          echo "Architecture: iphoneos-arm" >> package/DEBIAN/control
-          echo "Maintainer: you" >> package/DEBIAN/control
-          echo "Description: Liquid Glass WeChat" >> package/DEBIAN/control
-
-          dpkg-deb -b package LiquidGlassWeChat.deb
-
-      - name: Upload deb
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: LiquidGlassWeChat
-          path: LiquidGlassWeChat.deb
+          name: deb
+          path: packages/*.deb
