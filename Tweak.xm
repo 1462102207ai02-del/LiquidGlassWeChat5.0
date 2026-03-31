@@ -38,47 +38,62 @@
         ];
         highlight.startPoint = CGPointMake(0.5, 0);
         highlight.endPoint = CGPointMake(0.5, 1);
-        highlight.frame = glass.bounds;
         highlight.cornerRadius = 34;
 
         [glass.layer addSublayer:highlight];
 
-        UIView *tint = [[UIView alloc] initWithFrame:glass.bounds];
+        UIView *tint = [[UIView alloc] initWithFrame:CGRectZero];
         tint.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.05];
         tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [glass.contentView addSubview:tint];
 
-        [container addSubview:glass];
+        [container insertSubview:glass belowSubview:tabBar];
     }
 
     CGFloat height = tabBar.bounds.size.height;
     CGFloat width = container.bounds.size.width;
     CGFloat margin = 18;
 
-    CGRect glassFrame = CGRectMake(
+    CGRect frame = CGRectMake(
         margin,
         container.bounds.size.height - height - 22,
         width - margin * 2,
         height - 8
     );
 
-    glass.frame = glassFrame;
+    glass.frame = frame;
+    glass.layer.sublayers.firstObject.frame = glass.bounds;
+    ((UIView *)glass.contentView.subviews.firstObject).frame = glass.bounds;
 
-    // ❗关键：tabBar 不进 glass，单独放
-    tabBar.frame = glassFrame;
+    tabBar.frame = frame;
 
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = [UIColor clearColor];
+    tabBar.translucent = YES;
+
+    if (@available(iOS 13.0, *)) {
+        UITabBarAppearance *appearance = [UITabBarAppearance new];
+        [appearance configureWithTransparentBackground];
+        appearance.backgroundColor = [UIColor clearColor];
+        appearance.shadowColor = nil;
+        tabBar.standardAppearance = appearance;
+        if (@available(iOS 15.0, *)) {
+            tabBar.scrollEdgeAppearance = appearance;
+        }
+    }
 
     for (UIView *sub in tabBar.subviews) {
         NSString *cls = NSStringFromClass([sub class]);
-        if ([cls containsString:@"Background"]) {
+        if ([cls containsString:@"Background"] ||
+            [cls containsString:@"BarBackground"] ||
+            [cls containsString:@"VisualEffect"]) {
             sub.hidden = YES;
         }
     }
 
-    [container bringSubviewToFront:glass];
+    tabBar.clipsToBounds = NO;
+
     [container bringSubviewToFront:tabBar];
 }
 
