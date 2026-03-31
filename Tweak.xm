@@ -5,37 +5,31 @@
 - (void)layoutSubviews {
     %orig;
 
-    static UIVisualEffectView *glassView = nil;
+    UIVisualEffectView *glassView = [self viewWithTag:9999];
 
     if (!glassView) {
         UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
         glassView = [[UIVisualEffectView alloc] initWithEffect:blur];
-
-        // 圆角
-        glassView.layer.cornerRadius = 30;
+        glassView.tag = 9999;
+        glassView.layer.cornerRadius = 28;
         glassView.layer.masksToBounds = YES;
 
-        // 半透明白
-        UIView *tintView = [[UIView alloc] init];
-        tintView.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.15];
-        tintView.frame = glassView.bounds;
+        UIView *tintView = [[UIView alloc] initWithFrame:glassView.bounds];
+        tintView.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.12];
         tintView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-
         [glassView.contentView addSubview:tintView];
 
-        // 放到底层
         [self insertSubview:glassView atIndex:0];
     }
 
-    CGFloat margin = 10;
+    CGFloat margin = 12;
     glassView.frame = CGRectMake(
         margin,
-        5,
+        6,
         self.bounds.size.width - margin * 2,
-        self.bounds.size.height - 10
+        self.bounds.size.height - 12
     );
 
-    // 去掉系统背景
     self.backgroundImage = [UIImage new];
     self.shadowImage = [UIImage new];
     self.barTintColor = [UIColor clearColor];
