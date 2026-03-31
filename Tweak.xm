@@ -1,6 +1,11 @@
+#import <UIKit/UIKit.h>
+#import <QuartzCore/QuartzCore.h>
+
 %hook MMTabBarController
+
 - (void)viewDidLayoutSubviews {
     %orig;
+
     UIView *container = [self valueForKey:@"view"];
     if (!container) return;
 
@@ -16,8 +21,12 @@
     CGFloat width = container.bounds.size.width;
     CGFloat height = 87;
     CGFloat margin = 18;
-    glass.frame = CGRectMake(margin, container.bounds.size.height - height - 22, width - margin*2, height);
+    glass.frame = CGRectMake(margin,
+                             container.bounds.size.height - height - 22,
+                             width - margin*2,
+                             height);
 
     [container bringSubviewToFront:glass];
 }
+
 %end
