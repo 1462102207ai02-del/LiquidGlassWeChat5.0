@@ -37,7 +37,7 @@ jobs:
     - name: Build package
       run: |
         export THEOS=$HOME/theos
-        export PATH=$THEOS/toolchain/linux/iphone/bin:$PATH
+        export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
         make clean
         make package FINALPACKAGE=1
 
