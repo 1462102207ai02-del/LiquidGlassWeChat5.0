@@ -7,5 +7,3 @@ TWEAK_NAME = LiquidGlassWeChat
 
 LiquidGlassWeChat_FILES = Tweak.xm
 LiquidGlassWeChat_FRAMEWORKS = UIKit QuartzCore
-
-include $(THEOS_MAKE_PATH)/tweak.mk
