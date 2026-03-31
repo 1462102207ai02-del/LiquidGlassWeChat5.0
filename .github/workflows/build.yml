@@ -20,6 +20,10 @@ jobs:
         run: |
           git clone https://github.com/theos/theos.git $HOME/theos
 
+      - name: Init Theos（关键）
+        run: |
+          $HOME/theos/bin/update-theos
+
       - name: Install SDK
         run: |
           rm -rf $HOME/theos/sdks
