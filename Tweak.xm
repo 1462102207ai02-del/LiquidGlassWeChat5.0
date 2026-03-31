@@ -1,3 +1,5 @@
+#import <UIKit/UIKit.h>
+
 %hook UITabBar
 
 - (void)layoutSubviews {
@@ -9,11 +11,11 @@
         UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
         glassView = [[UIVisualEffectView alloc] initWithEffect:blur];
 
-        // 👉 圆角
+        // 圆角
         glassView.layer.cornerRadius = 30;
         glassView.layer.masksToBounds = YES;
 
-        // 👉 半透明白（Liquid 느낌）
+        // 半透明白
         UIView *tintView = [[UIView alloc] init];
         tintView.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.15];
         tintView.frame = glassView.bounds;
@@ -21,11 +23,10 @@
 
         [glassView.contentView addSubview:tintView];
 
-        // 👉 放到底层（关键！！！）
+        // 放到底层
         [self insertSubview:glassView atIndex:0];
     }
 
-    // 👉 悬浮 + 内缩
     CGFloat margin = 10;
     glassView.frame = CGRectMake(
         margin,
@@ -34,7 +35,7 @@
         self.bounds.size.height - 10
     );
 
-    // 👉 去掉系统背景（关键）
+    // 去掉系统背景
     self.backgroundImage = [UIImage new];
     self.shadowImage = [UIImage new];
     self.barTintColor = [UIColor clearColor];
