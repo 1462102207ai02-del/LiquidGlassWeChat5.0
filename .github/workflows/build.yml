@@ -21,7 +21,6 @@ jobs:
           wget \
           xz-utils \
           perl \
-          libplist-utils \
           dpkg \
           dpkg-dev
 
@@ -29,20 +28,36 @@ jobs:
       run: |
         git clone https://github.com/theos/theos.git $HOME/theos
 
-    - name: Install iOS SDK
+    - name: Install SDK
       run: |
         rm -rf $HOME/theos/sdks
         git clone https://github.com/theos/sdks.git $HOME/theos/sdks
 
-    - name: Build package
+    - name: Build tweak (不打包)
       run: |
         export THEOS=$HOME/theos
         export PATH=$THEOS/bin:$THEOS/toolchain/linux/iphone/bin:$PATH
         make clean
-        make package FINALPACKAGE=1
+        make
+
+    - name: Manual package
+      run: |
+        mkdir -p package/DEBIAN
+        mkdir -p package/Library/MobileSubstrate/DynamicLibraries
+
+        cp .theos/obj/debug/*.dylib package/Library/MobileSubstrate/DynamicLibraries/
+        cp *.plist package/Library/MobileSubstrate/DynamicLibraries/
+
+        echo "Package: com.your.liquidglass
+Version: 1.0
+Architecture: iphoneos-arm
+Maintainer: you
+Description: Liquid Glass WeChat" > package/DEBIAN/control
+
+        dpkg-deb -b package LiquidGlassWeChat.deb
 
     - name: Upload deb
       uses: actions/upload-artifact@v4
       with:
         name: LiquidGlassWeChat
-        path: packages/*.deb
+        path: LiquidGlassWeChat.deb
