@@ -23,64 +23,98 @@ static NSInteger const kLGBadgeTag = 701005;
 - (UIButton *)lg_buildButtonAtIndex:(NSInteger)index;
 - (void)lg_handleTap:(UIButton *)sender;
 - (void)lg_bounce:(UIView *)view;
+
 - (UIBlurEffectStyle)lg_blurStyle;
 - (UIColor *)lg_strokeColor;
 - (UIColor *)lg_pillColor;
 - (UIColor *)lg_activeTextColor;
 - (UIColor *)lg_inactiveTextColor;
+
+- (NSArray<UIViewController *> *)lg_tabViewControllers;
+- (UITabBarItem *)lg_tabBarItemAtIndex:(NSInteger)index;
+- (NSInteger)lg_tabCount;
 - (UIImage *)lg_imageForItem:(UITabBarItem *)item selected:(BOOL)selected;
 - (NSString *)lg_badgeValueForItem:(UITabBarItem *)item;
+- (NSString *)lg_titleForItem:(UITabBarItem *)item atIndex:(NSInteger)index;
 @end
 
 %hook MMTabBarController
 
 %new
 - (UIBlurEffectStyle)lg_blurStyle {
-    if (@available(iOS 13.0, *)) {
-        return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? UIBlurEffectStyleSystemUltraThinMaterialDark
-            : UIBlurEffectStyleSystemThinMaterialLight;
-    }
-    return UIBlurEffectStyleLight;
+    return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+        ? UIBlurEffectStyleSystemUltraThinMaterialDark
+        : UIBlurEffectStyleSystemThinMaterialLight;
 }
 
 %new
 - (UIColor *)lg_strokeColor {
-    if (@available(iOS 13.0, *)) {
-        return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithWhite:1 alpha:0.10]
-            : [UIColor colorWithWhite:1 alpha:0.32];
-    }
-    return [UIColor colorWithWhite:1 alpha:0.28];
+    return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+        ? [UIColor colorWithWhite:1.0 alpha:0.10]
+        : [UIColor colorWithWhite:1.0 alpha:0.32];
 }
 
 %new
 - (UIColor *)lg_pillColor {
-    if (@available(iOS 13.0, *)) {
-        return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithWhite:1 alpha:0.14]
-            : [UIColor colorWithWhite:1 alpha:0.24];
-    }
-    return [UIColor colorWithWhite:1 alpha:0.20];
+    return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+        ? [UIColor colorWithWhite:1.0 alpha:0.16]
+        : [UIColor colorWithWhite:1.0 alpha:0.28];
 }
 
 %new
 - (UIColor *)lg_activeTextColor {
-    if (@available(iOS 13.0, *)) return UIColor.labelColor;
-    return UIColor.blackColor;
+    return UIColor.labelColor;
 }
 
 %new
 - (UIColor *)lg_inactiveTextColor {
-    if (@available(iOS 13.0, *)) return [UIColor.secondaryLabelColor colorWithAlphaComponent:0.92];
-    return [UIColor colorWithWhite:0 alpha:0.58];
+    return [UIColor.secondaryLabelColor colorWithAlphaComponent:0.90];
+}
+
+%new
+- (NSArray<UIViewController *> *)lg_tabViewControllers {
+    NSArray *vcs = self.viewControllers;
+    if (![vcs isKindOfClass:[NSArray class]]) return @[];
+    return vcs;
+}
+
+%new
+- (UITabBarItem *)lg_tabBarItemAtIndex:(NSInteger)index {
+    NSArray<UIViewController *> *vcs = [self lg_tabViewControllers];
+    if (index < 0 || index >= (NSInteger)vcs.count) return nil;
+
+    UIViewController *vc = vcs[index];
+
+    if ([vc isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)vc;
+        if (nav.viewControllers.count > 0) {
+            UIViewController *rootVC = nav.viewControllers.firstObject;
+            if (rootVC.tabBarItem) return rootVC.tabBarItem;
+        }
+    }
+
+    return vc.tabBarItem;
+}
+
+%new
+- (NSInteger)lg_tabCount {
+    NSArray<UIViewController *> *vcs = [self lg_tabViewControllers];
+    if (vcs.count > 0) return vcs.count;
+
+    NSArray *items = self.tabBar.items;
+    if ([items isKindOfClass:[NSArray class]]) return items.count;
+
+    return 0;
 }
 
 %new
 - (UIImage *)lg_imageForItem:(UITabBarItem *)item selected:(BOOL)selected {
+    if (!item) return nil;
+
     UIImage *img = selected ? item.selectedImage : item.image;
     if (!img) img = item.image ?: item.selectedImage;
     if (!img) return nil;
+
     return [img imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
 }
 
@@ -89,6 +123,26 @@ static NSInteger const kLGBadgeTag = 701005;
     if (![item.badgeValue isKindOfClass:[NSString class]]) return nil;
     if (item.badgeValue.length == 0) return nil;
     return item.badgeValue;
+}
+
+%new
+- (NSString *)lg_titleForItem:(UITabBarItem *)item atIndex:(NSInteger)index {
+    if ([item.title isKindOfClass:[NSString class]] && item.title.length > 0) {
+        return item.title;
+    }
+
+    NSArray<UIViewController *> *vcs = [self lg_tabViewControllers];
+    if (index >= 0 && index < (NSInteger)vcs.count) {
+        UIViewController *vc = vcs[index];
+        if ([vc.title isKindOfClass:[NSString class]] && vc.title.length > 0) {
+            return vc.title;
+        }
+        if ([vc.navigationItem.title isKindOfClass:[NSString class]] && vc.navigationItem.title.length > 0) {
+            return vc.navigationItem.title;
+        }
+    }
+
+    return @"";
 }
 
 %new
@@ -184,8 +238,8 @@ static NSInteger const kLGBadgeTag = 701005;
 %new
 - (void)lg_handleTap:(UIButton *)sender {
     NSInteger idx = sender.tag - kLGButtonBaseTag;
-    NSArray<UITabBarItem *> *items = self.tabBar.items;
-    if (idx < 0 || idx >= (NSInteger)items.count) return;
+    NSInteger count = [self lg_tabCount];
+    if (idx < 0 || idx >= count) return;
 
     [self lg_bounce:sender];
 
@@ -217,11 +271,12 @@ static NSInteger const kLGBadgeTag = 701005;
     if (!tabBar || !glass) return;
 
     CGRect sourceFrame = tabBar.frame;
+
     CGFloat margin = 20.0;
     CGFloat height = 62.0;
     CGFloat lift = 12.0;
-    CGFloat y = CGRectGetMinY(sourceFrame) + (CGRectGetHeight(sourceFrame) - height) * 0.5 - lift;
     CGFloat x = margin;
+    CGFloat y = CGRectGetMinY(sourceFrame) + (CGRectGetHeight(sourceFrame) - height) * 0.5 - lift;
     CGFloat width = CGRectGetWidth(self.view.bounds) - margin * 2.0;
 
     glass.effect = [UIBlurEffect effectWithStyle:[self lg_blurStyle]];
@@ -244,30 +299,27 @@ static NSInteger const kLGBadgeTag = 701005;
 - (void)lg_reloadButtonsAnimated:(BOOL)animated {
     UIVisualEffectView *glass = [self lg_glassBar];
     UIView *buttonsWrap = [glass.contentView viewWithTag:kLGButtonsTag];
-    NSArray<UITabBarItem *> *items = self.tabBar.items;
+    NSInteger count = [self lg_tabCount];
 
-    if (!buttonsWrap || items.count == 0) return;
+    if (!buttonsWrap || count <= 0) return;
 
-    while (buttonsWrap.subviews.count < items.count) {
+    while (buttonsWrap.subviews.count < count) {
         UIButton *btn = [self lg_buildButtonAtIndex:buttonsWrap.subviews.count];
         [buttonsWrap addSubview:btn];
     }
 
-    while (buttonsWrap.subviews.count > items.count) {
+    while (buttonsWrap.subviews.count > count) {
         [buttonsWrap.subviews.lastObject removeFromSuperview];
     }
 
     CGFloat totalW = buttonsWrap.bounds.size.width;
     CGFloat totalH = buttonsWrap.bounds.size.height;
-    CGFloat itemW = totalW / MAX(items.count, 1);
+    CGFloat itemW = totalW / MAX(count, 1);
 
-    BOOL isDark = NO;
-    if (@available(iOS 13.0, *)) {
-        isDark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
-    }
+    BOOL isDark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
 
-    for (NSInteger i = 0; i < items.count; i++) {
-        UITabBarItem *item = items[i];
+    for (NSInteger i = 0; i < count; i++) {
+        UITabBarItem *item = [self lg_tabBarItemAtIndex:i];
         UIButton *btn = (UIButton *)[buttonsWrap viewWithTag:kLGButtonBaseTag + i];
         if (!btn) continue;
 
@@ -291,11 +343,12 @@ static NSInteger const kLGBadgeTag = 701005;
                                 pillH);
         pill.layer.cornerRadius = pillH * 0.5;
         pill.backgroundColor = selected
-            ? (isDark ? [UIColor colorWithWhite:1 alpha:0.16] : [UIColor colorWithWhite:1 alpha:0.28])
-            : [UIColor clearColor];
+            ? [self lg_pillColor]
+            : UIColor.clearColor;
         pill.layer.borderWidth = selected ? 0.6 : 0.0;
         pill.layer.borderColor = selected
-            ? (isDark ? [UIColor colorWithWhite:1 alpha:0.14].CGColor : [UIColor colorWithWhite:1 alpha:0.30].CGColor)
+            ? (isDark ? [UIColor colorWithWhite:1.0 alpha:0.14].CGColor
+                      : [UIColor colorWithWhite:1.0 alpha:0.30].CGColor)
             : UIColor.clearColor.CGColor;
 
         CGFloat iconSize = selected ? 24.5 : 23.0;
@@ -306,7 +359,7 @@ static NSInteger const kLGBadgeTag = 701005;
 
         CGFloat titleY = CGRectGetMaxY(icon.frame) + 2.5;
         title.frame = CGRectMake(4.0, titleY, itemW - 8.0, 12.0);
-        title.text = item.title ?: @"";
+        title.text = [self lg_titleForItem:item atIndex:i];
         title.textColor = selected ? [self lg_activeTextColor] : [self lg_inactiveTextColor];
         title.alpha = selected ? 1.0 : 0.88;
 
@@ -386,12 +439,8 @@ static NSInteger const kLGBadgeTag = 701005;
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     %orig;
-    if (@available(iOS 13.0, *)) {
-        if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
-            [self lg_layoutGlassBar];
-            [self lg_reloadButtonsAnimated:NO];
-        }
-    }
+    [self lg_layoutGlassBar];
+    [self lg_reloadButtonsAnimated:NO];
 }
 
 %end
