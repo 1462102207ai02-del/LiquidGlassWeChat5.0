@@ -3,25 +3,16 @@
 
 %hook MMTabBarController
 
-- (void)viewDidLayoutSubviews {
+- (void)viewDidAppear:(BOOL)animated {
     %orig;
-
-    UITabBarController *tabVC = (UITabBarController *)self;
-    UITabBar *tabBar = tabVC.tabBar;
-    if (!tabBar) return;
 
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        NSMutableString *log = [NSMutableString string];
-
-        for (UIView *v in tabBar.subviews) {
-            [log appendFormat:@"TABBAR: %@\n", NSStringFromClass([v class])];
-        }
-
-        [log writeToFile:@"/var/mobile/tabbar.log"
-             atomically:YES
-               encoding:NSUTF8StringEncoding
-                  error:nil];
+        NSString *test = @"HOOK_OK";
+        [test writeToFile:@"/var/mobile/test.log"
+              atomically:YES
+                encoding:NSUTF8StringEncoding
+                   error:nil];
     });
 }
 
