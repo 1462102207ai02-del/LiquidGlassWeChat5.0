@@ -1,44 +1,69 @@
 #import <UIKit/UIKit.h>
 
-%hook UIViewController
+%hook UIApplication
 
-- (void)viewDidAppear:(BOOL)animated {
+- (void)didFinishLaunching {
     %orig;
 
-    if (![self isKindOfClass:NSClassFromString(@"MMTabBarController")]) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 
-    UITabBar *tabBar = self.tabBarController.tabBar;
-    if (!tabBar) return;
+        UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
+        if (!keyWindow) return;
 
-    UIVisualEffectView *glassView = [tabBar viewWithTag:9999];
+        UITabBar *tabBar = nil;
 
-    if (!glassView) {
-        UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
-        glassView = [[UIVisualEffectView alloc] initWithEffect:blur];
-        glassView.tag = 9999;
-        glassView.layer.cornerRadius = 28;
-        glassView.layer.masksToBounds = YES;
+        for (UIView *view in keyWindow.subviews) {
+            tabBar = [self findTabBar:view];
+            if (tabBar) break;
+        }
 
-        UIView *tintView = [[UIView alloc] initWithFrame:glassView.bounds];
-        tintView.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.12];
-        tintView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        [glassView.contentView addSubview:tintView];
+        if (!tabBar) return;
 
-        [tabBar insertSubview:glassView atIndex:0];
+        UIVisualEffectView *glassView = [tabBar viewWithTag:9999];
+
+        if (!glassView) {
+            UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
+            glassView = [[UIVisualEffectView alloc] initWithEffect:blur];
+            glassView.tag = 9999;
+            glassView.layer.cornerRadius = 28;
+            glassView.layer.masksToBounds = YES;
+
+            UIView *tintView = [[UIView alloc] initWithFrame:glassView.bounds];
+            tintView.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.12];
+            tintView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [glassView.contentView addSubview:tintView];
+
+            [tabBar insertSubview:glassView atIndex:0];
+        }
+
+        CGFloat margin = 12;
+        glassView.frame = CGRectMake(
+            margin,
+            6,
+            tabBar.bounds.size.width - margin * 2,
+            tabBar.bounds.size.height - 12
+        );
+
+        tabBar.backgroundImage = [UIImage new];
+        tabBar.shadowImage = [UIImage new];
+        tabBar.barTintColor = [UIColor clearColor];
+        tabBar.backgroundColor = [UIColor clearColor];
+
+    });
+}
+
+%new
+- (UITabBar *)findTabBar:(UIView *)view {
+    if ([view isKindOfClass:[UITabBar class]]) {
+        return (UITabBar *)view;
     }
 
-    CGFloat margin = 12;
-    glassView.frame = CGRectMake(
-        margin,
-        6,
-        tabBar.bounds.size.width - margin * 2,
-        tabBar.bounds.size.height - 12
-    );
+    for (UIView *sub in view.subviews) {
+        UITabBar *result = [self findTabBar:sub];
+        if (result) return result;
+    }
 
-    tabBar.backgroundImage = [UIImage new];
-    tabBar.shadowImage = [UIImage new];
-    tabBar.barTintColor = [UIColor clearColor];
-    tabBar.backgroundColor = [UIColor clearColor];
+    return nil;
 }
 
 %end
