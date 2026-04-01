@@ -1,11 +1,16 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <objc/runtime.h>
 
-static NSInteger const kMMGlassHostTag = 810001;
-static NSInteger const kMMGlassViewTag = 810002;
-static NSInteger const kMMCapsuleTag = 810003;
-static NSInteger const kMMStrokeTag = 810004;
-static NSInteger const kMMGlowTag = 810005;
+static NSInteger const kMMGlassHostTag = 910001;
+static NSInteger const kMMGlassViewTag = 910002;
+static NSInteger const kMMCapsuleTag = 910003;
+static NSInteger const kMMButtonsContainerTag = 910004;
+static NSInteger const kMMStrokeTag = 910005;
+static NSInteger const kMMGlowTag = 910006;
+
+static const void *kMMStoredButtonsKey = &kMMStoredButtonsKey;
+static BOOL kMMUpdatingLayout = NO;
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
     return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
@@ -41,9 +46,9 @@ static CAGradientLayer *MMFindGradient(CALayer *layer, NSString *name) {
     return nil;
 }
 
-static NSArray<UIView *> *MMTabButtons(UITabBar *tabBar) {
+static NSArray<UIView *> *MMFindTabButtonViewsInView(UIView *view) {
     NSMutableArray *arr = [NSMutableArray array];
-    for (UIView *sub in tabBar.subviews) {
+    for (UIView *sub in view.subviews) {
         NSString *name = NSStringFromClass([sub class]);
         if ([name containsString:@"UITabBarButton"] || [name containsString:@"MMTabBarItemView"]) {
             [arr addObject:sub];
@@ -57,6 +62,21 @@ static NSArray<UIView *> *MMTabButtons(UITabBar *tabBar) {
         return NSOrderedSame;
     }];
     return arr;
+}
+
+static NSArray<UIView *> *MMStoredButtons(UITabBar *tabBar) {
+    NSArray *arr = objc_getAssociatedObject(tabBar, kMMStoredButtonsKey);
+    if ([arr isKindOfClass:[NSArray class]] && arr.count > 0) {
+        return arr;
+    }
+
+    NSArray<UIView *> *found = MMFindTabButtonViewsInView(tabBar);
+    if (found.count > 0) {
+        objc_setAssociatedObject(tabBar, kMMStoredButtonsKey, found, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        return found;
+    }
+
+    return @[];
 }
 
 static NSInteger MMSelectedIndex(UITabBar *tabBar) {
@@ -78,6 +98,17 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
         if ([sub isKindOfClass:[UITabBar class]]) return (UITabBar *)sub;
         NSString *name = NSStringFromClass([sub class]);
         if ([name containsString:@"MMTabBar"]) return (UITabBar *)sub;
+    }
+    return nil;
+}
+
+static UIViewController *MMFindParentViewController(UIView *view) {
+    UIResponder *responder = view;
+    while (responder) {
+        responder = [responder nextResponder];
+        if ([responder isKindOfClass:[UIViewController class]]) {
+            return (UIViewController *)responder;
+        }
     }
     return nil;
 }
@@ -116,7 +147,7 @@ static UIView *MMEnsureGlassHost(UIView *container) {
         host = [[UIView alloc] initWithFrame:CGRectZero];
         host.tag = kMMGlassHostTag;
         host.backgroundColor = [UIColor clearColor];
-        host.userInteractionEnabled = NO;
+        host.userInteractionEnabled = YES;
         host.clipsToBounds = NO;
         [container addSubview:host];
     }
@@ -136,6 +167,19 @@ static UIVisualEffectView *MMEnsureGlassView(UIView *host) {
     MMSetContinuousRadius(glass, host.bounds.size.height / 2.0);
     glass.layer.masksToBounds = YES;
     return glass;
+}
+
+static UIView *MMEnsureButtonsContainer(UIView *host) {
+    UIView *container = [host viewWithTag:kMMButtonsContainerTag];
+    if (!container) {
+        container = [[UIView alloc] initWithFrame:CGRectZero];
+        container.tag = kMMButtonsContainerTag;
+        container.backgroundColor = [UIColor clearColor];
+        container.userInteractionEnabled = YES;
+        [host addSubview:container];
+    }
+    container.frame = host.bounds;
+    return container;
 }
 
 static UIView *MMEnsureCapsule(UIView *host) {
@@ -242,19 +286,19 @@ static void MMApplyButtonTint(UIView *button, BOOL selected) {
     }
 }
 
-static void MMLayoutNativeButtons(UITabBar *tabBar, UIView *host) {
-    NSArray<UIView *> *buttons = MMTabButtons(tabBar);
-    NSInteger count = buttons.count;
-    if (count == 0) return;
+static void MMDetachAndMoveButtonsToHost(UITabBar *tabBar, UIView *host) {
+    UIView *buttonsContainer = MMEnsureButtonsContainer(host);
+    NSArray<UIView *> *buttons = MMStoredButtons(tabBar);
+    if (buttons.count == 0) return;
 
+    NSInteger count = buttons.count;
     CGFloat sidePadding = 6.0;
     CGFloat topPadding = 6.0;
-    CGFloat itemW = (tabBar.bounds.size.width - sidePadding * 2.0) / count;
-    CGFloat itemH = tabBar.bounds.size.height - topPadding * 2.0;
+    CGFloat itemW = (buttonsContainer.bounds.size.width - sidePadding * 2.0) / count;
+    CGFloat itemH = buttonsContainer.bounds.size.height - topPadding * 2.0;
 
     NSInteger selected = MMSelectedIndex(tabBar);
     UIView *capsule = MMEnsureCapsule(host);
-
     CGRect capsuleFrame = CGRectMake(sidePadding + itemW * selected, topPadding, itemW, itemH);
     capsuleFrame = CGRectInset(capsuleFrame, 2.0, 0.0);
 
@@ -279,8 +323,13 @@ static void MMLayoutNativeButtons(UITabBar *tabBar, UIView *host) {
 
     for (NSInteger i = 0; i < count; i++) {
         UIView *btn = buttons[i];
+        if (btn.superview != buttonsContainer) {
+            [btn removeFromSuperview];
+            [buttonsContainer addSubview:btn];
+        }
+
         CGFloat x = sidePadding + i * itemW;
-        CGFloat w = (i == count - 1) ? (tabBar.bounds.size.width - sidePadding - x) : itemW;
+        CGFloat w = (i == count - 1) ? (buttonsContainer.bounds.size.width - sidePadding - x) : itemW;
         btn.frame = CGRectMake(x, topPadding, w, itemH);
         btn.hidden = NO;
         btn.alpha = 1.0;
@@ -291,47 +340,66 @@ static void MMLayoutNativeButtons(UITabBar *tabBar, UIView *host) {
     }
 
     [host bringSubviewToFront:capsule];
-    [tabBar.superview bringSubviewToFront:tabBar];
+    [host bringSubviewToFront:buttonsContainer];
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
-    UIView *container = vc.view;
-    if (!container) return;
+    if (kMMUpdatingLayout) return;
+    kMMUpdatingLayout = YES;
 
-    UITabBar *tabBar = MMFindTabBar(vc);
-    if (!tabBar) return;
+    @try {
+        UIView *container = vc.view;
+        if (!container) {
+            kMMUpdatingLayout = NO;
+            return;
+        }
 
-    CGFloat bottomInset = MMBottomInset(container);
-    CGFloat margin = 16.0;
-    CGFloat height = 64.0;
-    CGFloat bottomGap = bottomInset > 0 ? 10.0 : 14.0;
+        UITabBar *tabBar = MMFindTabBar(vc);
+        if (!tabBar) {
+            kMMUpdatingLayout = NO;
+            return;
+        }
 
-    CGRect frame = CGRectMake(
-        margin,
-        container.bounds.size.height - bottomInset - bottomGap - height,
-        container.bounds.size.width - margin * 2.0,
-        height
-    );
+        CGFloat bottomInset = MMBottomInset(container);
+        CGFloat margin = 16.0;
+        CGFloat height = 64.0;
+        CGFloat bottomGap = bottomInset > 0 ? 10.0 : 14.0;
 
-    UIView *host = MMEnsureGlassHost(container);
-    host.frame = frame;
-    MMStyleHost(host);
+        CGRect floatingFrame = CGRectMake(
+            margin,
+            container.bounds.size.height - bottomInset - bottomGap - height,
+            container.bounds.size.width - margin * 2.0,
+            height
+        );
 
-    UIVisualEffectView *glass = MMEnsureGlassView(host);
-    glass.frame = host.bounds;
+        UIView *host = MMEnsureGlassHost(container);
+        host.frame = floatingFrame;
+        MMStyleHost(host);
 
-    MMClearNativeTabBar(tabBar);
+        UIVisualEffectView *glass = MMEnsureGlassView(host);
+        glass.frame = host.bounds;
 
-    tabBar.frame = frame;
-    tabBar.hidden = NO;
-    tabBar.alpha = 1.0;
-    tabBar.backgroundColor = [UIColor clearColor];
-    tabBar.layer.zPosition = 999;
+        MMClearNativeTabBar(tabBar);
 
-    [container insertSubview:host belowSubview:tabBar];
-    [container bringSubviewToFront:tabBar];
+        if (!objc_getAssociatedObject(tabBar, kMMStoredButtonsKey)) {
+            NSArray<UIView *> *initialButtons = MMFindTabButtonViewsInView(tabBar);
+            if (initialButtons.count > 0) {
+                objc_setAssociatedObject(tabBar, kMMStoredButtonsKey, initialButtons, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
+        }
 
-    MMLayoutNativeButtons(tabBar, host);
+        tabBar.frame = CGRectMake(0, container.bounds.size.height + 200.0, 1.0, 1.0);
+        tabBar.alpha = 0.01;
+        tabBar.hidden = NO;
+        tabBar.userInteractionEnabled = NO;
+
+        MMDetachAndMoveButtonsToHost(tabBar, host);
+
+        [container bringSubviewToFront:host];
+    } @catch (__unused NSException *e) {
+    }
+
+    kMMUpdatingLayout = NO;
 }
 
 %hook MMTabBarController
@@ -363,6 +431,20 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     dispatch_async(dispatch_get_main_queue(), ^{
         MMUpdateFloatingBar((UIViewController *)self);
     });
+}
+
+%end
+
+%hook UITabBar
+
+- (void)setSelectedItem:(UITabBarItem *)selectedItem {
+    %orig(selectedItem);
+    UIViewController *vc = MMFindParentViewController(self);
+    if (vc) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            MMUpdateFloatingBar(vc);
+        });
+    }
 }
 
 %end
