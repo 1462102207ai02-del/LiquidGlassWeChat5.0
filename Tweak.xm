@@ -1,12 +1,15 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
-static NSInteger const kLGGlassTag = 910001;
-static NSInteger const kLGStrokeTag = 910002;
-static NSInteger const kLGCloneWrapTag = 910003;
-static NSInteger const kLGHighlightTag = 910004;
-static NSInteger const kLGTapBaseTag = 911000;
-static NSInteger const kLGSnapshotBaseTag = 912000;
+static NSInteger const kLGGlassTag = 920001;
+static NSInteger const kLGStrokeTag = 920002;
+static NSInteger const kLGCloneWrapTag = 920003;
+static NSInteger const kLGHighlightTag = 920004;
+static NSInteger const kLGTapBaseTag = 921000;
+static NSInteger const kLGSnapshotBaseTag = 922000;
+
+@interface MMTabBar : UITabBar
+@end
 
 @interface MMTabBarController : UITabBarController
 @end
@@ -25,6 +28,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
 - (void)lg_handleCloneTap:(UIButton *)sender;
 - (void)lg_rebuildSnapshotsIfNeeded;
 - (void)lg_layoutFloatingBarAnimated:(BOOL)animated;
+- (void)lg_refreshLater;
 @end
 
 %hook MMTabBarController
@@ -99,7 +103,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     if (tabBar.hidden) return NO;
     if (CGRectGetWidth(tabBar.bounds) < 10.0 || CGRectGetHeight(tabBar.bounds) < 10.0) return NO;
 
-    CGRect frame = [self.view convertRect:tabBar.frame fromView:tabBar.superview];
+    CGRect frame = [tabBar.superview convertRect:tabBar.frame toView:self.view];
     CGFloat viewH = CGRectGetHeight(self.view.bounds);
     if (CGRectGetMinY(frame) < viewH - 140.0) return NO;
 
@@ -111,7 +115,10 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
 
 %new
 - (UIVisualEffectView *)lg_glassBar {
-    UIVisualEffectView *glass = (UIVisualEffectView *)[self.view viewWithTag:kLGGlassTag];
+    UITabBar *tabBar = [self lg_realTabBar];
+    if (!tabBar || !tabBar.superview) return nil;
+
+    UIVisualEffectView *glass = (UIVisualEffectView *)[tabBar.superview viewWithTag:kLGGlassTag];
     if (glass) return glass;
 
     UIBlurEffectStyle style = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
@@ -143,7 +150,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     wrap.backgroundColor = UIColor.clearColor;
     [glass.contentView addSubview:wrap];
 
-    [self.view addSubview:glass];
+    [tabBar.superview addSubview:glass];
     return glass;
 }
 
@@ -185,18 +192,20 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
 
     for (UIView *sub in tabBar.subviews) {
         NSString *cls = NSStringFromClass(sub.class);
+
         if ([cls containsString:@"_UIBarBackground"] ||
             [cls containsString:@"_UIVisualEffectBackdropView"] ||
             [cls containsString:@"_UIVisualEffectSubview"] ||
             [cls containsString:@"_UIVisualEffectContentView"] ||
             [cls containsString:@"UIImageView"]) {
             sub.alpha = 0.0;
+            sub.hidden = NO;
         }
     }
 
-    NSArray<UIControl *> *buttons = [self lg_tabButtons];
-    for (UIControl *btn in buttons) {
+    for (UIControl *btn in [self lg_tabButtons]) {
         btn.alpha = 0.01;
+        btn.hidden = NO;
     }
 }
 
@@ -204,6 +213,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
 - (void)lg_hideFloatingBar {
     UIVisualEffectView *glass = [self lg_glassBar];
     UIView *highlight = [self lg_highlightView];
+    if (!glass) return;
     glass.hidden = YES;
     glass.alpha = 0.0;
     highlight.hidden = YES;
@@ -228,52 +238,36 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     NSArray<UIControl *> *buttons = [self lg_tabButtons];
     NSInteger count = buttons.count;
 
-    while (wrap.subviews.count > count * 2) {
-        [wrap.subviews.lastObject removeFromSuperview];
+    NSArray *existing = [wrap.subviews copy];
+    for (UIView *v in existing) {
+        if (v.tag >= kLGSnapshotBaseTag || v.tag >= kLGTapBaseTag) {
+            [v removeFromSuperview];
+        }
     }
 
     for (NSInteger i = 0; i < count; i++) {
-        UIView *snapshot = [wrap viewWithTag:kLGSnapshotBaseTag + i];
-        UIButton *tap = (UIButton *)[wrap viewWithTag:kLGTapBaseTag + i];
-
-        if (!snapshot) {
-            UIView *snap = [buttons[i] snapshotViewAfterScreenUpdates:YES];
-            if (!snap) {
-                snap = [[UIView alloc] initWithFrame:buttons[i].bounds];
-                snap.backgroundColor = UIColor.clearColor;
-            }
-            snap.tag = kLGSnapshotBaseTag + i;
-            snap.userInteractionEnabled = NO;
-            [wrap addSubview:snap];
-            snapshot = snap;
+        UIView *snap = [buttons[i] snapshotViewAfterScreenUpdates:YES];
+        if (!snap) {
+            snap = [[UIView alloc] initWithFrame:buttons[i].bounds];
+            snap.backgroundColor = UIColor.clearColor;
         }
+        snap.tag = kLGSnapshotBaseTag + i;
+        snap.userInteractionEnabled = NO;
+        [wrap addSubview:snap];
 
-        if (!tap) {
-            UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-            btn.tag = kLGTapBaseTag + i;
-            btn.backgroundColor = UIColor.clearColor;
-            [btn addTarget:self action:@selector(lg_handleCloneTap:) forControlEvents:UIControlEventTouchUpInside];
-            [wrap addSubview:btn];
-            tap = btn;
-        }
-
-        UIView *fresh = [buttons[i] snapshotViewAfterScreenUpdates:YES];
-        if (fresh) {
-            fresh.frame = snapshot.frame;
-            fresh.tag = snapshot.tag;
-            fresh.userInteractionEnabled = NO;
-            [snapshot removeFromSuperview];
-            [wrap addSubview:fresh];
-            snapshot = fresh;
-        }
-
-        [wrap bringSubviewToFront:tap];
+        UIButton *tap = [UIButton buttonWithType:UIButtonTypeCustom];
+        tap.tag = kLGTapBaseTag + i;
+        tap.backgroundColor = UIColor.clearColor;
+        [tap addTarget:self action:@selector(lg_handleCloneTap:) forControlEvents:UIControlEventTouchUpInside];
+        [wrap addSubview:tap];
     }
 }
 
 %new
 - (void)lg_layoutFloatingBarAnimated:(BOOL)animated {
     UIVisualEffectView *glass = [self lg_glassBar];
+    if (!glass) return;
+
     UIView *wrap = [self lg_cloneWrap];
     UIView *stroke = [self lg_strokeView];
     UIView *highlight = [self lg_highlightView];
@@ -286,7 +280,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     [self lg_prepareTabBarCarrier];
 
     UITabBar *tabBar = [self lg_realTabBar];
-    CGRect tabFrame = [self.view convertRect:tabBar.frame fromView:tabBar.superview];
+    CGRect tabFrame = [tabBar.superview convertRect:tabBar.frame toView:self.view];
 
     CGFloat margin = 20.0;
     CGFloat height = 62.0;
@@ -314,12 +308,12 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     wrap.frame = glass.contentView.bounds;
 
     NSArray<UIControl *> *buttons = [self lg_tabButtons];
-    [self lg_rebuildSnapshotsIfNeeded];
-
     if (buttons.count == 0) {
         [self lg_hideFloatingBar];
         return;
     }
+
+    [self lg_rebuildSnapshotsIfNeeded];
 
     CGFloat itemW = CGRectGetWidth(wrap.bounds) / MAX((NSInteger)buttons.count, 1);
 
@@ -328,12 +322,12 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
         UIButton *tap = (UIButton *)[wrap viewWithTag:kLGTapBaseTag + i];
 
         CGRect sourceInGlass = [wrap convertRect:buttons[i].frame fromView:buttons[i].superview];
-        CGRect frame = CGRectMake(i * itemW, 0.0, itemW, CGRectGetHeight(wrap.bounds));
+        CGRect slotFrame = CGRectMake(i * itemW, 0.0, itemW, CGRectGetHeight(wrap.bounds));
 
-        tap.frame = frame;
+        tap.frame = slotFrame;
 
         if (snapshot) {
-            CGFloat dx = CGRectGetMidX(frame) - CGRectGetMidX(sourceInGlass);
+            CGFloat dx = CGRectGetMidX(slotFrame) - CGRectGetMidX(sourceInGlass);
             CGFloat dy = -4.0;
             snapshot.frame = CGRectOffset(sourceInGlass, dx, dy);
         }
@@ -377,27 +371,59 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
         highlight.hidden = YES;
     }
 
-    [self.view bringSubviewToFront:glass];
+    [glass.superview bringSubviewToFront:glass];
+}
+
+%new
+- (void)lg_refreshLater {
+    __weak __typeof__(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __strong __typeof__(weakSelf) self = weakSelf;
+        if (!self) return;
+        [self lg_layoutFloatingBarAnimated:NO];
+    });
 }
 
 - (void)viewDidLayoutSubviews {
     %orig;
     [self lg_layoutFloatingBarAnimated:NO];
+    [self lg_refreshLater];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
     [self lg_layoutFloatingBarAnimated:NO];
+    [self lg_refreshLater];
 }
 
 - (void)setSelectedIndex:(NSUInteger)selectedIndex {
     %orig;
     [self lg_layoutFloatingBarAnimated:YES];
+    [self lg_refreshLater];
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     %orig;
     [self lg_layoutFloatingBarAnimated:NO];
+    [self lg_refreshLater];
+}
+
+%end
+
+%hook MMTabBar
+
+- (void)layoutSubviews {
+    %orig;
+
+    UIResponder *responder = self.nextResponder;
+    while (responder) {
+        if ([responder isKindOfClass:%c(MMTabBarController)]) {
+            [(MMTabBarController *)responder lg_layoutFloatingBarAnimated:NO];
+            [(MMTabBarController *)responder lg_refreshLater];
+            break;
+        }
+        responder = responder.nextResponder;
+    }
 }
 
 %end
@@ -409,6 +435,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     UITabBarController *tab = self.tabBarController;
     if ([tab isKindOfClass:%c(MMTabBarController)]) {
         [(MMTabBarController *)tab lg_layoutFloatingBarAnimated:NO];
+        [(MMTabBarController *)tab lg_refreshLater];
     }
 }
 
@@ -417,6 +444,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     UITabBarController *tab = self.tabBarController;
     if ([tab isKindOfClass:%c(MMTabBarController)]) {
         [(MMTabBarController *)tab lg_layoutFloatingBarAnimated:NO];
+        [(MMTabBarController *)tab lg_refreshLater];
     }
     return ret;
 }
@@ -426,6 +454,7 @@ static NSInteger const kLGSnapshotBaseTag = 912000;
     UITabBarController *tab = self.tabBarController;
     if ([tab isKindOfClass:%c(MMTabBarController)]) {
         [(MMTabBarController *)tab lg_layoutFloatingBarAnimated:NO];
+        [(MMTabBarController *)tab lg_refreshLater];
     }
     return ret;
 }
