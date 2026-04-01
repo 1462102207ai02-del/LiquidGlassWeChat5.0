@@ -4,10 +4,7 @@
 
 static NSInteger const kMMGlassHostTag = 910001;
 static NSInteger const kMMGlassViewTag = 910002;
-static NSInteger const kMMCapsuleTag = 910003;
 static NSInteger const kMMButtonsContainerTag = 910004;
-static NSInteger const kMMStrokeTag = 910005;
-static NSInteger const kMMGlowTag = 910006;
 static NSInteger const kMMHitContainerTag = 910007;
 
 static const void *kMMStoredButtonsKey = &kMMStoredButtonsKey;
@@ -194,63 +191,6 @@ static UIView *MMEnsureHitContainer(UIView *host) {
     }
     container.frame = host.bounds;
     return container;
-}
-
-static UIView *MMEnsureCapsule(UIView *host) {
-    UIView *capsule = [host viewWithTag:kMMCapsuleTag];
-    if (!capsule) {
-        capsule = [[UIView alloc] initWithFrame:CGRectZero];
-        capsule.tag = kMMCapsuleTag;
-        capsule.userInteractionEnabled = NO;
-        [host addSubview:capsule];
-    }
-
-    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.14) : MMRGBA(255,255,255,0.30);
-    capsule.layer.shadowColor = MMRGBA(255,255,255,0.22).CGColor;
-    capsule.layer.shadowOpacity = 1.0;
-    capsule.layer.shadowRadius = 14.0;
-    capsule.layer.shadowOffset = CGSizeMake(0, 3);
-
-    UIView *stroke = [capsule viewWithTag:kMMStrokeTag];
-    if (!stroke) {
-        stroke = [[UIView alloc] initWithFrame:CGRectZero];
-        stroke.tag = kMMStrokeTag;
-        stroke.userInteractionEnabled = NO;
-        [capsule addSubview:stroke];
-    }
-    stroke.frame = capsule.bounds;
-    stroke.backgroundColor = [UIColor clearColor];
-    stroke.layer.borderWidth = 0.7;
-    stroke.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.18) : MMRGBA(255,255,255,0.42)).CGColor;
-    MMSetContinuousRadius(stroke, capsule.bounds.size.height / 2.0);
-
-    UIView *glow = [capsule viewWithTag:kMMGlowTag];
-    if (!glow) {
-        glow = [[UIView alloc] initWithFrame:CGRectZero];
-        glow.tag = kMMGlowTag;
-        glow.userInteractionEnabled = NO;
-        [capsule addSubview:glow];
-    }
-    glow.frame = CGRectInset(capsule.bounds, 1.0, 1.0);
-    MMSetContinuousRadius(glow, glow.bounds.size.height / 2.0);
-
-    CAGradientLayer *grad = MMFindGradient(glow.layer, @"capsuleGlow");
-    if (!grad) {
-        grad = [CAGradientLayer layer];
-        grad.name = @"capsuleGlow";
-        [glow.layer addSublayer:grad];
-    }
-    grad.frame = glow.bounds;
-    grad.startPoint = CGPointMake(0.5, 0.0);
-    grad.endPoint = CGPointMake(0.5, 1.0);
-    grad.colors = @[
-        (__bridge id)MMRGBA(255,255,255,0.16).CGColor,
-        (__bridge id)MMRGBA(255,255,255,0.05).CGColor,
-        (__bridge id)MMRGBA(255,255,255,0.01).CGColor
-    ];
-
-    MMSetContinuousRadius(capsule, capsule.bounds.size.height / 2.0);
-    return capsule;
 }
 
 static void MMStyleHost(UIView *host) {
