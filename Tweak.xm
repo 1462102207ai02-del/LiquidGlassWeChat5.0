@@ -6,6 +6,9 @@ static NSInteger const kMMGlassHostTag = 910001;
 static NSInteger const kMMGlassViewTag = 910002;
 static NSInteger const kMMButtonsContainerTag = 910004;
 static NSInteger const kMMHitContainerTag = 910007;
+static NSInteger const kMMCapsuleTag = 910008;
+static NSInteger const kMMCapsuleBorderTag = 910009;
+static NSInteger const kMMCapsuleGlowTag = 910010;
 
 static const void *kMMStoredButtonsKey = &kMMStoredButtonsKey;
 static BOOL kMMUpdatingLayout = NO;
@@ -193,6 +196,85 @@ static UIView *MMEnsureHitContainer(UIView *host) {
     return container;
 }
 
+static UIView *MMEnsureCapsule(UIView *host) {
+    UIView *capsule = [host viewWithTag:kMMCapsuleTag];
+    if (!capsule) {
+        capsule = [[UIView alloc] initWithFrame:CGRectZero];
+        capsule.tag = kMMCapsuleTag;
+        capsule.backgroundColor = [UIColor clearColor];
+        capsule.userInteractionEnabled = NO;
+        [host addSubview:capsule];
+    }
+
+    UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
+    if (!border) {
+        border = [[UIView alloc] initWithFrame:CGRectZero];
+        border.tag = kMMCapsuleBorderTag;
+        border.userInteractionEnabled = NO;
+        [capsule addSubview:border];
+    }
+
+    UIView *glow = [capsule viewWithTag:kMMCapsuleGlowTag];
+    if (!glow) {
+        glow = [[UIView alloc] initWithFrame:CGRectZero];
+        glow.tag = kMMCapsuleGlowTag;
+        glow.userInteractionEnabled = NO;
+        [capsule addSubview:glow];
+    }
+
+    return capsule;
+}
+
+static void MMLayoutCapsule(UIView *host, NSInteger selectedIndex, NSInteger count) {
+    if (count <= 0) return;
+
+    UIView *capsule = MMEnsureCapsule(host);
+
+    CGFloat sidePadding = 6.0;
+    CGFloat topPadding = 6.0;
+    CGFloat slotW = (host.bounds.size.width - sidePadding * 2.0) / count;
+    CGFloat slotH = host.bounds.size.height - topPadding * 2.0;
+
+    CGRect capsuleFrame = CGRectMake(sidePadding + selectedIndex * slotW + 2.0, topPadding, slotW - 4.0, slotH);
+    capsule.frame = capsuleFrame;
+    MMSetContinuousRadius(capsule, capsule.bounds.size.height / 2.0);
+
+    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.12) : MMRGBA(255,255,255,0.26);
+    capsule.layer.shadowColor = MMRGBA(255,255,255,0.18).CGColor;
+    capsule.layer.shadowOpacity = 1.0;
+    capsule.layer.shadowRadius = 12.0;
+    capsule.layer.shadowOffset = CGSizeMake(0, 2);
+
+    UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
+    border.frame = capsule.bounds;
+    border.backgroundColor = [UIColor clearColor];
+    border.layer.borderWidth = 0.7;
+    border.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.16) : MMRGBA(255,255,255,0.36)).CGColor;
+    MMSetContinuousRadius(border, border.bounds.size.height / 2.0);
+
+    UIView *glow = [capsule viewWithTag:kMMCapsuleGlowTag];
+    glow.frame = CGRectInset(capsule.bounds, 1.0, 1.0);
+    glow.backgroundColor = [UIColor clearColor];
+    MMSetContinuousRadius(glow, glow.bounds.size.height / 2.0);
+
+    CAGradientLayer *grad = MMFindGradient(glow.layer, @"mm_capsule_glow");
+    if (!grad) {
+        grad = [CAGradientLayer layer];
+        grad.name = @"mm_capsule_glow";
+        [glow.layer addSublayer:grad];
+    }
+    grad.frame = glow.bounds;
+    grad.startPoint = CGPointMake(0.5, 0.0);
+    grad.endPoint = CGPointMake(0.5, 1.0);
+    grad.colors = @[
+        (__bridge id)MMRGBA(255,255,255,0.14).CGColor,
+        (__bridge id)MMRGBA(255,255,255,0.05).CGColor,
+        (__bridge id)MMRGBA(255,255,255,0.01).CGColor
+    ];
+
+    [host bringSubviewToFront:capsule];
+}
+
 static void MMStyleHost(UIView *host) {
     MMSetContinuousRadius(host, host.bounds.size.height / 2.0);
     host.layer.borderWidth = 0.6;
@@ -218,6 +300,48 @@ static void MMStyleHost(UIView *host) {
     ];
 }
 
+static void MMLayoutButtonInternals(UIView *button) {
+    UIImageView *iconView = nil;
+    UILabel *titleLabel = nil;
+
+    for (UIView *sub in button.subviews) {
+        if (!iconView && [sub isKindOfClass:[UIImageView class]]) {
+            iconView = (UIImageView *)sub;
+        } else if (!titleLabel && [sub isKindOfClass:[UILabel class]]) {
+            titleLabel = (UILabel *)sub;
+        }
+    }
+
+    CGFloat bw = button.bounds.size.width;
+    CGFloat bh = button.bounds.size.height;
+
+    CGFloat iconSize = 24.0;
+    CGFloat titleH = titleLabel ? 13.0 : 0.0;
+    CGFloat spacing = titleLabel ? 2.0 : 0.0;
+    CGFloat totalH = iconSize + spacing + titleH;
+    CGFloat startY = floor((bh - totalH) * 0.5) - 1.0;
+    if (startY < 4.0) startY = 4.0;
+
+    if (iconView) {
+        CGRect f = iconView.frame;
+        f.size.width = iconSize;
+        f.size.height = iconSize;
+        f.origin.x = floor((bw - iconSize) * 0.5);
+        f.origin.y = startY;
+        iconView.frame = f;
+        iconView.contentMode = UIViewContentModeScaleAspectFit;
+    }
+
+    if (titleLabel) {
+        CGRect tf = CGRectMake(2.0, startY + iconSize + spacing, bw - 4.0, titleH);
+        titleLabel.frame = tf;
+        titleLabel.textAlignment = NSTextAlignmentCenter;
+        titleLabel.font = [UIFont systemFontOfSize:10.5 weight:UIFontWeightMedium];
+        titleLabel.adjustsFontSizeToFitWidth = YES;
+        titleLabel.minimumScaleFactor = 0.75;
+    }
+}
+
 static void MMApplyButtonTint(UIView *button, BOOL selected) {
     UIColor *selectedColor = MMRGBA(255,255,255,1.0);
     UIColor *normalColor = MMRGBA(255,255,255,0.72);
@@ -231,7 +355,7 @@ static void MMApplyButtonTint(UIView *button, BOOL selected) {
                 iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
             }
             iv.alpha = selected ? 1.0 : 0.92;
-            iv.transform = selected ? CGAffineTransformMakeScale(1.04, 1.04) : CGAffineTransformIdentity;
+            iv.transform = CGAffineTransformIdentity;
         } else if ([sub isKindOfClass:[UILabel class]]) {
             UILabel *lab = (UILabel *)sub;
             lab.textColor = color;
@@ -279,12 +403,14 @@ static void MMDetachAndMoveButtonsToHost(UITabBar *tabBar, UIView *host) {
     if (buttons.count == 0) return;
 
     NSInteger count = buttons.count;
+    NSInteger selected = MMSelectedIndex(tabBar);
+
     CGFloat sidePadding = 6.0;
     CGFloat topPadding = 6.0;
     CGFloat itemW = (buttonsContainer.bounds.size.width - sidePadding * 2.0) / count;
     CGFloat itemH = buttonsContainer.bounds.size.height - topPadding * 2.0;
 
-    NSInteger selected = MMSelectedIndex(tabBar);
+    MMLayoutCapsule(host, selected, count);
 
     for (NSInteger i = 0; i < count; i++) {
         UIView *btn = buttons[i];
@@ -301,10 +427,12 @@ static void MMDetachAndMoveButtonsToHost(UITabBar *tabBar, UIView *host) {
         btn.userInteractionEnabled = NO;
         btn.backgroundColor = [UIColor clearColor];
         btn.layer.zPosition = 20;
+        MMLayoutButtonInternals(btn);
         MMApplyButtonTint(btn, i == selected);
     }
 
     [host bringSubviewToFront:buttonsContainer];
+    [host bringSubviewToFront:[host viewWithTag:kMMHitContainerTag]];
 }
 
 static void MMRebuildHitButtons(UITabBar *tabBar, UIView *host) {
