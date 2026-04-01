@@ -2,9 +2,9 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
-static NSInteger const kLGFloatingBarTag = 980001;
-static NSInteger const kLGStrokeTag = 980002;
-static NSInteger const kLGHighlightTag = 980003;
+static NSInteger const kLGFloatingBarTag = 990001;
+static NSInteger const kLGStrokeTag = 990002;
+static NSInteger const kLGHighlightTag = 990003;
 
 @interface MMTabBar : UITabBar
 - (NSArray *)tabBarItemViews;
@@ -169,23 +169,20 @@ static const void *kLGApplyingKey = &kLGApplyingKey;
     objc_setAssociatedObject(self, kLGApplyingKey, @(YES), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
     @try {
-        if (self.hidden || self.alpha < 0.01) {
+        if (self.hidden || self.alpha < 0.01 || CGRectGetWidth(self.bounds) < 10.0 || CGRectGetHeight(self.bounds) < 10.0) {
             [self lg_hideFloatingBar];
-            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            return;
+            goto done;
         }
 
         if ([self lg_isInChatPage]) {
             [self lg_hideFloatingBar];
-            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            return;
+            goto done;
         }
 
         NSArray<UIView *> *items = [self lg_itemViews];
         if (items.count < 2) {
             [self lg_hideFloatingBar];
-            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            return;
+            goto done;
         }
 
         self.backgroundImage = [UIImage new];
@@ -196,21 +193,17 @@ static const void *kLGApplyingKey = &kLGApplyingKey;
         self.opaque = NO;
         self.clipsToBounds = NO;
 
-        UIView *bg = nil;
         if ([self respondsToSelector:@selector(backgroundView)]) {
-            bg = [self backgroundView];
-        }
-        if (bg) {
-            bg.alpha = 0.0;
+            UIView *bg = [self backgroundView];
+            if (bg) bg.hidden = YES;
         }
 
         for (UIView *v in self.subviews) {
             if (v.tag == kLGFloatingBarTag) continue;
-
             NSString *cls = NSStringFromClass(v.class);
             if ([cls containsString:@"_UIBarBackground"] ||
                 [cls containsString:@"UIImageView"]) {
-                v.alpha = 0.0;
+                v.hidden = YES;
             }
         }
 
@@ -249,8 +242,7 @@ static const void *kLGApplyingKey = &kLGApplyingKey;
         NSUInteger selectedIndex = tabVC ? tabVC.selectedIndex : 0;
         if (selectedIndex >= items.count) {
             highlight.hidden = YES;
-            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            return;
+            goto done;
         }
 
         UIView *selectedItem = items[selectedIndex];
@@ -270,9 +262,11 @@ static const void *kLGApplyingKey = &kLGApplyingKey;
         highlight.layer.borderColor = (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
             ? [UIColor colorWithWhite:1.0 alpha:0.12]
             : [UIColor colorWithWhite:1.0 alpha:0.22]).CGColor;
-    } @catch (__unused NSException *e) {
+    }
+    @catch (__unused NSException *e) {
     }
 
+done:
     objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
@@ -286,13 +280,6 @@ static const void *kLGApplyingKey = &kLGApplyingKey;
 %hook MMTabBarController
 
 - (void)setSelectedIndex:(NSUInteger)selectedIndex {
-    %orig;
-    if ([self.tabBar isKindOfClass:%c(MMTabBar)]) {
-        [(MMTabBar *)self.tabBar lg_applyFloatingBar];
-    }
-}
-
-- (void)viewDidAppear:(BOOL)animated {
     %orig;
     if ([self.tabBar isKindOfClass:%c(MMTabBar)]) {
         [(MMTabBar *)self.tabBar lg_applyFloatingBar];
