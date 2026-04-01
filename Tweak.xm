@@ -8,6 +8,7 @@ static NSInteger const kMMCapsuleTag = 910003;
 static NSInteger const kMMButtonsContainerTag = 910004;
 static NSInteger const kMMStrokeTag = 910005;
 static NSInteger const kMMGlowTag = 910006;
+static NSInteger const kMMHitContainerTag = 910007;
 
 static const void *kMMStoredButtonsKey = &kMMStoredButtonsKey;
 static BOOL kMMUpdatingLayout = NO;
@@ -182,6 +183,19 @@ static UIView *MMEnsureButtonsContainer(UIView *host) {
     return container;
 }
 
+static UIView *MMEnsureHitContainer(UIView *host) {
+    UIView *container = [host viewWithTag:kMMHitContainerTag];
+    if (!container) {
+        container = [[UIView alloc] initWithFrame:CGRectZero];
+        container.tag = kMMHitContainerTag;
+        container.backgroundColor = [UIColor clearColor];
+        container.userInteractionEnabled = YES;
+        [host addSubview:container];
+    }
+    container.frame = host.bounds;
+    return container;
+}
+
 static UIView *MMEnsureCapsule(UIView *host) {
     UIView *capsule = [host viewWithTag:kMMCapsuleTag];
     if (!capsule) {
@@ -286,6 +300,39 @@ static void MMApplyButtonTint(UIView *button, BOOL selected) {
     }
 }
 
+static void MMSwitchToIndex(UIView *sourceView, NSInteger idx) {
+    UIViewController *vc = MMFindParentViewController(sourceView);
+    if (!vc) return;
+
+    if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
+        @try {
+            [(id)vc setSelectedIndex:idx];
+            return;
+        } @catch (__unused NSException *e) {
+        }
+    }
+
+    UITabBar *tabBar = MMFindTabBar(vc);
+    if (tabBar && idx >= 0 && idx < (NSInteger)tabBar.items.count) {
+        @try {
+            tabBar.selectedItem = tabBar.items[idx];
+        } @catch (__unused NSException *e) {
+        }
+    }
+}
+
+@interface MMTabHitButton : UIButton
+@end
+
+@implementation MMTabHitButton
+
+- (void)mmHandleTap {
+    NSInteger idx = self.tag - 2000;
+    MMSwitchToIndex(self, idx);
+}
+
+@end
+
 static void MMDetachAndMoveButtonsToHost(UITabBar *tabBar, UIView *host) {
     UIView *buttonsContainer = MMEnsureButtonsContainer(host);
     NSArray<UIView *> *buttons = MMStoredButtons(tabBar);
@@ -298,28 +345,6 @@ static void MMDetachAndMoveButtonsToHost(UITabBar *tabBar, UIView *host) {
     CGFloat itemH = buttonsContainer.bounds.size.height - topPadding * 2.0;
 
     NSInteger selected = MMSelectedIndex(tabBar);
-    UIView *capsule = MMEnsureCapsule(host);
-    CGRect capsuleFrame = CGRectMake(sidePadding + itemW * selected, topPadding, itemW, itemH);
-    capsuleFrame = CGRectInset(capsuleFrame, 2.0, 0.0);
-
-    [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
-        capsule.frame = capsuleFrame;
-        MMSetContinuousRadius(capsule, capsule.bounds.size.height / 2.0);
-
-        UIView *stroke = [capsule viewWithTag:kMMStrokeTag];
-        if (stroke) {
-            stroke.frame = capsule.bounds;
-            MMSetContinuousRadius(stroke, stroke.bounds.size.height / 2.0);
-        }
-
-        UIView *glow = [capsule viewWithTag:kMMGlowTag];
-        if (glow) {
-            glow.frame = CGRectInset(capsule.bounds, 1.0, 1.0);
-            MMSetContinuousRadius(glow, glow.bounds.size.height / 2.0);
-            CAGradientLayer *grad = MMFindGradient(glow.layer, @"capsuleGlow");
-            if (grad) grad.frame = glow.bounds;
-        }
-    } completion:nil];
 
     for (NSInteger i = 0; i < count; i++) {
         UIView *btn = buttons[i];
@@ -333,14 +358,44 @@ static void MMDetachAndMoveButtonsToHost(UITabBar *tabBar, UIView *host) {
         btn.frame = CGRectMake(x, topPadding, w, itemH);
         btn.hidden = NO;
         btn.alpha = 1.0;
-        btn.userInteractionEnabled = YES;
+        btn.userInteractionEnabled = NO;
         btn.backgroundColor = [UIColor clearColor];
         btn.layer.zPosition = 20;
         MMApplyButtonTint(btn, i == selected);
     }
 
-    [host bringSubviewToFront:capsule];
     [host bringSubviewToFront:buttonsContainer];
+}
+
+static void MMRebuildHitButtons(UITabBar *tabBar, UIView *host) {
+    UIView *hitContainer = MMEnsureHitContainer(host);
+    for (UIView *sub in [hitContainer.subviews copy]) {
+        [sub removeFromSuperview];
+    }
+
+    NSArray<UIView *> *buttons = MMStoredButtons(tabBar);
+    NSInteger count = buttons.count;
+    if (count == 0) return;
+
+    CGFloat sidePadding = 6.0;
+    CGFloat topPadding = 6.0;
+    CGFloat itemW = (hitContainer.bounds.size.width - sidePadding * 2.0) / count;
+    CGFloat itemH = hitContainer.bounds.size.height - topPadding * 2.0;
+
+    for (NSInteger i = 0; i < count; i++) {
+        CGFloat x = sidePadding + i * itemW;
+        CGFloat w = (i == count - 1) ? (hitContainer.bounds.size.width - sidePadding - x) : itemW;
+
+        MMTabHitButton *hit = [MMTabHitButton buttonWithType:UIButtonTypeCustom];
+        hit.frame = CGRectMake(x, topPadding, w, itemH);
+        hit.tag = 2000 + i;
+        hit.backgroundColor = [UIColor clearColor];
+        hit.adjustsImageWhenHighlighted = NO;
+        [hit addTarget:hit action:@selector(mmHandleTap) forControlEvents:UIControlEventTouchUpInside];
+        [hitContainer addSubview:hit];
+    }
+
+    [host bringSubviewToFront:hitContainer];
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
@@ -394,6 +449,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         tabBar.userInteractionEnabled = NO;
 
         MMDetachAndMoveButtonsToHost(tabBar, host);
+        MMRebuildHitButtons(tabBar, host);
 
         [container bringSubviewToFront:host];
     } @catch (__unused NSException *e) {
