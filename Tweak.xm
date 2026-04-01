@@ -1,9 +1,8 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
-static NSInteger const kLGGlassTag = 930001;
-static NSInteger const kLGStrokeTag = 930002;
-static NSInteger const kLGHighlightTag = 930003;
+static NSInteger const kLGGlassTag = 940001;
+static NSInteger const kLGStrokeTag = 940002;
 
 @interface MMTabBarController : UITabBarController
 @end
@@ -11,13 +10,11 @@ static NSInteger const kLGHighlightTag = 930003;
 @interface MMTabBarController (LiquidGlass)
 - (BOOL)lg_isInChatPage;
 - (BOOL)lg_shouldShowFloatingBar;
-- (NSArray<UIView *> *)lg_itemViews;
 - (UIVisualEffectView *)lg_glassBar;
 - (UIView *)lg_strokeView;
-- (UIView *)lg_highlightView;
-- (void)lg_prepareTabBar;
+- (void)lg_prepareTabBarBackgroundOnly;
 - (void)lg_hideFloatingBar;
-- (void)lg_layoutFloatingBarAnimated:(BOOL)animated;
+- (void)lg_layoutFloatingBar;
 @end
 
 %hook MMTabBarController
@@ -59,40 +56,6 @@ static NSInteger const kLGHighlightTag = 930003;
 }
 
 %new
-- (NSArray<UIView *> *)lg_itemViews {
-    NSMutableArray<UIView *> *arr = [NSMutableArray array];
-
-    for (UIView *v in self.tabBar.subviews) {
-        NSString *cls = NSStringFromClass(v.class);
-        if ([cls containsString:@"MMTabBarItemView"] &&
-            CGRectGetWidth(v.frame) > 60.0 &&
-            CGRectGetHeight(v.frame) > 60.0) {
-            [arr addObject:v];
-        }
-    }
-
-    if (arr.count == 0) {
-        for (UIView *v in self.tabBar.subviews) {
-            if ([v isKindOfClass:[UIControl class]] &&
-                CGRectGetWidth(v.frame) > 60.0 &&
-                CGRectGetHeight(v.frame) > 60.0) {
-                [arr addObject:v];
-            }
-        }
-    }
-
-    [arr sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
-        CGFloat ax = CGRectGetMinX(a.frame);
-        CGFloat bx = CGRectGetMinX(b.frame);
-        if (ax < bx) return NSOrderedAscending;
-        if (ax > bx) return NSOrderedDescending;
-        return NSOrderedSame;
-    }];
-
-    return arr;
-}
-
-%new
 - (UIVisualEffectView *)lg_glassBar {
     UIVisualEffectView *glass = (UIVisualEffectView *)[self.view viewWithTag:kLGGlassTag];
     if (glass) return glass;
@@ -115,12 +78,6 @@ static NSInteger const kLGHighlightTag = 930003;
     stroke.backgroundColor = UIColor.clearColor;
     [glass.contentView addSubview:stroke];
 
-    UIView *highlight = [[UIView alloc] init];
-    highlight.tag = kLGHighlightTag;
-    highlight.hidden = YES;
-    highlight.userInteractionEnabled = NO;
-    [glass.contentView addSubview:highlight];
-
     [self.view addSubview:glass];
     return glass;
 }
@@ -131,12 +88,7 @@ static NSInteger const kLGHighlightTag = 930003;
 }
 
 %new
-- (UIView *)lg_highlightView {
-    return [[self lg_glassBar].contentView viewWithTag:kLGHighlightTag];
-}
-
-%new
-- (void)lg_prepareTabBar {
+- (void)lg_prepareTabBarBackgroundOnly {
     self.tabBar.hidden = NO;
     self.tabBar.backgroundImage = [UIImage new];
     self.tabBar.shadowImage = [UIImage new];
@@ -155,6 +107,7 @@ static NSInteger const kLGHighlightTag = 930003;
 
     for (UIView *v in self.tabBar.subviews) {
         NSString *cls = NSStringFromClass(v.class);
+
         if ([cls containsString:@"_UIBarBackground"] ||
             [cls containsString:@"_UIVisualEffectBackdropView"] ||
             [cls containsString:@"_UIVisualEffectSubview"] ||
@@ -168,26 +121,18 @@ static NSInteger const kLGHighlightTag = 930003;
 %new
 - (void)lg_hideFloatingBar {
     UIVisualEffectView *glass = [self lg_glassBar];
-    UIView *highlight = [self lg_highlightView];
     glass.hidden = YES;
     glass.alpha = 0.0;
-    highlight.hidden = YES;
 }
 
 %new
-- (void)lg_layoutFloatingBarAnimated:(BOOL)animated {
+- (void)lg_layoutFloatingBar {
     if (![self lg_shouldShowFloatingBar]) {
         [self lg_hideFloatingBar];
         return;
     }
 
-    [self lg_prepareTabBar];
-
-    NSArray<UIView *> *items = [self lg_itemViews];
-    if (items.count == 0) {
-        [self lg_hideFloatingBar];
-        return;
-    }
+    [self lg_prepareTabBarBackgroundOnly];
 
     CGRect tabFrame = [self.view convertRect:self.tabBar.frame fromView:self.tabBar.superview];
 
@@ -199,7 +144,6 @@ static NSInteger const kLGHighlightTag = 930003;
 
     UIVisualEffectView *glass = [self lg_glassBar];
     UIView *stroke = [self lg_strokeView];
-    UIView *highlight = [self lg_highlightView];
 
     UIBlurEffectStyle style = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
         ? UIBlurEffectStyleSystemUltraThinMaterialDark
@@ -218,67 +162,28 @@ static NSInteger const kLGHighlightTag = 930003;
         ? [UIColor colorWithWhite:1.0 alpha:0.12]
         : [UIColor colorWithWhite:1.0 alpha:0.26]).CGColor;
 
-    NSUInteger idx = self.selectedIndex;
-    if (idx >= items.count) {
-        highlight.hidden = YES;
-        return;
-    }
-
-    UIView *selectedItem = items[idx];
-    CGRect r = [glass.contentView convertRect:selectedItem.frame fromView:selectedItem.superview];
-
-    CGFloat pillW = MIN(66.0, MAX(50.0, CGRectGetWidth(r) - 24.0));
-    CGFloat pillH = 40.0;
-    CGRect target = CGRectMake(CGRectGetMidX(r) - pillW * 0.5, 6.0, pillW, pillH);
-
-    highlight.backgroundColor = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-        ? [UIColor colorWithWhite:1.0 alpha:0.14]
-        : [UIColor colorWithWhite:1.0 alpha:0.20];
-    highlight.layer.cornerRadius = pillH * 0.5;
-    highlight.layer.borderWidth = 0.6;
-    highlight.layer.borderColor = (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-        ? [UIColor colorWithWhite:1.0 alpha:0.12]
-        : [UIColor colorWithWhite:1.0 alpha:0.24]).CGColor;
-
-    void (^changes)(void) = ^{
-        highlight.hidden = NO;
-        highlight.alpha = 1.0;
-        highlight.frame = target;
-    };
-
-    if (animated) {
-        [UIView animateWithDuration:0.24
-                              delay:0.0
-                 usingSpringWithDamping:0.84
-                  initialSpringVelocity:0.0
-                                options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut
-                             animations:changes
-                             completion:nil];
-    } else {
-        changes();
-    }
-
     [self.view bringSubviewToFront:glass];
+    [self.view bringSubviewToFront:self.tabBar];
 }
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    [self lg_layoutFloatingBarAnimated:NO];
+    [self lg_layoutFloatingBar];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
-    [self lg_layoutFloatingBarAnimated:NO];
+    [self lg_layoutFloatingBar];
 }
 
 - (void)setSelectedIndex:(NSUInteger)selectedIndex {
     %orig;
-    [self lg_layoutFloatingBarAnimated:YES];
+    [self lg_layoutFloatingBar];
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     %orig;
-    [self lg_layoutFloatingBarAnimated:NO];
+    [self lg_layoutFloatingBar];
 }
 
 %end
@@ -289,7 +194,7 @@ static NSInteger const kLGHighlightTag = 930003;
     %orig;
     UITabBarController *tab = self.tabBarController;
     if ([tab isKindOfClass:%c(MMTabBarController)]) {
-        [(MMTabBarController *)tab lg_layoutFloatingBarAnimated:NO];
+        [(MMTabBarController *)tab lg_layoutFloatingBar];
     }
 }
 
@@ -297,7 +202,7 @@ static NSInteger const kLGHighlightTag = 930003;
     UIViewController *ret = %orig;
     UITabBarController *tab = self.tabBarController;
     if ([tab isKindOfClass:%c(MMTabBarController)]) {
-        [(MMTabBarController *)tab lg_layoutFloatingBarAnimated:NO];
+        [(MMTabBarController *)tab lg_layoutFloatingBar];
     }
     return ret;
 }
@@ -306,7 +211,7 @@ static NSInteger const kLGHighlightTag = 930003;
     NSArray<UIViewController *> *ret = %orig;
     UITabBarController *tab = self.tabBarController;
     if ([tab isKindOfClass:%c(MMTabBarController)]) {
-        [(MMTabBarController *)tab lg_layoutFloatingBarAnimated:NO];
+        [(MMTabBarController *)tab lg_layoutFloatingBar];
     }
     return ret;
 }
