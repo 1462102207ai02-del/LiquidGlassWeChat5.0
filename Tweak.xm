@@ -156,7 +156,9 @@ static void MMHideNativeTabButtons(UITabBar *tabBar) {
         btn.userInteractionEnabled = NO;
     }
     tabBar.tintColor = [UIColor clearColor];
-    tabBar.unselectedItemTintColor = [UIColor clearColor];
+    if ([tabBar respondsToSelector:@selector(setUnselectedItemTintColor:)]) {
+        tabBar.unselectedItemTintColor = [UIColor clearColor];
+    }
 }
 
 static UIView *MMEnsureGlassHost(UIView *container) {
@@ -282,44 +284,6 @@ static void MMStyleHost(UIView *host) {
     ];
 }
 
-static UIButton *MMBuildMirrorButton(CGRect frame, UIImage *image, NSString *title, BOOL selected, NSInteger idx) {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
-    button.frame = frame;
-    button.tag = idx + 1000;
-    button.backgroundColor = [UIColor clearColor];
-    button.adjustsImageWhenHighlighted = NO;
-
-    UIColor *selColor = MMRGBA(255,255,255,1.0);
-    UIColor *norColor = MMRGBA(255,255,255,0.72);
-    UIColor *color = selected ? selColor : norColor;
-
-    [button setImage:image forState:UIControlStateNormal];
-    [button setTitle:title forState:UIControlStateNormal];
-    [button setTitleColor:color forState:UIControlStateNormal];
-    button.tintColor = color;
-
-    button.titleLabel.font = [UIFont systemFontOfSize:10.5 weight:selected ? UIFontWeightSemibold : UIFontWeightRegular];
-    button.titleLabel.textAlignment = NSTextAlignmentCenter;
-
-    CGFloat w = frame.size.width;
-    CGFloat h = frame.size.height;
-    CGFloat imageSize = 24.0;
-    CGFloat titleH = 14.0;
-    CGFloat imageTop = 7.0;
-    CGFloat spacing = 3.0;
-    CGFloat totalH = imageSize + spacing + titleH;
-    CGFloat contentTop = (h - totalH) * 0.5 - 1.0;
-
-    button.imageEdgeInsets = UIEdgeInsetsMake(contentTop, (w - imageSize) * 0.5 - imageSize * 0.5, h - contentTop - imageSize, 0);
-    button.titleEdgeInsets = UIEdgeInsetsMake(contentTop + imageSize + spacing, -imageSize, h - (contentTop + imageSize + spacing + titleH), 0);
-
-    if (selected) {
-        button.transform = CGAffineTransformMakeScale(1.02, 1.02);
-    }
-
-    return button;
-}
-
 static void MMSwitchToIndex(UIView *sourceView, NSInteger idx) {
     UIViewController *vc = MMFindParentViewController(sourceView);
     if (!vc) return;
@@ -339,14 +303,17 @@ static void MMSwitchToIndex(UIView *sourceView, NSInteger idx) {
     }
 }
 
-%subclass MMMirrorTabButton : UIButton
+@interface MMMirrorTabButton : UIButton
+@end
+
+@implementation MMMirrorTabButton
 
 - (void)mmTap {
     NSInteger idx = self.tag - 1000;
     MMSwitchToIndex(self, idx);
 }
 
-%end
+@end
 
 static UIButton *MMMakeMirrorButton(CGRect frame, UIImage *image, NSString *title, BOOL selected, NSInteger idx) {
     MMMirrorTabButton *button = [MMMirrorTabButton buttonWithType:UIButtonTypeCustom];
@@ -371,7 +338,6 @@ static UIButton *MMMakeMirrorButton(CGRect frame, UIImage *image, NSString *titl
     CGFloat h = frame.size.height;
     CGFloat imageSize = 24.0;
     CGFloat titleH = 14.0;
-    CGFloat imageTop = 7.0;
     CGFloat spacing = 3.0;
     CGFloat totalH = imageSize + spacing + titleH;
     CGFloat contentTop = (h - totalH) * 0.5 - 1.0;
