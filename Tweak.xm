@@ -1,26 +1,33 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <objc/runtime.h>
 
-static NSInteger const kLGBarTag = 950001;
-static NSInteger const kLGStrokeTag = 950002;
-static NSInteger const kLGHighlightTag = 950003;
+static NSInteger const kLGFloatingBarTag = 970001;
+static NSInteger const kLGStrokeTag = 970002;
+static NSInteger const kLGHighlightTag = 970003;
 
 @interface MMTabBar : UITabBar
+- (NSArray *)tabBarItemViews;
+- (UIView *)backgroundView;
+- (void)relayoutTabBarItems;
 @end
 
 @interface MMTabBarController : UITabBarController
+- (void)selectIndex:(NSUInteger)index;
 @end
 
 @interface MMTabBar (LiquidGlass)
 - (BOOL)lg_isInChatPage;
+- (MMTabBarController *)lg_tabBarController;
 - (NSArray<UIView *> *)lg_itemViews;
 - (UIVisualEffectView *)lg_floatingBar;
 - (UIView *)lg_strokeView;
 - (UIView *)lg_highlightView;
 - (void)lg_hideFloatingBar;
-- (void)lg_cleanOriginalBackground;
 - (void)lg_layoutFloatingBar;
 @end
+
+static const void *kLGLayoutingKey = &kLGLayoutingKey;
 
 %hook MMTabBar
 
@@ -35,47 +42,58 @@ static NSInteger const kLGHighlightTag = 950003;
         }
     }
 
-    UIResponder *r = self.nextResponder;
-    while (r) {
-        if ([r isKindOfClass:%c(MMTabBarController)]) {
-            MMTabBarController *tab = (MMTabBarController *)r;
-            UIViewController *selected = tab.selectedViewController;
+    MMTabBarController *tabVC = [self lg_tabBarController];
+    if (!tabVC) return NO;
 
-            if ([selected isKindOfClass:[UINavigationController class]]) {
-                UINavigationController *nav = (UINavigationController *)selected;
-                if (nav.viewControllers.count > 1) return YES;
-                UIViewController *top = nav.topViewController;
-                if (top && top.hidesBottomBarWhenPushed) return YES;
-            } else if (selected && selected.hidesBottomBarWhenPushed) {
-                return YES;
-            }
-
-            break;
-        }
-        r = r.nextResponder;
+    UIViewController *selected = tabVC.selectedViewController;
+    if ([selected isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)selected;
+        if (nav.viewControllers.count > 1) return YES;
+        UIViewController *top = nav.topViewController;
+        if (top && top.hidesBottomBarWhenPushed) return YES;
+    } else if (selected && selected.hidesBottomBarWhenPushed) {
+        return YES;
     }
 
     return NO;
 }
 
 %new
+- (MMTabBarController *)lg_tabBarController {
+    UIResponder *r = self.nextResponder;
+    while (r) {
+        if ([r isKindOfClass:%c(MMTabBarController)]) {
+            return (MMTabBarController *)r;
+        }
+        r = r.nextResponder;
+    }
+    return nil;
+}
+
+%new
 - (NSArray<UIView *> *)lg_itemViews {
+    NSArray *views = nil;
+
+    if ([self respondsToSelector:@selector(tabBarItemViews)]) {
+        views = [self tabBarItemViews];
+    }
+
     NSMutableArray<UIView *> *arr = [NSMutableArray array];
 
-    for (UIView *v in self.subviews) {
-        NSString *cls = NSStringFromClass(v.class);
-        if ([cls containsString:@"MMTabBarItemView"] &&
-            CGRectGetWidth(v.frame) > 60.0 &&
-            CGRectGetHeight(v.frame) > 60.0) {
+    if ([views isKindOfClass:[NSArray class]] && views.count > 0) {
+        for (UIView *v in views) {
+            if (![v isKindOfClass:[UIView class]]) continue;
+            if (CGRectGetWidth(v.frame) < 40.0 || CGRectGetHeight(v.frame) < 40.0) continue;
             [arr addObject:v];
         }
     }
 
     if (arr.count == 0) {
         for (UIView *v in self.subviews) {
-            if ([v isKindOfClass:[UIControl class]] &&
-                CGRectGetWidth(v.frame) > 60.0 &&
-                CGRectGetHeight(v.frame) > 60.0) {
+            NSString *cls = NSStringFromClass(v.class);
+            if ([cls containsString:@"MMTabBarItemView"] &&
+                CGRectGetWidth(v.frame) > 40.0 &&
+                CGRectGetHeight(v.frame) > 40.0) {
                 [arr addObject:v];
             }
         }
@@ -94,15 +112,15 @@ static NSInteger const kLGHighlightTag = 950003;
 
 %new
 - (UIVisualEffectView *)lg_floatingBar {
-    UIVisualEffectView *bar = (UIVisualEffectView *)[self viewWithTag:kLGBarTag];
+    UIVisualEffectView *bar = (UIVisualEffectView *)[self viewWithTag:kLGFloatingBarTag];
     if (bar) return bar;
 
-    UIBlurEffectStyle style = UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+    UIBlurEffectStyle style = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
         ? UIBlurEffectStyleSystemUltraThinMaterialDark
         : UIBlurEffectStyleSystemThinMaterialLight;
 
     bar = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:style]];
-    bar.tag = kLGBarTag;
+    bar.tag = kLGFloatingBarTag;
     bar.userInteractionEnabled = NO;
     bar.clipsToBounds = YES;
     bar.layer.masksToBounds = YES;
@@ -117,8 +135,8 @@ static NSInteger const kLGHighlightTag = 950003;
 
     UIView *highlight = [[UIView alloc] init];
     highlight.tag = kLGHighlightTag;
-    highlight.hidden = YES;
     highlight.userInteractionEnabled = NO;
+    highlight.hidden = YES;
     [bar.contentView addSubview:highlight];
 
     [self insertSubview:bar atIndex:0];
@@ -139,121 +157,122 @@ static NSInteger const kLGHighlightTag = 950003;
 - (void)lg_hideFloatingBar {
     UIVisualEffectView *bar = [self lg_floatingBar];
     UIView *highlight = [self lg_highlightView];
-    bar.hidden = YES;
-    bar.alpha = 0.0;
-    highlight.hidden = YES;
-}
-
-%new
-- (void)lg_cleanOriginalBackground {
-    self.backgroundImage = [UIImage new];
-    self.shadowImage = [UIImage new];
-    self.backgroundColor = UIColor.clearColor;
-    self.barTintColor = UIColor.clearColor;
-    self.translucent = YES;
-    self.opaque = NO;
-    self.clipsToBounds = NO;
-
-    UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
-    [appearance configureWithTransparentBackground];
-    appearance.backgroundEffect = nil;
-    appearance.backgroundColor = UIColor.clearColor;
-    appearance.shadowColor = UIColor.clearColor;
-    self.standardAppearance = appearance;
-
-    for (UIView *v in self.subviews) {
-        if (v.tag == kLGBarTag) continue;
-
-        NSString *cls = NSStringFromClass(v.class);
-        if ([cls containsString:@"_UIBarBackground"] ||
-            [cls containsString:@"_UIVisualEffectBackdropView"] ||
-            [cls containsString:@"_UIVisualEffectSubview"] ||
-            [cls containsString:@"_UIVisualEffectContentView"] ||
-            [cls containsString:@"UIImageView"]) {
-            v.alpha = 0.0;
-        }
+    if (bar) {
+        bar.hidden = YES;
+        bar.alpha = 0.0;
+    }
+    if (highlight) {
+        highlight.hidden = YES;
     }
 }
 
 %new
 - (void)lg_layoutFloatingBar {
-    if (self.hidden || self.alpha < 0.01 || [self lg_isInChatPage]) {
-        [self lg_hideFloatingBar];
-        return;
-    }
+    NSNumber *layouting = objc_getAssociatedObject(self, kLGLayoutingKey);
+    if (layouting.boolValue) return;
+    objc_setAssociatedObject(self, kLGLayoutingKey, @(YES), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    NSArray<UIView *> *items = [self lg_itemViews];
-    if (items.count == 0) {
-        [self lg_hideFloatingBar];
-        return;
-    }
-
-    [self lg_cleanOriginalBackground];
-
-    UIVisualEffectView *bar = [self lg_floatingBar];
-    UIView *stroke = [self lg_strokeView];
-    UIView *highlight = [self lg_highlightView];
-
-    UIBlurEffectStyle style = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-        ? UIBlurEffectStyleSystemUltraThinMaterialDark
-        : UIBlurEffectStyleSystemThinMaterialLight;
-
-    CGFloat margin = 20.0;
-    CGFloat height = 62.0;
-    CGFloat y = 4.0;
-    CGFloat width = CGRectGetWidth(self.bounds) - margin * 2.0;
-
-    bar.hidden = NO;
-    bar.alpha = 1.0;
-    bar.effect = [UIBlurEffect effectWithStyle:style];
-    bar.frame = CGRectMake(margin, y, width, height);
-    bar.layer.cornerRadius = height * 0.5;
-
-    stroke.frame = bar.contentView.bounds;
-    stroke.layer.cornerRadius = bar.layer.cornerRadius;
-    stroke.layer.borderWidth = 0.6;
-    stroke.layer.borderColor = (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-        ? [UIColor colorWithWhite:1.0 alpha:0.12]
-        : [UIColor colorWithWhite:1.0 alpha:0.26]).CGColor;
-
-    [self sendSubviewToBack:bar];
-
-    UIResponder *r = self.nextResponder;
-    NSUInteger selectedIndex = 0;
-    while (r) {
-        if ([r isKindOfClass:%c(MMTabBarController)]) {
-            selectedIndex = [(MMTabBarController *)r selectedIndex];
-            break;
+    @try {
+        if (self.hidden || self.alpha < 0.01 || CGRectGetWidth(self.bounds) < 10.0 || CGRectGetHeight(self.bounds) < 10.0) {
+            [self lg_hideFloatingBar];
+            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            return;
         }
-        r = r.nextResponder;
+
+        if ([self lg_isInChatPage]) {
+            [self lg_hideFloatingBar];
+            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            return;
+        }
+
+        NSArray<UIView *> *items = [self lg_itemViews];
+        if (items.count < 2) {
+            [self lg_hideFloatingBar];
+            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            return;
+        }
+
+        self.backgroundImage = [UIImage new];
+        self.shadowImage = [UIImage new];
+        self.backgroundColor = UIColor.clearColor;
+        self.barTintColor = UIColor.clearColor;
+        self.translucent = YES;
+        self.opaque = NO;
+        self.clipsToBounds = NO;
+
+        if ([self respondsToSelector:@selector(backgroundView)]) {
+            UIView *bg = [self backgroundView];
+            if (bg) bg.alpha = 0.0;
+        }
+
+        for (UIView *v in self.subviews) {
+            NSString *cls = NSStringFromClass(v.class);
+            if ([cls containsString:@"_UIBarBackground"] ||
+                [cls containsString:@"UIImageView"]) {
+                v.alpha = 0.0;
+            }
+        }
+
+        UIVisualEffectView *bar = [self lg_floatingBar];
+        UIView *stroke = [self lg_strokeView];
+        UIView *highlight = [self lg_highlightView];
+
+        CGFloat margin = 20.0;
+        CGFloat height = 62.0;
+        CGFloat y = 4.0;
+        CGFloat width = CGRectGetWidth(self.bounds) - margin * 2.0;
+
+        UIBlurEffectStyle style = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? UIBlurEffectStyleSystemUltraThinMaterialDark
+            : UIBlurEffectStyleSystemThinMaterialLight;
+
+        bar.hidden = NO;
+        bar.alpha = 1.0;
+        bar.effect = [UIBlurEffect effectWithStyle:style];
+        bar.frame = CGRectMake(margin, y, width, height);
+        bar.layer.cornerRadius = height * 0.5;
+
+        stroke.frame = bar.contentView.bounds;
+        stroke.layer.cornerRadius = bar.layer.cornerRadius;
+        stroke.layer.borderWidth = 0.6;
+        stroke.layer.borderColor = (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithWhite:1.0 alpha:0.12]
+            : [UIColor colorWithWhite:1.0 alpha:0.24]).CGColor;
+
+        [self sendSubviewToBack:bar];
+        for (UIView *item in items) {
+            [self bringSubviewToFront:item];
+        }
+
+        MMTabBarController *tabVC = [self lg_tabBarController];
+        NSUInteger idx = tabVC ? tabVC.selectedIndex : 0;
+        if (idx >= items.count) {
+            highlight.hidden = YES;
+            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            return;
+        }
+
+        UIView *selectedItem = items[idx];
+        CGRect r = [bar.contentView convertRect:selectedItem.frame fromView:selectedItem.superview];
+
+        CGFloat pillW = MIN(66.0, MAX(50.0, CGRectGetWidth(r) - 24.0));
+        CGFloat pillH = 40.0;
+
+        highlight.hidden = NO;
+        highlight.alpha = 1.0;
+        highlight.frame = CGRectMake(CGRectGetMidX(r) - pillW * 0.5, 6.0, pillW, pillH);
+        highlight.backgroundColor = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithWhite:1.0 alpha:0.14]
+            : [UIColor colorWithWhite:1.0 alpha:0.20];
+        highlight.layer.cornerRadius = pillH * 0.5;
+        highlight.layer.borderWidth = 0.6;
+        highlight.layer.borderColor = (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithWhite:1.0 alpha:0.12]
+            : [UIColor colorWithWhite:1.0 alpha:0.22]).CGColor;
+    } @catch (__unused NSException *e) {
     }
 
-    if (selectedIndex >= items.count) {
-        highlight.hidden = YES;
-        return;
-    }
-
-    UIView *selectedItem = items[selectedIndex];
-    CGRect rct = [bar.contentView convertRect:selectedItem.frame fromView:selectedItem.superview];
-
-    CGFloat pillW = MIN(66.0, MAX(50.0, CGRectGetWidth(rct) - 24.0));
-    CGFloat pillH = 40.0;
-
-    highlight.hidden = NO;
-    highlight.alpha = 1.0;
-    highlight.frame = CGRectMake(CGRectGetMidX(rct) - pillW * 0.5, 6.0, pillW, pillH);
-    highlight.backgroundColor = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-        ? [UIColor colorWithWhite:1.0 alpha:0.14]
-        : [UIColor colorWithWhite:1.0 alpha:0.20];
-    highlight.layer.cornerRadius = pillH * 0.5;
-    highlight.layer.borderWidth = 0.6;
-    highlight.layer.borderColor = (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-        ? [UIColor colorWithWhite:1.0 alpha:0.12]
-        : [UIColor colorWithWhite:1.0 alpha:0.24]).CGColor;
-
-    for (UIView *item in items) {
-        [self bringSubviewToFront:item];
-    }
+    objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void)layoutSubviews {
