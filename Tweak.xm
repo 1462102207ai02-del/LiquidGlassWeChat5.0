@@ -5,10 +5,15 @@ static NSInteger const kLGGlassTag = 730001;
 static NSInteger const kLGStrokeTag = 730002;
 static NSInteger const kLGHighlightTag = 730003;
 
+@interface MainTabBarViewController : UIViewController
+@end
+
 @interface MMTabBarController : UITabBarController
 @end
 
-@interface MMTabBarController (LiquidGlass)
+@interface MainTabBarViewController (LiquidGlass)
+- (MMTabBarController *)lg_tabController;
+- (UITabBar *)lg_realTabBar;
 - (UIVisualEffectView *)lg_glassBar;
 - (UIView *)lg_strokeView;
 - (UIView *)lg_highlightView;
@@ -24,7 +29,35 @@ static NSInteger const kLGHighlightTag = 730003;
 - (void)lg_hideFloatingBar;
 @end
 
-%hook MMTabBarController
+%hook MainTabBarViewController
+
+%new
+- (MMTabBarController *)lg_tabController {
+    for (UIViewController *vc in self.childViewControllers) {
+        if ([vc isKindOfClass:%c(MMTabBarController)]) {
+            return (MMTabBarController *)vc;
+        }
+    }
+
+    for (UIView *sub in self.view.subviews) {
+        UIResponder *responder = sub.nextResponder;
+        while (responder) {
+            if ([responder isKindOfClass:%c(MMTabBarController)]) {
+                return (MMTabBarController *)responder;
+            }
+            responder = [responder nextResponder];
+        }
+    }
+
+    return nil;
+}
+
+%new
+- (UITabBar *)lg_realTabBar {
+    MMTabBarController *tabVC = [self lg_tabController];
+    if (!tabVC) return nil;
+    return tabVC.tabBar;
+}
 
 %new
 - (UIBlurEffectStyle)lg_blurStyle {
@@ -88,9 +121,11 @@ static NSInteger const kLGHighlightTag = 730003;
 
 %new
 - (NSArray<UIControl *> *)lg_tabButtons {
+    UITabBar *tabBar = [self lg_realTabBar];
     NSMutableArray<UIControl *> *arr = [NSMutableArray array];
+    if (!tabBar) return arr;
 
-    for (UIView *sub in self.tabBar.subviews) {
+    for (UIView *sub in tabBar.subviews) {
         if (![sub isKindOfClass:[UIControl class]]) continue;
         if (CGRectGetWidth(sub.frame) < 20.0 || CGRectGetHeight(sub.frame) < 20.0) continue;
         [arr addObject:(UIControl *)sub];
@@ -109,25 +144,28 @@ static NSInteger const kLGHighlightTag = 730003;
 
 %new
 - (BOOL)lg_shouldShowFloatingBar {
-    UITabBar *tabBar = self.tabBar;
-    if (!tabBar) return NO;
+    MMTabBarController *tabVC = [self lg_tabController];
+    UITabBar *tabBar = [self lg_realTabBar];
+    if (!tabVC || !tabBar) return NO;
     if (!self.isViewLoaded) return NO;
     if (!self.view.window) return NO;
     if (tabBar.hidden) return NO;
     if (tabBar.alpha < 0.01) return NO;
     if (CGRectGetWidth(tabBar.bounds) < 10.0 || CGRectGetHeight(tabBar.bounds) < 10.0) return NO;
 
-    CGRect frame = tabBar.frame;
+    CGRect frameInSelf = [self.view convertRect:tabBar.frame fromView:tabBar.superview];
     CGFloat viewH = CGRectGetHeight(self.view.bounds);
-    CGFloat minBottomRegion = viewH - 140.0;
+    if (CGRectGetMinY(frameInSelf) < viewH - 140.0) return NO;
+    if (CGRectGetMaxY(frameInSelf) < viewH - 80.0) return NO;
 
-    if (CGRectGetMinY(frame) < minBottomRegion) return NO;
-    if (CGRectGetMaxY(frame) < viewH - 80.0) return NO;
-
-    UIViewController *selectedVC = self.selectedViewController;
+    UIViewController *selectedVC = tabVC.selectedViewController;
     if ([selectedVC isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)selectedVC;
         if (nav.viewControllers.count > 1) return NO;
+        UIViewController *top = nav.topViewController;
+        if (top && top.hidesBottomBarWhenPushed) return NO;
+    } else if (selectedVC && selectedVC.hidesBottomBarWhenPushed) {
+        return NO;
     }
 
     return YES;
@@ -144,7 +182,7 @@ static NSInteger const kLGHighlightTag = 730003;
 
 %new
 - (void)lg_prepareTabBar {
-    UITabBar *tabBar = self.tabBar;
+    UITabBar *tabBar = [self lg_realTabBar];
     if (!tabBar) return;
 
     tabBar.hidden = NO;
@@ -166,7 +204,7 @@ static NSInteger const kLGHighlightTag = 730003;
 
 %new
 - (void)lg_layoutGlassBar {
-    UITabBar *tabBar = self.tabBar;
+    UITabBar *tabBar = [self lg_realTabBar];
     UIVisualEffectView *glass = [self lg_glassBar];
     if (!tabBar || !glass) return;
 
@@ -175,7 +213,7 @@ static NSInteger const kLGHighlightTag = 730003;
         return;
     }
 
-    CGRect sourceFrame = tabBar.frame;
+    CGRect sourceFrame = [self.view convertRect:tabBar.frame fromView:tabBar.superview];
     CGFloat margin = 20.0;
     CGFloat height = 62.0;
     CGFloat lift = 10.0;
@@ -199,22 +237,26 @@ static NSInteger const kLGHighlightTag = 730003;
     highlight.backgroundColor = [self lg_highlightColor];
 
     [self.view bringSubviewToFront:glass];
-    [self.view bringSubviewToFront:tabBar];
+    if (tabBar.superview == self.view) {
+        [self.view bringSubviewToFront:tabBar];
+    } else {
+        [tabBar.superview bringSubviewToFront:tabBar];
+    }
 }
 
 %new
 - (void)lg_layoutRealButtons {
     NSArray<UIControl *> *buttons = [self lg_tabButtons];
-    if (buttons.count == 0) return;
+    UITabBar *tabBar = [self lg_realTabBar];
+    if (!tabBar || buttons.count == 0) return;
     if (![self lg_shouldShowFloatingBar]) return;
 
-    UITabBar *tabBar = self.tabBar;
     CGFloat contentOffsetY = -6.0;
     CGFloat selectedLift = -1.0;
 
     for (NSInteger i = 0; i < (NSInteger)buttons.count; i++) {
         UIControl *btn = buttons[i];
-        BOOL selected = (i == (NSInteger)self.selectedIndex);
+        BOOL selected = (i == (NSInteger)[self lg_tabController].selectedIndex);
 
         CGRect f = btn.frame;
         f.origin.y = contentOffsetY + (selected ? selectedLift : 0.0);
@@ -233,18 +275,19 @@ static NSInteger const kLGHighlightTag = 730003;
     NSArray<UIControl *> *buttons = [self lg_tabButtons];
     UIView *highlight = [self lg_highlightView];
     UIVisualEffectView *glass = [self lg_glassBar];
+    MMTabBarController *tabVC = [self lg_tabController];
 
     if (![self lg_shouldShowFloatingBar]) {
         highlight.hidden = YES;
         return;
     }
 
-    if (buttons.count == 0 || self.selectedIndex >= buttons.count) {
+    if (buttons.count == 0 || !tabVC || tabVC.selectedIndex >= buttons.count) {
         highlight.hidden = YES;
         return;
     }
 
-    UIControl *selectedButton = buttons[self.selectedIndex];
+    UIControl *selectedButton = buttons[tabVC.selectedIndex];
     CGRect r = [glass.contentView convertRect:selectedButton.frame fromView:selectedButton.superview];
 
     CGFloat pillW = MIN(62.0, MAX(48.0, CGRectGetWidth(r) - 16.0));
@@ -290,18 +333,80 @@ static NSInteger const kLGHighlightTag = 730003;
     [self lg_updateSelectionHighlightAnimated:NO];
 }
 
-- (void)setSelectedIndex:(NSUInteger)selectedIndex {
-    %orig;
-    [self lg_layoutGlassBar];
-    [self lg_layoutRealButtons];
-    [self lg_updateSelectionHighlightAnimated:YES];
-}
-
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     %orig;
     [self lg_layoutGlassBar];
     [self lg_layoutRealButtons];
     [self lg_updateSelectionHighlightAnimated:NO];
+}
+
+%end
+
+%hook MMTabBarController
+
+- (void)setSelectedIndex:(NSUInteger)selectedIndex {
+    %orig;
+
+    UIViewController *parent = self.parentViewController;
+    if ([parent isKindOfClass:%c(MainTabBarViewController)]) {
+        MainTabBarViewController *mainVC = (MainTabBarViewController *)parent;
+        [mainVC lg_layoutGlassBar];
+        [mainVC lg_layoutRealButtons];
+        [mainVC lg_updateSelectionHighlightAnimated:YES];
+    }
+}
+
+%end
+
+%hook UINavigationController
+
+- (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated {
+    %orig;
+
+    UIViewController *tabVC = self.tabBarController;
+    if ([tabVC isKindOfClass:%c(MMTabBarController)]) {
+        UIViewController *parent = tabVC.parentViewController;
+        if ([parent isKindOfClass:%c(MainTabBarViewController)]) {
+            MainTabBarViewController *mainVC = (MainTabBarViewController *)parent;
+            [mainVC lg_layoutGlassBar];
+            [mainVC lg_layoutRealButtons];
+            [mainVC lg_updateSelectionHighlightAnimated:NO];
+        }
+    }
+}
+
+- (UIViewController *)popViewControllerAnimated:(BOOL)animated {
+    UIViewController *ret = %orig;
+
+    UIViewController *tabVC = self.tabBarController;
+    if ([tabVC isKindOfClass:%c(MMTabBarController)]) {
+        UIViewController *parent = tabVC.parentViewController;
+        if ([parent isKindOfClass:%c(MainTabBarViewController)]) {
+            MainTabBarViewController *mainVC = (MainTabBarViewController *)parent;
+            [mainVC lg_layoutGlassBar];
+            [mainVC lg_layoutRealButtons];
+            [mainVC lg_updateSelectionHighlightAnimated:NO];
+        }
+    }
+
+    return ret;
+}
+
+- (NSArray<UIViewController *> *)popToRootViewControllerAnimated:(BOOL)animated {
+    NSArray<UIViewController *> *ret = %orig;
+
+    UIViewController *tabVC = self.tabBarController;
+    if ([tabVC isKindOfClass:%c(MMTabBarController)]) {
+        UIViewController *parent = tabVC.parentViewController;
+        if ([parent isKindOfClass:%c(MainTabBarViewController)]) {
+            MainTabBarViewController *mainVC = (MainTabBarViewController *)parent;
+            [mainVC lg_layoutGlassBar];
+            [mainVC lg_layoutRealButtons];
+            [mainVC lg_updateSelectionHighlightAnimated:NO];
+        }
+    }
+
+    return ret;
 }
 
 %end
