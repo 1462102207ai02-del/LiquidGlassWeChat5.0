@@ -140,8 +140,8 @@ static NSInteger const kLGHighlightTag = 90003;
 
 %new
 - (void)lg_cleanSystemBackground {
-    self.tabBar.backgroundImage = UIImage.new;
-    self.tabBar.shadowImage = UIImage.new;
+    self.tabBar.backgroundImage = [UIImage new];
+    self.tabBar.shadowImage = [UIImage new];
     self.tabBar.backgroundColor = UIColor.clearColor;
     self.tabBar.barTintColor = UIColor.clearColor;
     self.tabBar.translucent = YES;
