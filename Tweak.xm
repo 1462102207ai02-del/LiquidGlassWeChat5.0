@@ -1,13 +1,11 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
-#import <objc/runtime.h>
 
-static NSInteger const kMMGlassHostTag = 710001;
-static NSInteger const kMMGlassViewTag = 710002;
-static NSInteger const kMMCapsuleTag = 710003;
-static NSInteger const kMMButtonsContainerTag = 710004;
-static NSInteger const kMMStrokeTag = 710005;
-static NSInteger const kMMGlowTag = 710006;
+static NSInteger const kMMGlassHostTag = 810001;
+static NSInteger const kMMGlassViewTag = 810002;
+static NSInteger const kMMCapsuleTag = 810003;
+static NSInteger const kMMStrokeTag = 810004;
+static NSInteger const kMMGlowTag = 810005;
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
     return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
@@ -84,49 +82,13 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
     return nil;
 }
 
-static UIViewController *MMFindParentViewController(UIView *view) {
-    UIResponder *responder = view;
-    while (responder) {
-        responder = [responder nextResponder];
-        if ([responder isKindOfClass:[UIViewController class]]) {
-            return (UIViewController *)responder;
-        }
-    }
-    return nil;
-}
-
-static UIImage *MMTemplateImageFromButtonView(UIView *buttonView) {
-    for (UIView *sub in buttonView.subviews) {
-        if ([sub isKindOfClass:[UIImageView class]]) {
-            UIImageView *iv = (UIImageView *)sub;
-            if (iv.image) {
-                return [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-            }
-        }
-    }
-    return nil;
-}
-
-static NSString *MMTitleFromButtonView(UIView *buttonView, NSInteger idx, UITabBar *tabBar) {
-    for (UIView *sub in buttonView.subviews) {
-        if ([sub isKindOfClass:[UILabel class]]) {
-            UILabel *lab = (UILabel *)sub;
-            if (lab.text.length > 0) return lab.text;
-        }
-    }
-    if (idx < tabBar.items.count) {
-        UITabBarItem *item = tabBar.items[idx];
-        if (item.title.length > 0) return item.title;
-    }
-    return @"";
-}
-
 static void MMClearNativeTabBar(UITabBar *tabBar) {
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = [UIColor clearColor];
     tabBar.barTintColor = [UIColor clearColor];
     tabBar.translucent = YES;
+    tabBar.clipsToBounds = NO;
 
     if (NSClassFromString(@"UITabBarAppearance")) {
         UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
@@ -148,26 +110,13 @@ static void MMClearNativeTabBar(UITabBar *tabBar) {
     }
 }
 
-static void MMHideNativeTabButtons(UITabBar *tabBar) {
-    NSArray<UIView *> *buttons = MMTabButtons(tabBar);
-    for (UIView *btn in buttons) {
-        btn.hidden = YES;
-        btn.alpha = 0.0;
-        btn.userInteractionEnabled = NO;
-    }
-    tabBar.tintColor = [UIColor clearColor];
-    if ([tabBar respondsToSelector:@selector(setUnselectedItemTintColor:)]) {
-        tabBar.unselectedItemTintColor = [UIColor clearColor];
-    }
-}
-
 static UIView *MMEnsureGlassHost(UIView *container) {
     UIView *host = [container viewWithTag:kMMGlassHostTag];
     if (!host) {
         host = [[UIView alloc] initWithFrame:CGRectZero];
         host.tag = kMMGlassHostTag;
         host.backgroundColor = [UIColor clearColor];
-        host.userInteractionEnabled = YES;
+        host.userInteractionEnabled = NO;
         host.clipsToBounds = NO;
         [container addSubview:host];
     }
@@ -187,19 +136,6 @@ static UIVisualEffectView *MMEnsureGlassView(UIView *host) {
     MMSetContinuousRadius(glass, host.bounds.size.height / 2.0);
     glass.layer.masksToBounds = YES;
     return glass;
-}
-
-static UIView *MMEnsureButtonsContainer(UIView *host) {
-    UIView *container = [host viewWithTag:kMMButtonsContainerTag];
-    if (!container) {
-        container = [[UIView alloc] initWithFrame:CGRectZero];
-        container.tag = kMMButtonsContainerTag;
-        container.backgroundColor = [UIColor clearColor];
-        container.userInteractionEnabled = YES;
-        [host addSubview:container];
-    }
-    container.frame = host.bounds;
-    return container;
 }
 
 static UIView *MMEnsureCapsule(UIView *host) {
@@ -284,104 +220,52 @@ static void MMStyleHost(UIView *host) {
     ];
 }
 
-static void MMSwitchToIndex(UIView *sourceView, NSInteger idx) {
-    UIViewController *vc = MMFindParentViewController(sourceView);
-    if (!vc) return;
+static void MMApplyButtonTint(UIView *button, BOOL selected) {
+    UIColor *selectedColor = MMRGBA(255,255,255,1.0);
+    UIColor *normalColor = MMRGBA(255,255,255,0.72);
+    UIColor *color = selected ? selectedColor : normalColor;
 
-    if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-        @try {
-            [(id)vc setSelectedIndex:idx];
-        } @catch (__unused NSException *e) {}
-    }
-
-    UITabBar *tabBar = MMFindTabBar(vc);
-    if (tabBar && idx < tabBar.items.count) {
-        UITabBarItem *item = tabBar.items[idx];
-        if (item) {
-            tabBar.selectedItem = item;
+    for (UIView *sub in button.subviews) {
+        if ([sub isKindOfClass:[UIImageView class]]) {
+            UIImageView *iv = (UIImageView *)sub;
+            iv.tintColor = color;
+            if (iv.image) {
+                iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            }
+            iv.alpha = selected ? 1.0 : 0.92;
+            iv.transform = selected ? CGAffineTransformMakeScale(1.04, 1.04) : CGAffineTransformIdentity;
+        } else if ([sub isKindOfClass:[UILabel class]]) {
+            UILabel *lab = (UILabel *)sub;
+            lab.textColor = color;
+            lab.alpha = selected ? 1.0 : 0.92;
         }
     }
 }
 
-@interface MMMirrorTabButton : UIButton
-@end
-
-@implementation MMMirrorTabButton
-
-- (void)mmTap {
-    NSInteger idx = self.tag - 1000;
-    MMSwitchToIndex(self, idx);
-}
-
-@end
-
-static UIButton *MMMakeMirrorButton(CGRect frame, UIImage *image, NSString *title, BOOL selected, NSInteger idx) {
-    MMMirrorTabButton *button = [MMMirrorTabButton buttonWithType:UIButtonTypeCustom];
-    button.frame = frame;
-    button.tag = idx + 1000;
-    button.backgroundColor = [UIColor clearColor];
-    button.adjustsImageWhenHighlighted = NO;
-
-    UIColor *selColor = MMRGBA(255,255,255,1.0);
-    UIColor *norColor = MMRGBA(255,255,255,0.72);
-    UIColor *color = selected ? selColor : norColor;
-
-    [button setImage:image forState:UIControlStateNormal];
-    [button setTitle:title forState:UIControlStateNormal];
-    [button setTitleColor:color forState:UIControlStateNormal];
-    button.tintColor = color;
-
-    button.titleLabel.font = [UIFont systemFontOfSize:10.5 weight:selected ? UIFontWeightSemibold : UIFontWeightRegular];
-    button.titleLabel.textAlignment = NSTextAlignmentCenter;
-
-    CGFloat w = frame.size.width;
-    CGFloat h = frame.size.height;
-    CGFloat imageSize = 24.0;
-    CGFloat titleH = 14.0;
-    CGFloat spacing = 3.0;
-    CGFloat totalH = imageSize + spacing + titleH;
-    CGFloat contentTop = (h - totalH) * 0.5 - 1.0;
-
-    button.imageEdgeInsets = UIEdgeInsetsMake(contentTop, (w - imageSize) * 0.5 - imageSize * 0.5, h - contentTop - imageSize, 0);
-    button.titleEdgeInsets = UIEdgeInsetsMake(contentTop + imageSize + spacing, -imageSize, h - (contentTop + imageSize + spacing + titleH), 0);
-
-    if (selected) {
-        button.transform = CGAffineTransformMakeScale(1.02, 1.02);
-    }
-
-    [button addTarget:button action:@selector(mmTap) forControlEvents:UIControlEventTouchUpInside];
-    return button;
-}
-
-static void MMRebuildMirrorButtons(UITabBar *tabBar, UIView *host) {
-    UIView *buttonsContainer = MMEnsureButtonsContainer(host);
-    for (UIView *sub in [buttonsContainer.subviews copy]) {
-        [sub removeFromSuperview];
-    }
-
-    NSArray<UIView *> *nativeButtons = MMTabButtons(tabBar);
-    NSInteger count = nativeButtons.count;
-    if (count == 0 && tabBar.items.count > 0) count = tabBar.items.count;
+static void MMLayoutNativeButtons(UITabBar *tabBar, UIView *host) {
+    NSArray<UIView *> *buttons = MMTabButtons(tabBar);
+    NSInteger count = buttons.count;
     if (count == 0) return;
 
-    NSInteger selected = MMSelectedIndex(tabBar);
     CGFloat sidePadding = 6.0;
     CGFloat topPadding = 6.0;
-    CGFloat itemW = (host.bounds.size.width - sidePadding * 2.0) / count;
-    CGFloat itemH = host.bounds.size.height - topPadding * 2.0;
+    CGFloat itemW = (tabBar.bounds.size.width - sidePadding * 2.0) / count;
+    CGFloat itemH = tabBar.bounds.size.height - topPadding * 2.0;
 
+    NSInteger selected = MMSelectedIndex(tabBar);
     UIView *capsule = MMEnsureCapsule(host);
+
     CGRect capsuleFrame = CGRectMake(sidePadding + itemW * selected, topPadding, itemW, itemH);
     capsuleFrame = CGRectInset(capsuleFrame, 2.0, 0.0);
 
-    [UIView animateWithDuration:0.26 delay:0.0 options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState animations:^{
+    [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
         capsule.frame = capsuleFrame;
         MMSetContinuousRadius(capsule, capsule.bounds.size.height / 2.0);
 
         UIView *stroke = [capsule viewWithTag:kMMStrokeTag];
         if (stroke) {
             stroke.frame = capsule.bounds;
-            MMSetContinuousRadius(stroke, capsule.bounds.size.height / 2.0);
+            MMSetContinuousRadius(stroke, stroke.bounds.size.height / 2.0);
         }
 
         UIView *glow = [capsule viewWithTag:kMMGlowTag];
@@ -394,16 +278,20 @@ static void MMRebuildMirrorButtons(UITabBar *tabBar, UIView *host) {
     } completion:nil];
 
     for (NSInteger i = 0; i < count; i++) {
-        UIView *nativeButton = i < nativeButtons.count ? nativeButtons[i] : nil;
-        UIImage *img = nativeButton ? MMTemplateImageFromButtonView(nativeButton) : nil;
-        NSString *title = MMTitleFromButtonView(nativeButton, i, tabBar);
-        CGRect f = CGRectMake(sidePadding + i * itemW, topPadding, itemW, itemH);
-        UIButton *mirror = MMMakeMirrorButton(f, img, title, i == selected, i);
-        [buttonsContainer addSubview:mirror];
+        UIView *btn = buttons[i];
+        CGFloat x = sidePadding + i * itemW;
+        CGFloat w = (i == count - 1) ? (tabBar.bounds.size.width - sidePadding - x) : itemW;
+        btn.frame = CGRectMake(x, topPadding, w, itemH);
+        btn.hidden = NO;
+        btn.alpha = 1.0;
+        btn.userInteractionEnabled = YES;
+        btn.backgroundColor = [UIColor clearColor];
+        btn.layer.zPosition = 20;
+        MMApplyButtonTint(btn, i == selected);
     }
 
     [host bringSubviewToFront:capsule];
-    [host bringSubviewToFront:buttonsContainer];
+    [tabBar.superview bringSubviewToFront:tabBar];
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
@@ -412,9 +300,6 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     UITabBar *tabBar = MMFindTabBar(vc);
     if (!tabBar) return;
-
-    MMClearNativeTabBar(tabBar);
-    MMHideNativeTabButtons(tabBar);
 
     CGFloat bottomInset = MMBottomInset(container);
     CGFloat margin = 16.0;
@@ -435,13 +320,18 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     UIVisualEffectView *glass = MMEnsureGlassView(host);
     glass.frame = host.bounds;
 
-    tabBar.frame = CGRectMake(0, container.bounds.size.height + 200.0, 1.0, 1.0);
-    tabBar.alpha = 0.01;
+    MMClearNativeTabBar(tabBar);
+
+    tabBar.frame = frame;
     tabBar.hidden = NO;
+    tabBar.alpha = 1.0;
+    tabBar.backgroundColor = [UIColor clearColor];
+    tabBar.layer.zPosition = 999;
 
-    MMRebuildMirrorButtons(tabBar, host);
+    [container insertSubview:host belowSubview:tabBar];
+    [container bringSubviewToFront:tabBar];
 
-    [container bringSubviewToFront:host];
+    MMLayoutNativeButtons(tabBar, host);
 }
 
 %hook MMTabBarController
@@ -473,20 +363,6 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     dispatch_async(dispatch_get_main_queue(), ^{
         MMUpdateFloatingBar((UIViewController *)self);
     });
-}
-
-%end
-
-%hook UITabBar
-
-- (void)setSelectedItem:(UITabBarItem *)selectedItem {
-    %orig(selectedItem);
-    UIViewController *vc = MMFindParentViewController(self);
-    if (vc) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            MMUpdateFloatingBar(vc);
-        });
-    }
 }
 
 %end
