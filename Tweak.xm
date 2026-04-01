@@ -16,10 +16,12 @@ static NSInteger const kLGHighlightTag = 730003;
 - (UIBlurEffectStyle)lg_blurStyle;
 - (UIColor *)lg_strokeColor;
 - (UIColor *)lg_highlightColor;
+- (BOOL)lg_shouldShowFloatingBar;
 - (void)lg_prepareTabBar;
 - (void)lg_layoutGlassBar;
 - (void)lg_layoutRealButtons;
 - (void)lg_updateSelectionHighlightAnimated:(BOOL)animated;
+- (void)lg_hideFloatingBar;
 @end
 
 %hook MMTabBarController
@@ -55,6 +57,8 @@ static NSInteger const kLGHighlightTag = 730003;
     glass.userInteractionEnabled = NO;
     glass.clipsToBounds = YES;
     glass.layer.masksToBounds = YES;
+    glass.hidden = YES;
+    glass.alpha = 0.0;
 
     UIView *stroke = [[UIView alloc] init];
     stroke.tag = kLGStrokeTag;
@@ -104,6 +108,41 @@ static NSInteger const kLGHighlightTag = 730003;
 }
 
 %new
+- (BOOL)lg_shouldShowFloatingBar {
+    UITabBar *tabBar = self.tabBar;
+    if (!tabBar) return NO;
+    if (!self.isViewLoaded) return NO;
+    if (!self.view.window) return NO;
+    if (tabBar.hidden) return NO;
+    if (tabBar.alpha < 0.01) return NO;
+    if (CGRectGetWidth(tabBar.bounds) < 10.0 || CGRectGetHeight(tabBar.bounds) < 10.0) return NO;
+
+    CGRect frame = tabBar.frame;
+    CGFloat viewH = CGRectGetHeight(self.view.bounds);
+    CGFloat minBottomRegion = viewH - 140.0;
+
+    if (CGRectGetMinY(frame) < minBottomRegion) return NO;
+    if (CGRectGetMaxY(frame) < viewH - 80.0) return NO;
+
+    UIViewController *selectedVC = self.selectedViewController;
+    if ([selectedVC isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)selectedVC;
+        if (nav.viewControllers.count > 1) return NO;
+    }
+
+    return YES;
+}
+
+%new
+- (void)lg_hideFloatingBar {
+    UIVisualEffectView *glass = [self lg_glassBar];
+    UIView *highlight = [self lg_highlightView];
+    glass.hidden = YES;
+    glass.alpha = 0.0;
+    highlight.hidden = YES;
+}
+
+%new
 - (void)lg_prepareTabBar {
     UITabBar *tabBar = self.tabBar;
     if (!tabBar) return;
@@ -131,14 +170,21 @@ static NSInteger const kLGHighlightTag = 730003;
     UIVisualEffectView *glass = [self lg_glassBar];
     if (!tabBar || !glass) return;
 
+    if (![self lg_shouldShowFloatingBar]) {
+        [self lg_hideFloatingBar];
+        return;
+    }
+
     CGRect sourceFrame = tabBar.frame;
     CGFloat margin = 20.0;
     CGFloat height = 62.0;
-    CGFloat lift = 12.0;
+    CGFloat lift = 10.0;
     CGFloat x = margin;
     CGFloat y = CGRectGetMinY(sourceFrame) + (CGRectGetHeight(sourceFrame) - height) * 0.5 - lift;
     CGFloat width = CGRectGetWidth(self.view.bounds) - margin * 2.0;
 
+    glass.hidden = NO;
+    glass.alpha = 1.0;
     glass.effect = [UIBlurEffect effectWithStyle:[self lg_blurStyle]];
     glass.frame = CGRectMake(x, y, width, height);
     glass.layer.cornerRadius = height * 0.5;
@@ -160,23 +206,19 @@ static NSInteger const kLGHighlightTag = 730003;
 - (void)lg_layoutRealButtons {
     NSArray<UIControl *> *buttons = [self lg_tabButtons];
     if (buttons.count == 0) return;
+    if (![self lg_shouldShowFloatingBar]) return;
 
-    UIVisualEffectView *glass = [self lg_glassBar];
-    CGRect glassFrame = glass.frame;
-
-    CGFloat itemW = CGRectGetWidth(glassFrame) / MAX((NSInteger)buttons.count, 1);
-    CGFloat contentOffsetY = -9.0;
-    CGFloat selectedLift = -1.5;
+    UITabBar *tabBar = self.tabBar;
+    CGFloat contentOffsetY = -6.0;
+    CGFloat selectedLift = -1.0;
 
     for (NSInteger i = 0; i < (NSInteger)buttons.count; i++) {
         UIControl *btn = buttons[i];
         BOOL selected = (i == (NSInteger)self.selectedIndex);
 
         CGRect f = btn.frame;
-        f.origin.x = CGRectGetMinX(glassFrame) + i * itemW;
-        f.size.width = itemW;
-        f.origin.y = CGRectGetMinY(glassFrame) + contentOffsetY + (selected ? selectedLift : 0.0);
-        f.size.height = CGRectGetHeight(glassFrame) + 10.0;
+        f.origin.y = contentOffsetY + (selected ? selectedLift : 0.0);
+        f.size.height = CGRectGetHeight(tabBar.bounds) + 6.0;
         btn.frame = f;
 
         btn.alpha = 1.0;
@@ -192,6 +234,11 @@ static NSInteger const kLGHighlightTag = 730003;
     UIView *highlight = [self lg_highlightView];
     UIVisualEffectView *glass = [self lg_glassBar];
 
+    if (![self lg_shouldShowFloatingBar]) {
+        highlight.hidden = YES;
+        return;
+    }
+
     if (buttons.count == 0 || self.selectedIndex >= buttons.count) {
         highlight.hidden = YES;
         return;
@@ -202,7 +249,7 @@ static NSInteger const kLGHighlightTag = 730003;
 
     CGFloat pillW = MIN(62.0, MAX(48.0, CGRectGetWidth(r) - 16.0));
     CGFloat pillH = 38.0;
-    CGRect target = CGRectMake(CGRectGetMidX(r) - pillW * 0.5, 6.5, pillW, pillH);
+    CGRect target = CGRectMake(CGRectGetMidX(r) - pillW * 0.5, 7.0, pillW, pillH);
 
     highlight.layer.cornerRadius = pillH * 0.5;
     highlight.layer.borderWidth = 0.6;
@@ -245,6 +292,7 @@ static NSInteger const kLGHighlightTag = 730003;
 
 - (void)setSelectedIndex:(NSUInteger)selectedIndex {
     %orig;
+    [self lg_layoutGlassBar];
     [self lg_layoutRealButtons];
     [self lg_updateSelectionHighlightAnimated:YES];
 }
