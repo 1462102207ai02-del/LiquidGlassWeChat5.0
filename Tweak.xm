@@ -277,7 +277,7 @@ static void MMHideTabBarBackground(UITabBar *tabBar) {
         appearance.shadowColor = [UIColor clearColor];
         tabBar.standardAppearance = appearance;
         if ([tabBar respondsToSelector:@selector(setScrollEdgeAppearance:)]) {
-            tabBar.scrollEdgeAppearance = appearance;
+            [(id)tabBar performSelector:@selector(setScrollEdgeAppearance:) withObject:appearance];
         }
     }
 
