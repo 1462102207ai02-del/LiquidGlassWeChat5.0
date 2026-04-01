@@ -376,10 +376,7 @@ static NSInteger const kLGSnapshotBaseTag = 922000;
 
 %new
 - (void)lg_refreshLater {
-    __weak __typeof__(self) weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
-        __strong __typeof__(weakSelf) self = weakSelf;
-        if (!self) return;
         [self lg_layoutFloatingBarAnimated:NO];
     });
 }
