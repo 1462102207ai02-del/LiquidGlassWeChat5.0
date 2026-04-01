@@ -123,11 +123,14 @@ static void MMApplyIconTitleTint(UIView *button, BOOL selected) {
     UIColor *selectedColor = MMColorRGBA(255, 255, 255, 1.0);
     UIColor *normalColor = MMColorRGBA(255, 255, 255, 0.72);
     UIColor *tint = selected ? selectedColor : normalColor;
+
     for (UIView *sub in button.subviews) {
         if ([sub isKindOfClass:[UIImageView class]]) {
             UIImageView *iv = (UIImageView *)sub;
             iv.tintColor = tint;
-            iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            if (iv.image) {
+                iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            }
             iv.alpha = selected ? 1.0 : 0.92;
             iv.transform = selected ? CGAffineTransformMakeScale(1.04, 1.04) : CGAffineTransformIdentity;
         } else if ([sub isKindOfClass:[UILabel class]]) {
@@ -145,7 +148,6 @@ static void MMStyleHost(UIView *host, UITraitCollection *trait) {
     host.layer.shadowOpacity = 1.0;
     host.layer.shadowRadius = 24.0;
     host.layer.shadowOffset = CGSizeMake(0, 10);
-
     host.layer.borderWidth = 0.6;
     host.layer.borderColor = MMGlassBorderColor(trait).CGColor;
 
@@ -194,7 +196,7 @@ static UIView *MMEnsureFloatingHost(UIView *container) {
 }
 
 static UIVisualEffectView *MMEnsureGlassView(UIView *host) {
-    UIVisualEffectView *glass = [host viewWithTag:kMMLiquidGlassTag];
+    UIVisualEffectView *glass = (UIVisualEffectView *)[host viewWithTag:kMMLiquidGlassTag];
     if (!glass) {
         glass = [[UIVisualEffectView alloc] initWithEffect:MMCreateBlurEffect()];
         glass.tag = kMMLiquidGlassTag;
@@ -224,7 +226,6 @@ static UIView *MMEnsureCapsule(UIView *host, UITraitCollection *trait) {
     capsule.layer.shadowRadius = 16.0;
     capsule.layer.shadowOffset = CGSizeMake(0, 4);
 
-    CALayer *stroke = [capsule layer].sublayers.count > 0 ? nil : nil;
     UIView *strokeView = [capsule viewWithTag:kMMStrokeTag];
     if (!strokeView) {
         strokeView = [[UIView alloc] initWithFrame:CGRectZero];
@@ -352,7 +353,7 @@ static void MMRelayoutTabBar(UITabBar *tabBar, UIView *host) {
     }
 }
 
-static UITabBar *MMFindTabBarInContainer(UIViewController *controller, UIView *container) {
+static UITabBar *MMFindTabBarInContainer(id controller, UIView *container) {
     UITabBar *found = nil;
 
     if ([controller respondsToSelector:@selector(tabBar)]) {
@@ -377,8 +378,10 @@ static UITabBar *MMFindTabBarInContainer(UIViewController *controller, UIView *c
     return found;
 }
 
-static void MMUpdateFloatingTabBar(UIViewController *controller) {
-    UIView *container = controller.view;
+static void MMUpdateFloatingTabBar(id controller) {
+    if (![controller respondsToSelector:@selector(view)]) return;
+
+    UIView *container = [controller view];
     if (!container) return;
 
     UITabBar *tabBar = MMFindTabBarInContainer(controller, container);
@@ -458,7 +461,10 @@ static void MMUpdateFloatingTabBar(UIViewController *controller) {
     %orig(selectedItem);
     UIView *superview = self.superview;
     if (superview && superview.tag == kMMFloatingHostTag) {
-        [UIView animateWithDuration:0.28 delay:0.0 options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState animations:^{
+        [UIView animateWithDuration:0.28
+                              delay:0.0
+                            options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{
             MMRelayoutTabBar(self, superview);
         } completion:nil];
     }
