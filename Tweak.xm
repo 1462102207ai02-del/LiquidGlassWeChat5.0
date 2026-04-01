@@ -9,7 +9,7 @@ static NSInteger const kMMStrokeTag = 520004;
 static NSInteger const kMMInnerGlowTag = 520005;
 
 static CGFloat MMGetBottomSafeInset(UIView *view) {
-    if (@available(iOS 11.0, *)) {
+    if ([view respondsToSelector:@selector(safeAreaInsets)]) {
         return view.safeAreaInsets.bottom;
     }
     return 0.0;
@@ -19,59 +19,54 @@ static UIColor *MMColorRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
     return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
 }
 
+static BOOL MMIsDarkMode(UITraitCollection *trait) {
+    if (!trait) return NO;
+    if ([trait respondsToSelector:@selector(userInterfaceStyle)]) {
+        return trait.userInterfaceStyle == UIUserInterfaceStyleDark;
+    }
+    return NO;
+}
+
 static UIColor *MMGlassBorderColor(UITraitCollection *trait) {
-    if (@available(iOS 13.0, *)) {
-        if (trait.userInterfaceStyle == UIUserInterfaceStyleDark) {
-            return [UIColor colorWithWhite:1.0 alpha:0.18];
-        }
+    if (MMIsDarkMode(trait)) {
+        return [UIColor colorWithWhite:1.0 alpha:0.18];
     }
     return [UIColor colorWithWhite:1.0 alpha:0.34];
 }
 
 static UIColor *MMGlassShadowColor(UITraitCollection *trait) {
-    if (@available(iOS 13.0, *)) {
-        if (trait.userInterfaceStyle == UIUserInterfaceStyleDark) {
-            return [UIColor colorWithWhite:0.0 alpha:0.34];
-        }
+    if (MMIsDarkMode(trait)) {
+        return [UIColor colorWithWhite:0.0 alpha:0.34];
     }
     return [UIColor colorWithWhite:0.0 alpha:0.16];
 }
 
 static UIColor *MMCapsuleFillColor(UITraitCollection *trait) {
-    if (@available(iOS 13.0, *)) {
-        if (trait.userInterfaceStyle == UIUserInterfaceStyleDark) {
-            return MMColorRGBA(255, 255, 255, 0.14);
-        }
+    if (MMIsDarkMode(trait)) {
+        return MMColorRGBA(255, 255, 255, 0.14);
     }
     return MMColorRGBA(255, 255, 255, 0.30);
 }
 
 static UIColor *MMCapsuleStrokeColor(UITraitCollection *trait) {
-    if (@available(iOS 13.0, *)) {
-        if (trait.userInterfaceStyle == UIUserInterfaceStyleDark) {
-            return MMColorRGBA(255, 255, 255, 0.16);
-        }
+    if (MMIsDarkMode(trait)) {
+        return MMColorRGBA(255, 255, 255, 0.16);
     }
     return MMColorRGBA(255, 255, 255, 0.42);
 }
 
 static UIColor *MMCapsuleGlowColor(UITraitCollection *trait) {
-    if (@available(iOS 13.0, *)) {
-        if (trait.userInterfaceStyle == UIUserInterfaceStyleDark) {
-            return MMColorRGBA(255, 255, 255, 0.10);
-        }
+    if (MMIsDarkMode(trait)) {
+        return MMColorRGBA(255, 255, 255, 0.10);
     }
     return MMColorRGBA(255, 255, 255, 0.20);
 }
 
 static UIVisualEffect *MMCreateBlurEffect(void) {
-    if (@available(iOS 15.0, *)) {
-        return [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
-    } else if (@available(iOS 13.0, *)) {
-        return [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemThinMaterialLight];
-    } else {
+    if ([UIBlurEffect respondsToSelector:@selector(effectWithStyle:)]) {
         return [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
     }
+    return nil;
 }
 
 static NSArray<UIView *> *MMGetTabButtons(UITabBar *tabBar) {
@@ -105,7 +100,7 @@ static NSInteger MMGetSelectedIndex(UITabBar *tabBar) {
 static void MMSetContinuousCornerRadius(UIView *view, CGFloat radius) {
     view.layer.cornerRadius = radius;
     view.layer.masksToBounds = NO;
-    if (@available(iOS 13.0, *)) {
+    if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) {
         view.layer.cornerCurve = kCACornerCurveContinuous;
     }
 }
@@ -275,13 +270,13 @@ static void MMHideTabBarBackground(UITabBar *tabBar) {
     tabBar.barTintColor = [UIColor clearColor];
     tabBar.translucent = YES;
 
-    if (@available(iOS 13.0, *)) {
+    if (NSClassFromString(@"UITabBarAppearance")) {
         UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
         [appearance configureWithTransparentBackground];
         appearance.backgroundColor = [UIColor clearColor];
         appearance.shadowColor = [UIColor clearColor];
         tabBar.standardAppearance = appearance;
-        if (@available(iOS 15.0, *)) {
+        if ([tabBar respondsToSelector:@selector(setScrollEdgeAppearance:)]) {
             tabBar.scrollEdgeAppearance = appearance;
         }
     }
@@ -323,9 +318,7 @@ static void MMRelayoutTabBar(UITabBar *tabBar, UIView *host) {
 
     UIView *selectedButton = buttons[selectedIndex];
     UIView *capsule = MMEnsureCapsule(host, host.traitCollection);
-    CGFloat capsuleInsetX = 4.0;
-    CGFloat capsuleInsetY = 4.0;
-    CGRect target = CGRectInset(selectedButton.frame, capsuleInsetX, capsuleInsetY);
+    CGRect target = CGRectInset(selectedButton.frame, 4.0, 4.0);
     capsule.frame = target;
     MMSetContinuousCornerRadius(capsule, capsule.bounds.size.height / 2.0);
 
