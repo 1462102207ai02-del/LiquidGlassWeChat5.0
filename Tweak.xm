@@ -2,9 +2,9 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
-static NSInteger const kLGFloatingBarTag = 970001;
-static NSInteger const kLGStrokeTag = 970002;
-static NSInteger const kLGHighlightTag = 970003;
+static NSInteger const kLGFloatingBarTag = 980001;
+static NSInteger const kLGStrokeTag = 980002;
+static NSInteger const kLGHighlightTag = 980003;
 
 @interface MMTabBar : UITabBar
 - (NSArray *)tabBarItemViews;
@@ -13,23 +13,34 @@ static NSInteger const kLGHighlightTag = 970003;
 @end
 
 @interface MMTabBarController : UITabBarController
-- (void)selectIndex:(NSUInteger)index;
 @end
 
 @interface MMTabBar (LiquidGlass)
-- (BOOL)lg_isInChatPage;
 - (MMTabBarController *)lg_tabBarController;
+- (BOOL)lg_isInChatPage;
 - (NSArray<UIView *> *)lg_itemViews;
 - (UIVisualEffectView *)lg_floatingBar;
 - (UIView *)lg_strokeView;
 - (UIView *)lg_highlightView;
 - (void)lg_hideFloatingBar;
-- (void)lg_layoutFloatingBar;
+- (void)lg_applyFloatingBar;
 @end
 
-static const void *kLGLayoutingKey = &kLGLayoutingKey;
+static const void *kLGApplyingKey = &kLGApplyingKey;
 
 %hook MMTabBar
+
+%new
+- (MMTabBarController *)lg_tabBarController {
+    UIResponder *r = self.nextResponder;
+    while (r) {
+        if ([r isKindOfClass:%c(MMTabBarController)]) {
+            return (MMTabBarController *)r;
+        }
+        r = r.nextResponder;
+    }
+    return nil;
+}
 
 %new
 - (BOOL)lg_isInChatPage {
@@ -59,32 +70,17 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
 }
 
 %new
-- (MMTabBarController *)lg_tabBarController {
-    UIResponder *r = self.nextResponder;
-    while (r) {
-        if ([r isKindOfClass:%c(MMTabBarController)]) {
-            return (MMTabBarController *)r;
-        }
-        r = r.nextResponder;
-    }
-    return nil;
-}
-
-%new
 - (NSArray<UIView *> *)lg_itemViews {
-    NSArray *views = nil;
-
-    if ([self respondsToSelector:@selector(tabBarItemViews)]) {
-        views = [self tabBarItemViews];
-    }
-
     NSMutableArray<UIView *> *arr = [NSMutableArray array];
 
-    if ([views isKindOfClass:[NSArray class]] && views.count > 0) {
-        for (UIView *v in views) {
-            if (![v isKindOfClass:[UIView class]]) continue;
-            if (CGRectGetWidth(v.frame) < 40.0 || CGRectGetHeight(v.frame) < 40.0) continue;
-            [arr addObject:v];
+    if ([self respondsToSelector:@selector(tabBarItemViews)]) {
+        NSArray *views = [self tabBarItemViews];
+        if ([views isKindOfClass:[NSArray class]]) {
+            for (UIView *v in views) {
+                if (![v isKindOfClass:[UIView class]]) continue;
+                if (CGRectGetWidth(v.frame) < 40.0 || CGRectGetHeight(v.frame) < 40.0) continue;
+                [arr addObject:v];
+            }
         }
     }
 
@@ -167,28 +163,28 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
 }
 
 %new
-- (void)lg_layoutFloatingBar {
-    NSNumber *layouting = objc_getAssociatedObject(self, kLGLayoutingKey);
-    if (layouting.boolValue) return;
-    objc_setAssociatedObject(self, kLGLayoutingKey, @(YES), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+- (void)lg_applyFloatingBar {
+    NSNumber *applying = objc_getAssociatedObject(self, kLGApplyingKey);
+    if (applying.boolValue) return;
+    objc_setAssociatedObject(self, kLGApplyingKey, @(YES), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
     @try {
-        if (self.hidden || self.alpha < 0.01 || CGRectGetWidth(self.bounds) < 10.0 || CGRectGetHeight(self.bounds) < 10.0) {
+        if (self.hidden || self.alpha < 0.01) {
             [self lg_hideFloatingBar];
-            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             return;
         }
 
         if ([self lg_isInChatPage]) {
             [self lg_hideFloatingBar];
-            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             return;
         }
 
         NSArray<UIView *> *items = [self lg_itemViews];
         if (items.count < 2) {
             [self lg_hideFloatingBar];
-            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             return;
         }
 
@@ -200,12 +196,17 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
         self.opaque = NO;
         self.clipsToBounds = NO;
 
+        UIView *bg = nil;
         if ([self respondsToSelector:@selector(backgroundView)]) {
-            UIView *bg = [self backgroundView];
-            if (bg) bg.alpha = 0.0;
+            bg = [self backgroundView];
+        }
+        if (bg) {
+            bg.alpha = 0.0;
         }
 
         for (UIView *v in self.subviews) {
+            if (v.tag == kLGFloatingBarTag) continue;
+
             NSString *cls = NSStringFromClass(v.class);
             if ([cls containsString:@"_UIBarBackground"] ||
                 [cls containsString:@"UIImageView"]) {
@@ -245,14 +246,14 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
         }
 
         MMTabBarController *tabVC = [self lg_tabBarController];
-        NSUInteger idx = tabVC ? tabVC.selectedIndex : 0;
-        if (idx >= items.count) {
+        NSUInteger selectedIndex = tabVC ? tabVC.selectedIndex : 0;
+        if (selectedIndex >= items.count) {
             highlight.hidden = YES;
-            objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             return;
         }
 
-        UIView *selectedItem = items[idx];
+        UIView *selectedItem = items[selectedIndex];
         CGRect r = [bar.contentView convertRect:selectedItem.frame fromView:selectedItem.superview];
 
         CGFloat pillW = MIN(66.0, MAX(50.0, CGRectGetWidth(r) - 24.0));
@@ -272,12 +273,12 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
     } @catch (__unused NSException *e) {
     }
 
-    objc_setAssociatedObject(self, kLGLayoutingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, kLGApplyingKey, @(NO), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-- (void)layoutSubviews {
+- (void)relayoutTabBarItems {
     %orig;
-    [self lg_layoutFloatingBar];
+    [self lg_applyFloatingBar];
 }
 
 %end
@@ -287,14 +288,14 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
 - (void)setSelectedIndex:(NSUInteger)selectedIndex {
     %orig;
     if ([self.tabBar isKindOfClass:%c(MMTabBar)]) {
-        [(MMTabBar *)self.tabBar lg_layoutFloatingBar];
+        [(MMTabBar *)self.tabBar lg_applyFloatingBar];
     }
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
     if ([self.tabBar isKindOfClass:%c(MMTabBar)]) {
-        [(MMTabBar *)self.tabBar lg_layoutFloatingBar];
+        [(MMTabBar *)self.tabBar lg_applyFloatingBar];
     }
 }
 
@@ -306,7 +307,7 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
     %orig;
     UITabBarController *tab = self.tabBarController;
     if ([tab.tabBar isKindOfClass:%c(MMTabBar)]) {
-        [(MMTabBar *)tab.tabBar lg_layoutFloatingBar];
+        [(MMTabBar *)tab.tabBar lg_applyFloatingBar];
     }
 }
 
@@ -314,7 +315,7 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
     UIViewController *ret = %orig;
     UITabBarController *tab = self.tabBarController;
     if ([tab.tabBar isKindOfClass:%c(MMTabBar)]) {
-        [(MMTabBar *)tab.tabBar lg_layoutFloatingBar];
+        [(MMTabBar *)tab.tabBar lg_applyFloatingBar];
     }
     return ret;
 }
@@ -323,7 +324,7 @@ static const void *kLGLayoutingKey = &kLGLayoutingKey;
     NSArray<UIViewController *> *ret = %orig;
     UITabBarController *tab = self.tabBarController;
     if ([tab.tabBar isKindOfClass:%c(MMTabBar)]) {
-        [(MMTabBar *)tab.tabBar lg_layoutFloatingBar];
+        [(MMTabBar *)tab.tabBar lg_applyFloatingBar];
     }
     return ret;
 }
