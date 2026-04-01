@@ -88,13 +88,8 @@ static NSInteger const kLGHighlightTag = 730003;
 
     for (UIView *sub in self.tabBar.subviews) {
         if (![sub isKindOfClass:[UIControl class]]) continue;
-
-        NSString *cls = NSStringFromClass([sub class]);
-        if ([cls containsString:@"UITabBarButton"] ||
-            [cls containsString:@"TabBarButton"] ||
-            [cls containsString:@"MMTabBarButton"]) {
-            [arr addObject:(UIControl *)sub];
-        }
+        if (CGRectGetWidth(sub.frame) < 20 || CGRectGetHeight(sub.frame) < 20) continue;
+        [arr addObject:(UIControl *)sub];
     }
 
     [arr sortUsingComparator:^NSComparisonResult(UIControl *a, UIControl *b) {
@@ -117,16 +112,23 @@ static NSInteger const kLGHighlightTag = 730003;
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = UIColor.clearColor;
+    tabBar.barTintColor = UIColor.clearColor;
+    tabBar.translucent = YES;
     tabBar.opaque = NO;
     tabBar.clipsToBounds = NO;
 
-    UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
-    [appearance configureWithTransparentBackground];
-    appearance.backgroundEffect = nil;
-    appearance.backgroundColor = UIColor.clearColor;
-    appearance.shadowColor = UIColor.clearColor;
-    tabBar.standardAppearance = appearance;
-    tabBar.scrollEdgeAppearance = appearance;
+    if (@available(iOS 13.0, *)) {
+        UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
+        [appearance configureWithTransparentBackground];
+        appearance.backgroundEffect = nil;
+        appearance.backgroundColor = UIColor.clearColor;
+        appearance.shadowColor = UIColor.clearColor;
+        tabBar.standardAppearance = appearance;
+
+        if (@available(iOS 15.0, *)) {
+            tabBar.scrollEdgeAppearance = appearance;
+        }
+    }
 }
 
 %new
