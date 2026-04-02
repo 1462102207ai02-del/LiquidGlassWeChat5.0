@@ -118,7 +118,7 @@ static void MMSetItemSelected(UIView *itemView, BOOL selected) {
     SEL sel = @selector(setSelected:);
     if ([itemView respondsToSelector:sel]) {
         IMP imp = [itemView methodForSelector:sel];
-        void (*func)(id, SEL, BOOL) = (void *)imp;
+        void (*func)(id, SEL, BOOL) = (void (*)(id, SEL, BOOL))imp;
         func(itemView, sel, selected);
     }
 }
