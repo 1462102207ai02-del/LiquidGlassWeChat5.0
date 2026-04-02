@@ -2,13 +2,13 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
-static NSInteger const kMMGlassHostTag = 980001;
-static NSInteger const kMMGlassViewTag = 980002;
-static NSInteger const kMMButtonsContainerTag = 980003;
-static NSInteger const kMMHitContainerTag = 980004;
-static NSInteger const kMMCapsuleTag = 980005;
-static NSInteger const kMMCapsuleBorderTag = 980006;
-static NSInteger const kMMCapsuleGlowTag = 980007;
+static NSInteger const kMMGlassHostTag = 990001;
+static NSInteger const kMMGlassViewTag = 990002;
+static NSInteger const kMMButtonsContainerTag = 990003;
+static NSInteger const kMMHitContainerTag = 990004;
+static NSInteger const kMMCapsuleTag = 990005;
+static NSInteger const kMMCapsuleBorderTag = 990006;
+static NSInteger const kMMCapsuleGlowTag = 990007;
 
 static const void *kMMStoredItemViewsKey = &kMMStoredItemViewsKey;
 static BOOL kMMUpdatingLayout = NO;
@@ -29,7 +29,7 @@ static UIColor *MMSelectedColor(UITraitCollection *trait) {
 }
 
 static UIColor *MMNormalColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.74) : MMRGBA(82, 82, 91, 0.78);
+    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.76) : MMRGBA(82, 82, 91, 0.78);
 }
 
 static CGFloat MMBottomInset(UIView *view) {
@@ -46,6 +46,14 @@ static void MMSetRadius(UIView *view, CGFloat radius) {
     }
 }
 
+static id MMKVC(id obj, NSString *key) {
+    @try {
+        return [obj valueForKey:key];
+    } @catch (__unused NSException *e) {
+        return nil;
+    }
+}
+
 static CAGradientLayer *MMFindGradient(CALayer *layer, NSString *name) {
     for (CALayer *sub in layer.sublayers) {
         if ([sub isKindOfClass:[CAGradientLayer class]] && [sub.name isEqualToString:name]) {
@@ -53,14 +61,6 @@ static CAGradientLayer *MMFindGradient(CALayer *layer, NSString *name) {
         }
     }
     return nil;
-}
-
-static id MMKVC(id obj, NSString *key) {
-    @try {
-        return [obj valueForKey:key];
-    } @catch (__unused NSException *e) {
-        return nil;
-    }
 }
 
 static UITabBar *MMFindTabBar(UIViewController *vc) {
@@ -94,6 +94,50 @@ static NSInteger MMSelectedIndex(UITabBar *tabBar) {
         if (idx != NSNotFound) return idx;
     }
     return 0;
+}
+
+static UIViewController *MMCurrentContentController(UIViewController *vc) {
+    id selected = nil;
+    @try {
+        if ([vc respondsToSelector:@selector(selectedViewController)]) {
+            selected = [vc valueForKey:@"selectedViewController"];
+        }
+    } @catch (__unused NSException *e) {
+    }
+
+    UIViewController *content = [selected isKindOfClass:[UIViewController class]] ? (UIViewController *)selected : vc;
+
+    if ([content isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)content;
+        UIViewController *top = nav.topViewController ?: nav.visibleViewController ?: nav.viewControllers.firstObject;
+        return top ?: content;
+    }
+
+    return content;
+}
+
+static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
+    if (!vc || !vc.isViewLoaded || !vc.view.window) return NO;
+    UIViewController *content = MMCurrentContentController(vc);
+    if ([content isKindOfClass:[UINavigationController class]]) return NO;
+
+    id selected = nil;
+    @try {
+        if ([vc respondsToSelector:@selector(selectedViewController)]) {
+            selected = [vc valueForKey:@"selectedViewController"];
+        }
+    } @catch (__unused NSException *e) {
+    }
+
+    if ([selected isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)selected;
+        if (nav.viewControllers.count > 0 && nav.topViewController != nav.viewControllers.firstObject) return NO;
+        if (nav.presentedViewController) return NO;
+    } else if ([content isKindOfClass:[UIViewController class]]) {
+        if (content.presentedViewController) return NO;
+    }
+
+    return YES;
 }
 
 static void MMCollectItemViewsRecursive(UIView *view, NSMutableArray<UIView *> *result) {
@@ -139,19 +183,22 @@ static void MMSetItemSelected(UIView *itemView, BOOL selected) {
     }
 }
 
-static void MMClearViewTreeBackgrounds(UIView *view) {
-    view.backgroundColor = [UIColor clearColor];
-    view.opaque = NO;
-    for (UIView *sub in view.subviews) {
-        NSString *name = NSStringFromClass([sub class]);
+static void MMClearTreeBackground(UIView *view, BOOL preserveBadge) {
+    NSString *name = NSStringFromClass([view class]);
+
+    if (!preserveBadge) {
         if ([name localizedCaseInsensitiveContainsString:@"background"]) {
-            sub.hidden = YES;
-            sub.alpha = 0.0;
+            view.hidden = YES;
+            view.alpha = 0.0;
         } else {
-            sub.backgroundColor = [UIColor clearColor];
-            sub.opaque = NO;
+            view.backgroundColor = [UIColor clearColor];
+            view.opaque = NO;
         }
-        MMClearViewTreeBackgrounds(sub);
+    }
+
+    BOOL childPreserveBadge = preserveBadge || [name localizedCaseInsensitiveContainsString:@"badge"];
+    for (UIView *sub in view.subviews) {
+        MMClearTreeBackground(sub, childPreserveBadge);
     }
 }
 
@@ -204,10 +251,27 @@ static UIVisualEffectView *MMGlass(UIView *host) {
         glass.userInteractionEnabled = NO;
         [host addSubview:glass];
     }
+
     glass.frame = host.bounds;
     glass.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.05) : MMRGBA(255, 255, 255, 0.13);
     MMSetRadius(glass, host.bounds.size.height / 2.0);
     glass.layer.masksToBounds = YES;
+
+    CAGradientLayer *shine = MMFindGradient(glass.contentView.layer, @"hostShine");
+    if (!shine) {
+        shine = [CAGradientLayer layer];
+        shine.name = @"hostShine";
+        [glass.contentView.layer addSublayer:shine];
+    }
+    shine.frame = CGRectMake(0, 0, glass.bounds.size.width, glass.bounds.size.height * 0.52);
+    shine.startPoint = CGPointMake(0.5, 0.0);
+    shine.endPoint = CGPointMake(0.5, 1.0);
+    shine.colors = @[
+        (__bridge id)MMRGBA(255, 255, 255, 0.16).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.06).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.00).CGColor
+    ];
+
     return glass;
 }
 
@@ -218,10 +282,11 @@ static UIView *MMButtonsContainer(UIView *host) {
         container.tag = kMMButtonsContainerTag;
         container.backgroundColor = [UIColor clearColor];
         container.userInteractionEnabled = YES;
-        container.clipsToBounds = NO;
+        container.clipsToBounds = YES;
         [host addSubview:container];
     }
     container.frame = host.bounds;
+    MMSetRadius(container, host.bounds.size.height / 2.0);
     return container;
 }
 
@@ -232,10 +297,11 @@ static UIView *MMHitContainer(UIView *host) {
         container.tag = kMMHitContainerTag;
         container.backgroundColor = [UIColor clearColor];
         container.userInteractionEnabled = YES;
-        container.clipsToBounds = NO;
+        container.clipsToBounds = YES;
         [host addSubview:container];
     }
     container.frame = host.bounds;
+    MMSetRadius(container, host.bounds.size.height / 2.0);
     return container;
 }
 
@@ -246,6 +312,7 @@ static UIView *MMCapsule(UIView *host) {
         capsule.tag = kMMCapsuleTag;
         capsule.backgroundColor = [UIColor clearColor];
         capsule.userInteractionEnabled = NO;
+        capsule.clipsToBounds = NO;
         [host addSubview:capsule];
     }
 
@@ -255,6 +322,7 @@ static UIView *MMCapsule(UIView *host) {
         border.tag = kMMCapsuleBorderTag;
         border.backgroundColor = [UIColor clearColor];
         border.userInteractionEnabled = NO;
+        border.clipsToBounds = YES;
         [capsule addSubview:border];
     }
 
@@ -264,6 +332,7 @@ static UIView *MMCapsule(UIView *host) {
         glow.tag = kMMCapsuleGlowTag;
         glow.backgroundColor = [UIColor clearColor];
         glow.userInteractionEnabled = NO;
+        glow.clipsToBounds = YES;
         [capsule addSubview:glow];
     }
 
@@ -272,27 +341,13 @@ static UIView *MMCapsule(UIView *host) {
 
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, host.bounds.size.height / 2.0);
-    host.layer.borderWidth = 0.45;
-    host.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.14) : MMRGBA(255, 255, 255, 0.24)).CGColor;
-    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.28 : 0.14)].CGColor;
+    host.layer.borderWidth = 0.42;
+    host.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.12) : MMRGBA(255, 255, 255, 0.22)).CGColor;
+    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.24 : 0.12)].CGColor;
     host.layer.shadowOpacity = 1.0;
-    host.layer.shadowRadius = 20.0;
-    host.layer.shadowOffset = CGSizeMake(0, 10);
-
-    CAGradientLayer *top = MMFindGradient(host.layer, @"topGloss");
-    if (!top) {
-        top = [CAGradientLayer layer];
-        top.name = @"topGloss";
-        [host.layer insertSublayer:top atIndex:0];
-    }
-    top.frame = CGRectMake(0, 0, host.bounds.size.width, host.bounds.size.height * 0.52);
-    top.startPoint = CGPointMake(0.5, 0.0);
-    top.endPoint = CGPointMake(0.5, 1.0);
-    top.colors = @[
-        (__bridge id)MMRGBA(255, 255, 255, 0.18).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.07).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.00).CGColor
-    ];
+    host.layer.shadowRadius = 18.0;
+    host.layer.shadowOffset = CGSizeMake(0, 8);
+    host.backgroundColor = [UIColor clearColor];
 }
 
 static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
@@ -309,14 +364,14 @@ static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
 
     [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
         capsule.frame = target;
-        capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.10) : MMRGBA(255, 255, 255, 0.26);
+        capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.10) : MMRGBA(255, 255, 255, 0.24);
         MMSetRadius(capsule, target.size.height / 2.0);
     } completion:nil];
 
     UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
     border.frame = capsule.bounds;
-    border.layer.borderWidth = 0.6;
-    border.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.14) : MMRGBA(255, 255, 255, 0.28)).CGColor;
+    border.layer.borderWidth = 0.55;
+    border.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.12) : MMRGBA(255, 255, 255, 0.24)).CGColor;
     MMSetRadius(border, border.bounds.size.height / 2.0);
 
     UIView *glow = [capsule viewWithTag:kMMCapsuleGlowTag];
@@ -333,8 +388,8 @@ static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
     grad.startPoint = CGPointMake(0.5, 0.0);
     grad.endPoint = CGPointMake(0.5, 1.0);
     grad.colors = @[
-        (__bridge id)MMRGBA(255, 255, 255, 0.12).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.04).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.10).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.03).CGColor,
         (__bridge id)MMRGBA(255, 255, 255, 0.00).CGColor
     ];
 }
@@ -371,12 +426,12 @@ static void MMSwitchToIndex(UIView *view, NSInteger idx) {
 @end
 
 static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollection *trait) {
-    MMClearViewTreeBackgrounds(item);
+    MMClearTreeBackground(item, NO);
 
-    UIImageView *iconView = MMKVC(item, @"_iconView");
-    UILabel *textLabel = MMKVC(item, @"_textLabel");
-    UIView *badgeView = MMKVC(item, @"_badgeView");
-    UIView *backgroundView = MMKVC(item, @"_backgroundView");
+    UIImageView *imageView = MMKVC(item, @"imageView");
+    UILabel *textLabel = MMKVC(item, @"textLabel");
+    UIView *badgeView = MMKVC(item, @"badgeView");
+    UIView *backgroundView = MMKVC(item, @"backgroundView");
 
     if ([backgroundView isKindOfClass:[UIView class]]) {
         backgroundView.hidden = YES;
@@ -397,15 +452,15 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
     CGFloat startY = floor((bh - totalH) * 0.5) - 1.0;
     if (startY < 4.0) startY = 4.0;
 
-    if ([iconView isKindOfClass:[UIImageView class]]) {
-        UIImage *img = iconView.image;
-        if (img) {
-            iconView.image = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    if ([imageView isKindOfClass:[UIImageView class]]) {
+        if (imageView.image) {
+            imageView.image = [imageView.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
         }
-        iconView.tintColor = color;
-        iconView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
-        iconView.contentMode = UIViewContentModeScaleAspectFit;
-        iconView.backgroundColor = [UIColor clearColor];
+        imageView.tintColor = color;
+        imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
+        imageView.contentMode = UIViewContentModeScaleAspectFit;
+        imageView.backgroundColor = [UIColor clearColor];
+        imageView.opaque = NO;
     }
 
     if ([textLabel isKindOfClass:[UILabel class]]) {
@@ -416,12 +471,13 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
         textLabel.adjustsFontSizeToFitWidth = YES;
         textLabel.minimumScaleFactor = 0.7;
         textLabel.backgroundColor = [UIColor clearColor];
+        textLabel.opaque = NO;
     }
 
-    if ([badgeView isKindOfClass:[UIView class]] && [iconView isKindOfClass:[UIImageView class]]) {
+    if ([badgeView isKindOfClass:[UIView class]] && [imageView isKindOfClass:[UIImageView class]]) {
         CGRect bf = badgeView.frame;
-        bf.origin.x = CGRectGetMaxX(iconView.frame) - 1.0;
-        bf.origin.y = CGRectGetMinY(iconView.frame) - 2.0;
+        bf.origin.x = CGRectGetMaxX(imageView.frame) - 1.0;
+        bf.origin.y = CGRectGetMinY(imageView.frame) - 2.0;
         badgeView.frame = bf;
     }
 }
@@ -456,7 +512,9 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
         item.alpha = 1.0;
         item.userInteractionEnabled = NO;
         item.backgroundColor = [UIColor clearColor];
+        item.opaque = NO;
         item.layer.zPosition = 10;
+        item.clipsToBounds = NO;
 
         MMLayoutSingleItemView(item, i == sel, host.traitCollection);
     }
@@ -506,12 +564,21 @@ static void MMUpdate(UIViewController *vc) {
         return;
     }
 
+    UIView *host = MMHost(root);
+
+    if (!MMShouldShowFloatingBar(vc)) {
+        host.hidden = YES;
+        kMMUpdatingLayout = NO;
+        return;
+    }
+
+    host.hidden = NO;
+
     CGFloat inset = MMBottomInset(root);
     CGFloat height = 64.0;
     CGFloat margin = 16.0;
     CGRect frame = CGRectMake(margin, root.bounds.size.height - inset - height - 10.0, root.bounds.size.width - margin * 2.0, height);
 
-    UIView *host = MMHost(root);
     host.frame = frame;
     MMStyleHost(host);
     MMGlass(host);
@@ -542,6 +609,11 @@ static void MMUpdate(UIViewController *vc) {
 
 - (void)viewDidLayoutSubviews {
     %orig;
+    MMUpdate((UIViewController *)self);
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig(animated);
     MMUpdate((UIViewController *)self);
 }
 
