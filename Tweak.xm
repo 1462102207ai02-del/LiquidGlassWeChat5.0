@@ -5,8 +5,6 @@ static NSInteger const kMMGlassHostTag = 960001;
 static NSInteger const kMMGlassViewTag = 960002;
 static NSInteger const kMMButtonsContainerTag = 960003;
 static NSInteger const kMMCapsuleTag = 960004;
-static NSInteger const kMMCapsuleBorderTag = 960005;
-static NSInteger const kMMCapsuleGlowTag = 960006;
 
 static BOOL kMMUpdatingLayout = NO;
 
@@ -33,13 +31,6 @@ static void MMSetRadius(UIView *v, CGFloat r) {
     if ([v.layer respondsToSelector:@selector(setCornerCurve:)]) {
         v.layer.cornerCurve = kCACornerCurveContinuous;
     }
-}
-
-static CAGradientLayer *MMFindGrad(CALayer *l, NSString *n) {
-    for (CALayer *s in l.sublayers) {
-        if ([s isKindOfClass:[CAGradientLayer class]] && [s.name isEqualToString:n]) return (CAGradientLayer*)s;
-    }
-    return nil;
 }
 
 static UITabBar *MMFindTabBar(UIViewController *vc) {
@@ -81,7 +72,11 @@ static NSArray<UIView*> *MMButtons(UITabBar *tb) {
         }
     }
     [a sortUsingComparator:^NSComparisonResult(UIView *a1, UIView *a2) {
-        return CGRectGetMinX(a1.frame) < CGRectGetMinX(a2.frame);
+        CGFloat x1 = CGRectGetMinX(a1.frame);
+        CGFloat x2 = CGRectGetMinX(a2.frame);
+        if (x1 < x2) return NSOrderedAscending;
+        if (x1 > x2) return NSOrderedDescending;
+        return NSOrderedSame;
     }];
     return a;
 }
@@ -94,27 +89,6 @@ static UIImage *MMSnap(UIView *v) {
     UIImage *i = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return i;
-}
-
-static void MMClear(UITabBar *tb) {
-    tb.backgroundImage = [UIImage new];
-    tb.shadowImage = [UIImage new];
-    tb.backgroundColor = UIColor.clearColor;
-    tb.barTintColor = UIColor.clearColor;
-    if (NSClassFromString(@"UITabBarAppearance")) {
-        UITabBarAppearance *a = [UITabBarAppearance new];
-        [a configureWithTransparentBackground];
-        tb.standardAppearance = a;
-        if ([tb respondsToSelector:@selector(setScrollEdgeAppearance:)]) {
-            [(id)tb performSelector:@selector(setScrollEdgeAppearance:) withObject:a];
-        }
-    }
-    for (UIView *v in tb.subviews) {
-        NSString *n = NSStringFromClass(v.class);
-        if ([n containsString:@"Background"]||[n containsString:@"Shadow"]) {
-            v.hidden = YES;
-        }
-    }
 }
 
 static UIView *MMHost(UIView *c) {
@@ -173,7 +147,6 @@ static void MMCapsuleLayout(UIView *h, NSInteger idx, NSInteger cnt) {
 }
 
 @interface MMBtn : UIControl
-@property(nonatomic,strong)UIImageView *img;
 @end
 
 @implementation MMBtn
@@ -194,7 +167,6 @@ static MMBtn *MMMake(CGRect f, UIImage *img, NSInteger i) {
     iv.image=img;
     iv.contentMode=UIViewContentModeScaleAspectFit;
     [b addSubview:iv];
-    b.img=iv;
     [b addTarget:b action:@selector(tap) forControlEvents:UIControlEventTouchUpInside];
     return b;
 }
@@ -242,8 +214,6 @@ static void MMUpdate(UIViewController *vc) {
     MMSetRadius(host,h/2);
 
     MMGlass(host);
-
-    MMClear(tb);
 
     MMBuild(tb,host);
 
