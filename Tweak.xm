@@ -25,11 +25,11 @@ static BOOL MMIsDark(UITraitCollection *trait) {
 }
 
 static UIColor *MMSelectedColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 1.0) : MMRGBA(24, 24, 27, 0.96);
+    return MMRGBA(48, 209, 88, 1.0);
 }
 
 static UIColor *MMNormalColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.76) : MMRGBA(82, 82, 91, 0.78);
+    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.90) : MMRGBA(255, 255, 255, 0.92);
 }
 
 static CGFloat MMBottomInset(UIView *view) {
@@ -250,14 +250,14 @@ static UIView *MMHost(UIView *container) {
 static UIVisualEffectView *MMGlass(UIView *host) {
     UIVisualEffectView *glass = (UIVisualEffectView *)[host viewWithTag:kMMGlassViewTag];
     if (!glass) {
-        glass = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleLight]];
+        glass = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
         glass.tag = kMMGlassViewTag;
         glass.userInteractionEnabled = NO;
         [host addSubview:glass];
     }
 
     glass.frame = host.bounds;
-    glass.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.05) : MMRGBA(255, 255, 255, 0.13);
+    glass.backgroundColor = MMRGBA(38, 38, 38, 0.18);
     MMSetRadius(glass, host.bounds.size.height / 2.0);
     glass.layer.masksToBounds = YES;
 
@@ -267,15 +267,14 @@ static UIVisualEffectView *MMGlass(UIView *host) {
         shine.name = @"hostShine";
         [glass.contentView.layer addSublayer:shine];
     }
-    shine.frame = CGRectMake(0, 0, glass.bounds.size.width, glass.bounds.size.height * 0.52);
-    shine.startPoint = CGPointMake(0.5, 0.0);
-    shine.endPoint = CGPointMake(0.5, 1.0);
+    shine.frame = glass.bounds;
+    shine.startPoint = CGPointMake(0.0, 0.5);
+    shine.endPoint = CGPointMake(1.0, 0.5);
     shine.colors = @[
-        (__bridge id)MMRGBA(255, 255, 255, 0.14).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.05).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.00).CGColor
+        (__bridge id)MMRGBA(255, 255, 255, 0.18).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.06).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.12).CGColor
     ];
-
     return glass;
 }
 
@@ -345,11 +344,11 @@ static UIView *MMCapsule(UIView *host) {
 
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, host.bounds.size.height / 2.0);
-    host.layer.borderWidth = 0.42;
-    host.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.12) : MMRGBA(255, 255, 255, 0.22)).CGColor;
-    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.24 : 0.12)].CGColor;
+    host.layer.borderWidth = 0.7;
+    host.layer.borderColor = MMRGBA(255, 255, 255, 0.16).CGColor;
+    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:0.25].CGColor;
     host.layer.shadowOpacity = 1.0;
-    host.layer.shadowRadius = 18.0;
+    host.layer.shadowRadius = 20.0;
     host.layer.shadowOffset = CGSizeMake(0, 8);
     host.backgroundColor = [UIColor clearColor];
 }
@@ -359,7 +358,7 @@ static CGFloat MMSideInset(void) {
 }
 
 static CGFloat MMTopInset(void) {
-    return 8.0;
+    return 6.0;
 }
 
 static CGFloat MMInterItemInset(void) {
@@ -379,8 +378,8 @@ static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
 
 static CGRect MMCapsuleFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
     CGRect slot = MMSlotFrameForIndex(host, idx, cnt);
-    CGFloat inset = MMInterItemInset() * 0.5;
-    return CGRectInset(slot, inset, 0.0);
+    CGFloat horizontalInset = MMInterItemInset() * 0.5;
+    return CGRectInset(slot, horizontalInset, 0.0);
 }
 
 static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
@@ -389,16 +388,16 @@ static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
     UIView *capsule = MMCapsule(host);
     CGRect target = MMCapsuleFrameForIndex(host, idx, cnt);
 
-    [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
+    [UIView animateWithDuration:0.18 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
         capsule.frame = target;
-        capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.10) : MMRGBA(255, 255, 255, 0.24);
+        capsule.backgroundColor = MMRGBA(255, 255, 255, 0.055);
         MMSetRadius(capsule, target.size.height / 2.0);
     } completion:nil];
 
     UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
     border.frame = capsule.bounds;
-    border.layer.borderWidth = 0.55;
-    border.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.12) : MMRGBA(255, 255, 255, 0.24)).CGColor;
+    border.layer.borderWidth = 0.8;
+    border.layer.borderColor = MMRGBA(255, 255, 255, 0.22).CGColor;
     MMSetRadius(border, border.bounds.size.height / 2.0);
 
     UIView *glow = [capsule viewWithTag:kMMCapsuleGlowTag];
@@ -412,12 +411,12 @@ static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
         [glow.layer addSublayer:grad];
     }
     grad.frame = glow.bounds;
-    grad.startPoint = CGPointMake(0.5, 0.0);
-    grad.endPoint = CGPointMake(0.5, 1.0);
+    grad.startPoint = CGPointMake(0.0, 0.5);
+    grad.endPoint = CGPointMake(1.0, 0.5);
     grad.colors = @[
-        (__bridge id)MMRGBA(255, 255, 255, 0.10).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.03).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.00).CGColor
+        (__bridge id)MMRGBA(255, 255, 255, 0.14).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.05).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.12).CGColor
     ];
 }
 
@@ -489,12 +488,12 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
     CGFloat bw = item.bounds.size.width;
     CGFloat bh = item.bounds.size.height;
 
-    CGFloat iconSize = 28.0;
-    CGFloat titleH = 14.0;
-    CGFloat spacing = 3.0;
+    CGFloat iconSize = 23.0;
+    CGFloat titleH = 13.0;
+    CGFloat spacing = 2.0;
     CGFloat totalH = iconSize + spacing + titleH;
-    CGFloat startY = floor((bh - totalH) * 0.5) - 1.0;
-    if (startY < 4.0) startY = 4.0;
+    CGFloat startY = floor((bh - totalH) * 0.5) - 0.5;
+    if (startY < 3.0) startY = 3.0;
 
     if ([imageView isKindOfClass:[UIImageView class]]) {
         if (imageView.image) {
@@ -511,9 +510,9 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
         textLabel.frame = CGRectMake(2.0, startY + iconSize + spacing, bw - 4.0, titleH);
         textLabel.textAlignment = NSTextAlignmentCenter;
         textLabel.textColor = color;
-        textLabel.font = [UIFont systemFontOfSize:11.0 weight:selected ? UIFontWeightSemibold : UIFontWeightRegular];
+        textLabel.font = [UIFont systemFontOfSize:10.5 weight:UIFontWeightRegular];
         textLabel.adjustsFontSizeToFitWidth = YES;
-        textLabel.minimumScaleFactor = 0.7;
+        textLabel.minimumScaleFactor = 0.72;
         textLabel.backgroundColor = [UIColor clearColor];
         textLabel.opaque = NO;
     }
@@ -545,22 +544,7 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
         }
 
         CGRect slot = MMSlotFrameForIndex(host, i, cnt);
-        CGRect capsule = MMCapsuleFrameForIndex(host, i, cnt);
-
-        CGFloat itemW = capsule.size.width - 12.0;
-        CGFloat itemH = 56.0;
-        CGFloat centerX = CGRectGetMidX(slot);
-        CGFloat centerY = CGRectGetMidY(slot);
-
-        if (i == sel) {
-            centerX = CGRectGetMidX(capsule);
-            centerY = CGRectGetMidY(capsule);
-        }
-
-        CGFloat itemX = floor(centerX - itemW * 0.5);
-        CGFloat itemY = floor(centerY - itemH * 0.5);
-
-        item.frame = CGRectMake(itemX, itemY, itemW, itemH);
+        item.frame = slot;
         item.hidden = NO;
         item.alpha = 1.0;
         item.userInteractionEnabled = NO;
@@ -622,9 +606,10 @@ static void MMUpdate(UIViewController *vc) {
     host.hidden = NO;
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat height = 64.0;
-    CGFloat margin = 16.0;
-    CGRect frame = CGRectMake(margin, root.bounds.size.height - inset - height - 10.0, root.bounds.size.width - margin * 2.0, height);
+    CGFloat height = 62.0;
+    CGFloat margin = 14.0;
+    CGFloat bottomGap = 9.0;
+    CGRect frame = CGRectMake(margin, root.bounds.size.height - inset - height - bottomGap, root.bounds.size.width - margin * 2.0, height);
 
     host.frame = frame;
     MMStyleHost(host);
