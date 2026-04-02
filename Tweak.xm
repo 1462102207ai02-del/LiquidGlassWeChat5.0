@@ -354,10 +354,23 @@ static void MMStyleHost(UIView *host) {
     host.backgroundColor = [UIColor clearColor];
 }
 
+static CGFloat MMSideInset(void) {
+    return 10.0;
+}
+
+static CGFloat MMTopInset(void) {
+    return 8.0;
+}
+
+static CGFloat MMInterItemInset(void) {
+    return 8.0;
+}
+
 static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
-    CGFloat side = 10.0;
-    CGFloat top = 8.0;
-    CGFloat slotW = floor((host.bounds.size.width - side * 2.0) / cnt);
+    CGFloat side = MMSideInset();
+    CGFloat top = MMTopInset();
+    CGFloat totalW = host.bounds.size.width - side * 2.0;
+    CGFloat slotW = floor(totalW / cnt);
     CGFloat slotH = host.bounds.size.height - top * 2.0;
     CGFloat x = side + slotW * idx;
     CGFloat w = (idx == cnt - 1) ? (host.bounds.size.width - side - x) : slotW;
@@ -366,7 +379,8 @@ static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
 
 static CGRect MMCapsuleFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
     CGRect slot = MMSlotFrameForIndex(host, idx, cnt);
-    return CGRectInset(slot, 1.5, 0.0);
+    CGFloat inset = MMInterItemInset() * 0.5;
+    return CGRectInset(slot, inset, 0.0);
 }
 
 static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
@@ -533,15 +547,18 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
         CGRect slot = MMSlotFrameForIndex(host, i, cnt);
         CGRect capsule = MMCapsuleFrameForIndex(host, i, cnt);
 
-        CGFloat itemW = capsule.size.width - 8.0;
+        CGFloat itemW = capsule.size.width - 12.0;
         CGFloat itemH = 56.0;
-        CGFloat itemX = floor(CGRectGetMidX(slot) - itemW * 0.5);
-        CGFloat itemY = floor(CGRectGetMidY(slot) - itemH * 0.5);
+        CGFloat centerX = CGRectGetMidX(slot);
+        CGFloat centerY = CGRectGetMidY(slot);
 
         if (i == sel) {
-            itemX = floor(CGRectGetMidX(capsule) - itemW * 0.5);
-            itemY = floor(CGRectGetMidY(capsule) - itemH * 0.5);
+            centerX = CGRectGetMidX(capsule);
+            centerY = CGRectGetMidY(capsule);
         }
+
+        CGFloat itemX = floor(centerX - itemW * 0.5);
+        CGFloat itemY = floor(centerY - itemH * 0.5);
 
         item.frame = CGRectMake(itemX, itemY, itemW, itemH);
         item.hidden = NO;
