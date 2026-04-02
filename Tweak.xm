@@ -22,6 +22,14 @@ static BOOL MMIsDark(UITraitCollection *trait) {
     return NO;
 }
 
+static UIColor *MMSelectedTextColor(UITraitCollection *trait) {
+    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 1.0) : MMRGBA(28, 28, 30, 0.96);
+}
+
+static UIColor *MMNormalTextColor(UITraitCollection *trait) {
+    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.72) : MMRGBA(60, 60, 67, 0.72);
+}
+
 static CGFloat MMBottomInset(UIView *view) {
     if ([view respondsToSelector:@selector(safeAreaInsets)]) {
         return view.safeAreaInsets.bottom;
@@ -79,6 +87,81 @@ static NSInteger MMSelectedIndex(UITabBar *tabBar) {
     return 0;
 }
 
+static NSArray<UIView *> *MMNativeTabButtons(UITabBar *tabBar) {
+    NSMutableArray *arr = [NSMutableArray array];
+    for (UIView *sub in tabBar.subviews) {
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name containsString:@"UITabBarButton"] || [name containsString:@"MMTabBarItemView"]) {
+            [arr addObject:sub];
+        }
+    }
+    [arr sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
+        CGFloat ax = CGRectGetMinX(a.frame);
+        CGFloat bx = CGRectGetMinX(b.frame);
+        if (ax < bx) return NSOrderedAscending;
+        if (ax > bx) return NSOrderedDescending;
+        return NSOrderedSame;
+    }];
+    return arr;
+}
+
+static UIImageView *MMFindImageViewRecursive(UIView *view) {
+    if ([view isKindOfClass:[UIImageView class]]) {
+        UIImageView *iv = (UIImageView *)view;
+        if (iv.image) return iv;
+    }
+    for (UIView *sub in view.subviews) {
+        UIImageView *found = MMFindImageViewRecursive(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UILabel *MMFindLabelRecursive(UIView *view) {
+    if ([view isKindOfClass:[UILabel class]]) {
+        UILabel *lab = (UILabel *)view;
+        if (lab.text.length > 0) return lab;
+    }
+    for (UIView *sub in view.subviews) {
+        UILabel *found = MMFindLabelRecursive(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UIImage *MMNativeImageForIndex(UITabBar *tabBar, NSInteger idx, BOOL selected) {
+    NSArray<UIView *> *buttons = MMNativeTabButtons(tabBar);
+    if (idx >= 0 && idx < (NSInteger)buttons.count) {
+        UIImageView *iv = MMFindImageViewRecursive(buttons[idx]);
+        if (iv.image) {
+            return [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        }
+    }
+
+    if (idx >= 0 && idx < (NSInteger)tabBar.items.count) {
+        UITabBarItem *item = tabBar.items[idx];
+        UIImage *img = selected ? (item.selectedImage ?: item.image) : (item.image ?: item.selectedImage);
+        if (img) return [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    }
+
+    return nil;
+}
+
+static NSString *MMNativeTitleForIndex(UITabBar *tabBar, NSInteger idx) {
+    NSArray<UIView *> *buttons = MMNativeTabButtons(tabBar);
+    if (idx >= 0 && idx < (NSInteger)buttons.count) {
+        UILabel *lab = MMFindLabelRecursive(buttons[idx]);
+        if (lab.text.length > 0) return lab.text;
+    }
+
+    if (idx >= 0 && idx < (NSInteger)tabBar.items.count) {
+        UITabBarItem *item = tabBar.items[idx];
+        if (item.title.length > 0) return item.title;
+    }
+
+    return @"";
+}
+
 static void MMClearNativeTabBar(UITabBar *tabBar) {
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
@@ -133,7 +216,7 @@ static UIVisualEffectView *MMEnsureGlassView(UIView *host) {
         [host addSubview:glass];
     }
     glass.frame = host.bounds;
-    glass.backgroundColor = MMRGBA(255, 255, 255, MMIsDark(host.traitCollection) ? 0.06 : 0.10);
+    glass.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.06) : MMRGBA(255, 255, 255, 0.14);
     MMSetContinuousRadius(glass, host.bounds.size.height / 2.0);
     glass.layer.masksToBounds = YES;
     return glass;
@@ -146,6 +229,7 @@ static UIView *MMEnsureButtonsContainer(UIView *host) {
         container.tag = kMMButtonsContainerTag;
         container.backgroundColor = [UIColor clearColor];
         container.userInteractionEnabled = YES;
+        container.clipsToBounds = NO;
         [host addSubview:container];
     }
     container.frame = host.bounds;
@@ -158,6 +242,8 @@ static UIView *MMEnsureCapsule(UIView *host) {
         capsule = [[UIView alloc] initWithFrame:CGRectZero];
         capsule.tag = kMMCapsuleTag;
         capsule.userInteractionEnabled = NO;
+        capsule.backgroundColor = [UIColor clearColor];
+        capsule.clipsToBounds = NO;
         [host addSubview:capsule];
     }
 
@@ -166,6 +252,7 @@ static UIView *MMEnsureCapsule(UIView *host) {
         border = [[UIView alloc] initWithFrame:CGRectZero];
         border.tag = kMMCapsuleBorderTag;
         border.userInteractionEnabled = NO;
+        border.backgroundColor = [UIColor clearColor];
         [capsule addSubview:border];
     }
 
@@ -174,6 +261,7 @@ static UIView *MMEnsureCapsule(UIView *host) {
         glow = [[UIView alloc] initWithFrame:CGRectZero];
         glow.tag = kMMCapsuleGlowTag;
         glow.userInteractionEnabled = NO;
+        glow.backgroundColor = [UIColor clearColor];
         [capsule addSubview:glow];
     }
 
@@ -217,8 +305,8 @@ static void MMApplyCapsuleFrame(UIView *host, NSInteger selectedIndex, NSInteger
 
     CGRect frame = CGRectMake(outerSide + slotW * selectedIndex + 2.0, outerTop, slotW - 4.0, slotH);
     capsule.frame = frame;
-    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.12) : MMRGBA(255,255,255,0.26);
-    capsule.layer.shadowColor = MMRGBA(255,255,255,0.16).CGColor;
+    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.12) : MMRGBA(255,255,255,0.32);
+    capsule.layer.shadowColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.16).CGColor : MMRGBA(255,255,255,0.35).CGColor;
     capsule.layer.shadowOpacity = 1.0;
     capsule.layer.shadowRadius = 12.0;
     capsule.layer.shadowOffset = CGSizeMake(0, 2);
@@ -228,13 +316,15 @@ static void MMApplyCapsuleFrame(UIView *host, NSInteger selectedIndex, NSInteger
     border.frame = capsule.bounds;
     border.backgroundColor = [UIColor clearColor];
     border.layer.borderWidth = 0.7;
-    border.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.16) : MMRGBA(255,255,255,0.36)).CGColor;
+    border.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.16) : MMRGBA(255,255,255,0.38)).CGColor;
     MMSetContinuousRadius(border, border.bounds.size.height / 2.0);
+    border.layer.masksToBounds = YES;
 
     UIView *glow = [capsule viewWithTag:kMMCapsuleGlowTag];
     glow.frame = CGRectInset(capsule.bounds, 1.0, 1.0);
     glow.backgroundColor = [UIColor clearColor];
     MMSetContinuousRadius(glow, glow.bounds.size.height / 2.0);
+    glow.layer.masksToBounds = YES;
 
     CAGradientLayer *grad = MMFindGradient(glow.layer, @"mm_capsule_glow");
     if (!grad) {
@@ -250,36 +340,6 @@ static void MMApplyCapsuleFrame(UIView *host, NSInteger selectedIndex, NSInteger
         (__bridge id)MMRGBA(255,255,255,0.05).CGColor,
         (__bridge id)MMRGBA(255,255,255,0.01).CGColor
     ];
-}
-
-static NSString *MMFallbackTitleFromNative(UITabBar *tabBar, NSInteger idx) {
-    for (UIView *sub in tabBar.subviews) {
-        NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"UITabBarButton"] || [name containsString:@"MMTabBarItemView"]) {
-            for (UIView *inner in sub.subviews) {
-                if ([inner isKindOfClass:[UILabel class]]) {
-                    UILabel *lab = (UILabel *)inner;
-                    if (lab.text.length > 0) return lab.text;
-                }
-            }
-        }
-    }
-    if (idx >= 0 && idx < (NSInteger)tabBar.items.count) {
-        UITabBarItem *item = tabBar.items[idx];
-        if (item.title.length > 0) return item.title;
-    }
-    return @"";
-}
-
-static UIImage *MMItemImage(UITabBarItem *item, BOOL selected) {
-    UIImage *img = nil;
-    if (selected) {
-        img = item.selectedImage ?: item.image;
-    } else {
-        img = item.image ?: item.selectedImage;
-    }
-    if (!img) return nil;
-    return [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 }
 
 static void MMSwitchToIndex(UIView *sourceView, NSInteger idx) {
@@ -321,10 +381,13 @@ static MMFloatingTabButton *MMMakeTabButton(CGRect frame, UIImage *image, NSStri
     MMFloatingTabButton *button = [[MMFloatingTabButton alloc] initWithFrame:frame];
     button.tag = 3000 + idx;
     button.backgroundColor = [UIColor clearColor];
+    button.opaque = NO;
 
-    UIImageView *iconView = [[UIImageView alloc] initWithImage:image];
+    UIImageView *iconView = [[UIImageView alloc] initWithFrame:CGRectZero];
+    iconView.image = image;
     iconView.contentMode = UIViewContentModeScaleAspectFit;
     iconView.tintColor = color;
+    iconView.backgroundColor = [UIColor clearColor];
     [button addSubview:iconView];
     button.iconView = iconView;
 
@@ -335,20 +398,34 @@ static MMFloatingTabButton *MMMakeTabButton(CGRect frame, UIImage *image, NSStri
     titleLabel.adjustsFontSizeToFitWidth = YES;
     titleLabel.minimumScaleFactor = 0.75;
     titleLabel.textColor = color;
+    titleLabel.backgroundColor = [UIColor clearColor];
     [button addSubview:titleLabel];
     button.titleLabel = titleLabel;
 
     CGFloat bw = frame.size.width;
     CGFloat bh = frame.size.height;
-    CGFloat iconSize = 23.0;
-    CGFloat titleH = title.length > 0 ? 12.0 : 0.0;
-    CGFloat spacing = title.length > 0 ? 2.0 : 0.0;
+    BOOL hasIcon = (image != nil);
+    BOOL hasTitle = (title.length > 0);
+
+    CGFloat iconSize = hasIcon ? 23.0 : 0.0;
+    CGFloat titleH = hasTitle ? 12.0 : 0.0;
+    CGFloat spacing = (hasIcon && hasTitle) ? 2.0 : 0.0;
     CGFloat totalH = iconSize + spacing + titleH;
-    CGFloat startY = floor((bh - totalH) * 0.5) - 1.0;
+    CGFloat startY = floor((bh - totalH) * 0.5) - (hasIcon && hasTitle ? 1.0 : 0.0);
     if (startY < 4.0) startY = 4.0;
 
-    iconView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
-    titleLabel.frame = CGRectMake(2.0, CGRectGetMaxY(iconView.frame) + spacing, bw - 4.0, titleH);
+    if (hasIcon) {
+        iconView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
+    } else {
+        iconView.hidden = YES;
+    }
+
+    if (hasTitle) {
+        CGFloat titleY = hasIcon ? CGRectGetMaxY(iconView.frame) + spacing : floor((bh - titleH) * 0.5);
+        titleLabel.frame = CGRectMake(2.0, titleY, bw - 4.0, titleH);
+    } else {
+        titleLabel.hidden = YES;
+    }
 
     [button addTarget:button action:@selector(mmHandleTap) forControlEvents:UIControlEventTouchUpInside];
     return button;
@@ -374,16 +451,15 @@ static void MMBuildFloatingButtons(UITabBar *tabBar, UIView *host) {
     MMApplyCapsuleFrame(host, selected, count);
 
     for (NSInteger i = 0; i < count; i++) {
-        UITabBarItem *item = i < (NSInteger)tabBar.items.count ? tabBar.items[i] : nil;
         BOOL isSelected = (i == selected);
-        UIColor *color = isSelected ? MMRGBA(255,255,255,1.0) : MMRGBA(255,255,255,0.72);
+        UIColor *color = isSelected ? MMSelectedTextColor(host.traitCollection) : MMNormalTextColor(host.traitCollection);
 
         CGFloat x = outerSide + slotW * i;
         CGFloat w = (i == count - 1) ? (buttonsContainer.bounds.size.width - outerSide - x) : slotW;
         CGRect slotFrame = CGRectMake(x, outerTop, w, slotH);
 
-        UIImage *image = item ? MMItemImage(item, isSelected) : nil;
-        NSString *title = item.title.length > 0 ? item.title : MMFallbackTitleFromNative(tabBar, i);
+        UIImage *image = MMNativeImageForIndex(tabBar, i, isSelected);
+        NSString *title = MMNativeTitleForIndex(tabBar, i);
 
         MMFloatingTabButton *button = MMMakeTabButton(slotFrame, image, title, color, i);
         [buttonsContainer addSubview:button];
