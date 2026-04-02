@@ -119,7 +119,6 @@ static UIViewController *MMCurrentContentController(UIViewController *vc) {
 static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return NO;
     UIViewController *content = MMCurrentContentController(vc);
-    if ([content isKindOfClass:[UINavigationController class]]) return NO;
 
     id selected = nil;
     @try {
@@ -135,6 +134,11 @@ static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
         if (nav.presentedViewController) return NO;
     } else if ([content isKindOfClass:[UIViewController class]]) {
         if (content.presentedViewController) return NO;
+    }
+
+    NSString *contentName = NSStringFromClass([content class]);
+    if ([contentName containsString:@"Chat"] || [contentName containsString:@"Room"] || [contentName containsString:@"Message"]) {
+        return NO;
     }
 
     return YES;
@@ -267,8 +271,8 @@ static UIVisualEffectView *MMGlass(UIView *host) {
     shine.startPoint = CGPointMake(0.5, 0.0);
     shine.endPoint = CGPointMake(0.5, 1.0);
     shine.colors = @[
-        (__bridge id)MMRGBA(255, 255, 255, 0.16).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.06).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.14).CGColor,
+        (__bridge id)MMRGBA(255, 255, 255, 0.05).CGColor,
         (__bridge id)MMRGBA(255, 255, 255, 0.00).CGColor
     ];
 
@@ -350,17 +354,26 @@ static void MMStyleHost(UIView *host) {
     host.backgroundColor = [UIColor clearColor];
 }
 
-static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
-    if (cnt <= 0) return;
-
-    UIView *capsule = MMCapsule(host);
-
+static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
     CGFloat side = 10.0;
     CGFloat top = 8.0;
     CGFloat slotW = floor((host.bounds.size.width - side * 2.0) / cnt);
     CGFloat slotH = host.bounds.size.height - top * 2.0;
+    CGFloat x = side + slotW * idx;
+    CGFloat w = (idx == cnt - 1) ? (host.bounds.size.width - side - x) : slotW;
+    return CGRectMake(x, top, w, slotH);
+}
 
-    CGRect target = CGRectMake(side + slotW * idx + 1.5, top, slotW - 3.0, slotH);
+static CGRect MMCapsuleFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
+    CGRect slot = MMSlotFrameForIndex(host, idx, cnt);
+    return CGRectInset(slot, 1.5, 0.0);
+}
+
+static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
+    if (cnt <= 0) return;
+
+    UIView *capsule = MMCapsule(host);
+    CGRect target = MMCapsuleFrameForIndex(host, idx, cnt);
 
     [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
         capsule.frame = target;
@@ -425,6 +438,23 @@ static void MMSwitchToIndex(UIView *view, NSInteger idx) {
 }
 @end
 
+static void MMApplyColorRecursively(UIView *view, UIColor *color) {
+    if ([view isKindOfClass:[UIImageView class]]) {
+        UIImageView *iv = (UIImageView *)view;
+        if (iv.image) {
+            iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            iv.tintColor = color;
+        }
+    } else if ([view isKindOfClass:[UILabel class]]) {
+        UILabel *lab = (UILabel *)view;
+        lab.textColor = color;
+    }
+
+    for (UIView *sub in view.subviews) {
+        MMApplyColorRecursively(sub, color);
+    }
+}
+
 static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollection *trait) {
     MMClearTreeBackground(item, NO);
 
@@ -480,6 +510,8 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
         bf.origin.y = CGRectGetMinY(imageView.frame) - 2.0;
         badgeView.frame = bf;
     }
+
+    MMApplyColorRecursively(item, color);
 }
 
 static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
@@ -489,12 +521,6 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
     if (cnt == 0) return;
 
     NSInteger sel = MMSelectedIndex(tabBar);
-
-    CGFloat side = 10.0;
-    CGFloat slotW = (container.bounds.size.width - side * 2.0) / cnt;
-    CGFloat itemH = 56.0;
-    CGFloat itemY = floor((container.bounds.size.height - itemH) * 0.5);
-
     MMCapsuleLayout(host, sel, cnt);
 
     for (NSInteger i = 0; i < cnt; i++) {
@@ -504,10 +530,20 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
             [container addSubview:item];
         }
 
-        CGFloat x = side + slotW * i;
-        CGFloat w = (i == cnt - 1) ? (container.bounds.size.width - side - x) : slotW;
+        CGRect slot = MMSlotFrameForIndex(host, i, cnt);
+        CGRect capsule = MMCapsuleFrameForIndex(host, i, cnt);
 
-        item.frame = CGRectMake(x, itemY, w, itemH);
+        CGFloat itemW = capsule.size.width - 8.0;
+        CGFloat itemH = 56.0;
+        CGFloat itemX = floor(CGRectGetMidX(slot) - itemW * 0.5);
+        CGFloat itemY = floor(CGRectGetMidY(slot) - itemH * 0.5);
+
+        if (i == sel) {
+            itemX = floor(CGRectGetMidX(capsule) - itemW * 0.5);
+            itemY = floor(CGRectGetMidY(capsule) - itemH * 0.5);
+        }
+
+        item.frame = CGRectMake(itemX, itemY, itemW, itemH);
         item.hidden = NO;
         item.alpha = 1.0;
         item.userInteractionEnabled = NO;
@@ -533,17 +569,11 @@ static void MMLayoutHitButtons(UITabBar *tabBar, UIView *host) {
     NSInteger cnt = itemViews.count;
     if (cnt == 0) return;
 
-    CGFloat side = 10.0;
-    CGFloat top = 8.0;
-    CGFloat slotW = (container.bounds.size.width - side * 2.0) / cnt;
-    CGFloat slotH = container.bounds.size.height - top * 2.0;
-
     for (NSInteger i = 0; i < cnt; i++) {
-        CGFloat x = side + slotW * i;
-        CGFloat w = (i == cnt - 1) ? (container.bounds.size.width - side - x) : slotW;
+        CGRect slot = MMSlotFrameForIndex(host, i, cnt);
 
         MMHitButton *button = [MMHitButton new];
-        button.frame = CGRectMake(x, top, w, slotH);
+        button.frame = slot;
         button.tag = 2000 + i;
         button.backgroundColor = [UIColor clearColor];
         [button addTarget:button action:@selector(mmTap) forControlEvents:UIControlEventTouchUpInside];
