@@ -26,7 +26,11 @@ static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
         }
     }
     [arr sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
-        return a.frame.origin.x > b.frame.origin.x;
+        CGFloat ax = CGRectGetMinX(a.frame);
+        CGFloat bx = CGRectGetMinX(b.frame);
+        if (ax < bx) return NSOrderedAscending;
+        if (ax > bx) return NSOrderedDescending;
+        return NSOrderedSame;
     }];
     objc_setAssociatedObject(tabBar, kMMStoredItemViewsKey, arr, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return arr;
@@ -34,9 +38,9 @@ static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
 
 static CGRect MMSlot(UIView *host, NSInteger i, NSInteger count) {
     CGFloat side = 10.0;
-    CGFloat w = (host.bounds.size.width - side * 2) / count;
+    CGFloat w = (host.bounds.size.width - side * 2.0) / count;
     CGFloat h = host.bounds.size.height;
-    return CGRectMake(side + w * i, 0, w, h);
+    return CGRectMake(side + w * i, 0.0, w, h);
 }
 
 static void MMLayout(UITabBar *tabBar, UIView *host) {
@@ -45,6 +49,7 @@ static void MMLayout(UITabBar *tabBar, UIView *host) {
     if (count == 0) return;
 
     NSInteger selected = tabBar.selectedItem ? [tabBar.items indexOfObject:tabBar.selectedItem] : 0;
+    if (selected < 0 || selected >= count) selected = 0;
 
     UIView *capsule = [host viewWithTag:kMMCapsuleTag];
     if (!capsule) {
@@ -54,19 +59,15 @@ static void MMLayout(UITabBar *tabBar, UIView *host) {
     }
 
     CGRect selFrame = MMSlot(host, selected, count);
-    capsule.frame = CGRectInset(selFrame, 6, 8);
-    MMSetRadius(capsule, capsule.bounds.size.height / 2);
+    capsule.frame = CGRectInset(selFrame, 6.0, 8.0);
+    MMSetRadius(capsule, capsule.bounds.size.height / 2.0);
 
     for (NSInteger i = 0; i < count; i++) {
         UIView *item = items[i];
         CGRect slot = MMSlot(host, i, count);
-
-        CGFloat w = slot.size.width;
-        CGFloat h = slot.size.height;
-
-        item.frame = CGRectMake(slot.origin.x, slot.origin.y, w, h);
-        item.center = CGPointMake(CGRectGetMidX(slot), CGRectGetMidY(slot));
         item.transform = CGAffineTransformIdentity;
+        item.frame = slot;
+        item.center = CGPointMake(CGRectGetMidX(slot), CGRectGetMidY(slot));
     }
 }
 
@@ -82,8 +83,8 @@ static void MMLayout(UITabBar *tabBar, UIView *host) {
         [self.superview addSubview:host];
     }
 
-    host.frame = CGRectMake(16, self.superview.bounds.size.height - 90, self.superview.bounds.size.width - 32, 64);
-    MMSetRadius(host, 32);
+    host.frame = CGRectMake(16.0, self.superview.bounds.size.height - 90.0, self.superview.bounds.size.width - 32.0, 64.0);
+    MMSetRadius(host, 32.0);
 
     self.hidden = YES;
 
