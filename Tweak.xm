@@ -86,6 +86,34 @@ static UIViewController *MMFindVC(UIView *view) {
     return nil;
 }
 
+static UIViewController *MMFindTabBarControllerFromView(UIView *view) {
+    UIViewController *vc = MMFindVC(view);
+    if (vc && MMFindTabBar(vc)) return vc;
+
+    UIWindow *window = view.window ?: UIApplication.sharedApplication.keyWindow;
+    UIViewController *root = window.rootViewController;
+    if (!root) return vc;
+
+    NSMutableArray<UIViewController *> *stack = [NSMutableArray arrayWithObject:root];
+    while (stack.count > 0) {
+        UIViewController *current = stack.firstObject;
+        [stack removeObjectAtIndex:0];
+        if (MMFindTabBar(current)) return current;
+        if (current.presentedViewController) [stack addObject:current.presentedViewController];
+        if ([current isKindOfClass:[UINavigationController class]]) {
+            UINavigationController *nav = (UINavigationController *)current;
+            for (UIViewController *sub in nav.viewControllers) [stack addObject:sub];
+        } else if ([current isKindOfClass:[UITabBarController class]]) {
+            UITabBarController *tab = (UITabBarController *)current;
+            for (UIViewController *sub in tab.viewControllers) [stack addObject:sub];
+        } else {
+            for (UIViewController *sub in current.childViewControllers) [stack addObject:sub];
+        }
+    }
+
+    return vc ?: root;
+}
+
 static NSInteger MMSelectedIndex(UITabBar *tabBar) {
     if (!tabBar || tabBar.items.count == 0) return 0;
     if (tabBar.selectedItem) {
@@ -413,24 +441,28 @@ static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
 }
 
 static void MMSwitchToIndex(UIView *view, NSInteger idx) {
-    UIViewController *vc = MMFindVC(view);
+    UIViewController *vc = MMFindTabBarControllerFromView(view);
     if (!vc) return;
+
+    UITabBar *tb = MMFindTabBar(vc);
 
     if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
         @try {
             [(id)vc setSelectedIndex:idx];
-            return;
         } @catch (__unused NSException *e) {
         }
     }
 
-    UITabBar *tb = MMFindTabBar(vc);
     if (tb && idx >= 0 && idx < (NSInteger)tb.items.count) {
         @try {
             tb.selectedItem = tb.items[idx];
         } @catch (__unused NSException *e) {
         }
     }
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMUpdate(vc);
+    });
 }
 
 @interface MMHitButton : UIControl
@@ -492,7 +524,9 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
         }
 
         CGRect slot = MMSlotFrameForIndex(host, i, cnt);
-        item.frame = slot;
+        CGRect target = (i == sel) ? MMCapsuleFrameForIndex(host, i, cnt) : slot;
+
+        item.frame = target;
         item.hidden = NO;
         item.alpha = 1.0;
         item.userInteractionEnabled = NO;
@@ -525,6 +559,7 @@ static void MMLayoutHitButtons(UITabBar *tabBar, UIView *host) {
         button.frame = slot;
         button.tag = 2000 + i;
         button.backgroundColor = [UIColor clearColor];
+        button.userInteractionEnabled = YES;
         [button addTarget:button action:@selector(mmTap) forControlEvents:UIControlEventTouchUpInside];
         [container addSubview:button];
     }
