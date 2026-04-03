@@ -156,11 +156,6 @@ static void MMCollectItemViewsRecursive(UIView *view, NSMutableArray<UIView *> *
 }
 
 static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
-    NSArray *stored = objc_getAssociatedObject(tabBar, kMMStoredItemViewsKey);
-    if ([stored isKindOfClass:[NSArray class]] && stored.count > 0) {
-        return stored;
-    }
-
     NSMutableArray<UIView *> *result = [NSMutableArray array];
     MMCollectItemViewsRecursive(tabBar, result);
 
@@ -172,9 +167,6 @@ static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
         return NSOrderedSame;
     }];
 
-    if (result.count > 0) {
-        objc_setAssociatedObject(tabBar, kMMStoredItemViewsKey, result, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
     return result;
 }
 
@@ -472,59 +464,14 @@ static void MMApplyColorRecursively(UIView *view, UIColor *color) {
 static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollection *trait) {
     MMClearTreeBackground(item, NO);
 
-    UIImageView *imageView = MMKVC(item, @"imageView");
-    UILabel *textLabel = MMKVC(item, @"textLabel");
-    UIView *badgeView = MMKVC(item, @"badgeView");
     UIView *backgroundView = MMKVC(item, @"backgroundView");
-
     if ([backgroundView isKindOfClass:[UIView class]]) {
         backgroundView.hidden = YES;
         backgroundView.alpha = 0.0;
     }
 
     MMSetItemSelected(item, selected);
-
     UIColor *color = selected ? MMSelectedColor(trait) : MMNormalColor(trait);
-
-    CGFloat bw = item.bounds.size.width;
-    CGFloat bh = item.bounds.size.height;
-
-    CGFloat iconSize = 27.0;
-    CGFloat titleH = 14.0;
-    CGFloat spacing = 4.0;
-    CGFloat totalH = iconSize + spacing + titleH;
-    CGFloat startY = floor((bh - totalH) * 0.5);
-    if (startY < 4.0) startY = 4.0;
-
-    if ([imageView isKindOfClass:[UIImageView class]]) {
-        if (imageView.image) {
-            imageView.image = [imageView.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-        }
-        imageView.tintColor = color;
-        imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
-        imageView.contentMode = UIViewContentModeScaleAspectFit;
-        imageView.backgroundColor = [UIColor clearColor];
-        imageView.opaque = NO;
-    }
-
-    if ([textLabel isKindOfClass:[UILabel class]]) {
-        textLabel.frame = CGRectMake(0.0, startY + iconSize + spacing, bw, titleH);
-        textLabel.textAlignment = NSTextAlignmentCenter;
-        textLabel.textColor = color;
-        textLabel.font = [UIFont systemFontOfSize:11.0 weight:selected ? UIFontWeightSemibold : UIFontWeightRegular];
-        textLabel.adjustsFontSizeToFitWidth = YES;
-        textLabel.minimumScaleFactor = 0.72;
-        textLabel.backgroundColor = [UIColor clearColor];
-        textLabel.opaque = NO;
-    }
-
-    if ([badgeView isKindOfClass:[UIView class]] && [imageView isKindOfClass:[UIImageView class]]) {
-        CGRect bf = badgeView.frame;
-        bf.origin.x = CGRectGetMaxX(imageView.frame) - 1.0;
-        bf.origin.y = CGRectGetMinY(imageView.frame) - 2.0;
-        badgeView.frame = bf;
-    }
-
     MMApplyColorRecursively(item, color);
 }
 
@@ -546,15 +493,7 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
         }
 
         CGRect slot = MMSlotFrameForIndex(host, i, cnt);
-        CGRect capsule = MMCapsuleFrameForIndex(host, i, cnt);
-        CGRect target = (i == sel) ? capsule : slot;
-
-        CGFloat itemW = MAX(0.0, target.size.width - 10.0);
-        CGFloat itemH = 56.0;
-        CGFloat centerX = CGRectGetMidX(target);
-        CGFloat centerY = CGRectGetMidY(target);
-
-        item.frame = CGRectMake(floor(centerX - itemW * 0.5), floor(centerY - itemH * 0.5), itemW, itemH);
+        item.frame = slot;
         item.hidden = NO;
         item.alpha = 1.0;
         item.userInteractionEnabled = NO;
@@ -638,6 +577,54 @@ static void MMUpdate(UIViewController *vc) {
 
     kMMUpdatingLayout = NO;
 }
+
+%hook MMTabBarItemView
+
+- (void)layoutSubviews {
+    %orig;
+
+    UIImageView *imageView = nil;
+    UILabel *textLabel = nil;
+
+    @try {
+        imageView = [self valueForKey:@"_imageView"];
+    } @catch (__unused NSException *e) {
+    }
+
+    @try {
+        textLabel = [self valueForKey:@"_textLabel"];
+    } @catch (__unused NSException *e) {
+    }
+
+    if (![imageView isKindOfClass:[UIImageView class]] || ![textLabel isKindOfClass:[UILabel class]]) {
+        return;
+    }
+
+    CGFloat bw = self.bounds.size.width;
+    CGFloat bh = self.bounds.size.height;
+    CGFloat iconSize = 27.0;
+    CGFloat titleH = 14.0;
+    CGFloat spacing = 4.0;
+    CGFloat totalH = iconSize + spacing + titleH;
+    CGFloat startY = floor((bh - totalH) * 0.5);
+    if (startY < 4.0) startY = 4.0;
+
+    imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
+    imageView.contentMode = UIViewContentModeScaleAspectFit;
+
+    textLabel.frame = CGRectMake(0.0, startY + iconSize + spacing, bw, titleH);
+    textLabel.textAlignment = NSTextAlignmentCenter;
+    textLabel.adjustsFontSizeToFitWidth = YES;
+    textLabel.minimumScaleFactor = 0.72;
+}
+
+- (void)setSelected:(BOOL)selected {
+    %orig(selected);
+    [self setNeedsLayout];
+    [self layoutIfNeeded];
+}
+
+%end
 
 %hook MMTabBarController
 
