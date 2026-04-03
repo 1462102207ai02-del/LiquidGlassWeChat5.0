@@ -39,6 +39,23 @@ static void MMSetRadius(UIView *view, CGFloat radius) {
     }
 }
 
+static void MMApplyColorRecursively(UIView *view, UIColor *color) {
+    if ([view isKindOfClass:[UIImageView class]]) {
+        UIImageView *iv = (UIImageView *)view;
+        if (iv.image) {
+            iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+            iv.tintColor = color;
+        }
+    } else if ([view isKindOfClass:[UILabel class]]) {
+        UILabel *lab = (UILabel *)view;
+        lab.textColor = color;
+    }
+
+    for (UIView *sub in view.subviews) {
+        MMApplyColorRecursively(sub, color);
+    }
+}
+
 static CAGradientLayer *MMFindGradient(CALayer *layer, NSString *name) {
     for (CALayer *sub in layer.sublayers) {
         if ([sub isKindOfClass:[CAGradientLayer class]] && [sub.name isEqualToString:name]) {
