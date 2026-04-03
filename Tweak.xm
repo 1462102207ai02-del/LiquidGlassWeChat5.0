@@ -12,6 +12,8 @@ static NSInteger const kMMCapsuleGlowTag = 990007;
 
 static BOOL kMMUpdatingLayout = NO;
 
+static void MMUpdate(UIViewController *vc);
+
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
     return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
 }
@@ -86,11 +88,29 @@ static UIViewController *MMFindVC(UIView *view) {
     return nil;
 }
 
+static UIWindow *MMActiveWindow(void) {
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            UIWindowScene *windowScene = (UIWindowScene *)scene;
+            if (windowScene.activationState != UISceneActivationStateForegroundActive) continue;
+            for (UIWindow *window in windowScene.windows) {
+                if (window.isKeyWindow) return window;
+            }
+            if (windowScene.windows.count > 0) return windowScene.windows.firstObject;
+        }
+    }
+    for (UIWindow *window in UIApplication.sharedApplication.windows) {
+        if (window.isKeyWindow) return window;
+    }
+    return UIApplication.sharedApplication.windows.firstObject;
+}
+
 static UIViewController *MMFindTabBarControllerFromView(UIView *view) {
     UIViewController *vc = MMFindVC(view);
     if (vc && MMFindTabBar(vc)) return vc;
 
-    UIWindow *window = view.window ?: UIApplication.sharedApplication.keyWindow;
+    UIWindow *window = view.window ?: MMActiveWindow();
     UIViewController *root = window.rootViewController;
     if (!root) return vc;
 
