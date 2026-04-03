@@ -4,15 +4,11 @@
 
 static NSInteger const kMMGlassHostTag = 990001;
 static NSInteger const kMMGlassViewTag = 990002;
-static NSInteger const kMMButtonsContainerTag = 990003;
-static NSInteger const kMMHitContainerTag = 990004;
 static NSInteger const kMMCapsuleTag = 990005;
 static NSInteger const kMMCapsuleBorderTag = 990006;
 static NSInteger const kMMCapsuleGlowTag = 990007;
 
 static BOOL kMMUpdatingLayout = NO;
-
-static void MMUpdate(UIViewController *vc);
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
     return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
@@ -86,52 +82,6 @@ static UIViewController *MMFindVC(UIView *view) {
         if ([r isKindOfClass:[UIViewController class]]) return (UIViewController *)r;
     }
     return nil;
-}
-
-static UIWindow *MMActiveWindow(void) {
-    if (@available(iOS 13.0, *)) {
-        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-            UIWindowScene *windowScene = (UIWindowScene *)scene;
-            if (windowScene.activationState != UISceneActivationStateForegroundActive) continue;
-            for (UIWindow *window in windowScene.windows) {
-                if (window.isKeyWindow) return window;
-            }
-            if (windowScene.windows.count > 0) return windowScene.windows.firstObject;
-        }
-    }
-    for (UIWindow *window in UIApplication.sharedApplication.windows) {
-        if (window.isKeyWindow) return window;
-    }
-    return UIApplication.sharedApplication.windows.firstObject;
-}
-
-static UIViewController *MMFindTabBarControllerFromView(UIView *view) {
-    UIViewController *vc = MMFindVC(view);
-    if (vc && MMFindTabBar(vc)) return vc;
-
-    UIWindow *window = view.window ?: MMActiveWindow();
-    UIViewController *root = window.rootViewController;
-    if (!root) return vc;
-
-    NSMutableArray<UIViewController *> *stack = [NSMutableArray arrayWithObject:root];
-    while (stack.count > 0) {
-        UIViewController *current = stack.firstObject;
-        [stack removeObjectAtIndex:0];
-        if (MMFindTabBar(current)) return current;
-        if (current.presentedViewController) [stack addObject:current.presentedViewController];
-        if ([current isKindOfClass:[UINavigationController class]]) {
-            UINavigationController *nav = (UINavigationController *)current;
-            for (UIViewController *sub in nav.viewControllers) [stack addObject:sub];
-        } else if ([current isKindOfClass:[UITabBarController class]]) {
-            UITabBarController *tab = (UITabBarController *)current;
-            for (UIViewController *sub in tab.viewControllers) [stack addObject:sub];
-        } else {
-            for (UIViewController *sub in current.childViewControllers) [stack addObject:sub];
-        }
-    }
-
-    return vc ?: root;
 }
 
 static NSInteger MMSelectedIndex(UITabBar *tabBar) {
@@ -217,15 +167,6 @@ static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
     return result;
 }
 
-static void MMSetItemSelected(UIView *itemView, BOOL selected) {
-    SEL sel = @selector(setSelected:);
-    if ([itemView respondsToSelector:sel]) {
-        IMP imp = [itemView methodForSelector:sel];
-        void (*func)(id, SEL, BOOL) = (void (*)(id, SEL, BOOL))imp;
-        func(itemView, sel, selected);
-    }
-}
-
 static void MMClearTreeBackground(UIView *view, BOOL preserveBadge) {
     NSString *name = NSStringFromClass([view class]);
 
@@ -279,7 +220,7 @@ static UIView *MMHost(UIView *container) {
         host = [UIView new];
         host.tag = kMMGlassHostTag;
         host.backgroundColor = [UIColor clearColor];
-        host.userInteractionEnabled = YES;
+        host.userInteractionEnabled = NO;
         host.clipsToBounds = NO;
         [container addSubview:host];
     }
@@ -316,36 +257,6 @@ static UIVisualEffectView *MMGlass(UIView *host) {
     ];
 
     return glass;
-}
-
-static UIView *MMButtonsContainer(UIView *host) {
-    UIView *container = [host viewWithTag:kMMButtonsContainerTag];
-    if (!container) {
-        container = [UIView new];
-        container.tag = kMMButtonsContainerTag;
-        container.backgroundColor = [UIColor clearColor];
-        container.userInteractionEnabled = YES;
-        container.clipsToBounds = YES;
-        [host addSubview:container];
-    }
-    container.frame = host.bounds;
-    MMSetRadius(container, host.bounds.size.height / 2.0);
-    return container;
-}
-
-static UIView *MMHitContainer(UIView *host) {
-    UIView *container = [host viewWithTag:kMMHitContainerTag];
-    if (!container) {
-        container = [UIView new];
-        container.tag = kMMHitContainerTag;
-        container.backgroundColor = [UIColor clearColor];
-        container.userInteractionEnabled = YES;
-        container.clipsToBounds = YES;
-        [host addSubview:container];
-    }
-    container.frame = host.bounds;
-    MMSetRadius(container, host.bounds.size.height / 2.0);
-    return container;
 }
 
 static UIView *MMCapsule(UIView *host) {
@@ -405,21 +316,20 @@ static CGFloat MMInterItemInset(void) {
     return 10.0;
 }
 
-static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
+static CGRect MMSlotFrameForIndex(UIView *view, NSInteger idx, NSInteger cnt) {
     CGFloat side = MMSideInset();
     CGFloat top = MMTopInset();
-    CGFloat totalW = host.bounds.size.width - side * 2.0;
+    CGFloat totalW = view.bounds.size.width - side * 2.0;
     CGFloat slotW = floor(totalW / cnt);
-    CGFloat slotH = host.bounds.size.height - top * 2.0;
+    CGFloat slotH = view.bounds.size.height - top * 2.0;
     CGFloat x = side + slotW * idx;
-    CGFloat w = (idx == cnt - 1) ? (host.bounds.size.width - side - x) : slotW;
+    CGFloat w = (idx == cnt - 1) ? (view.bounds.size.width - side - x) : slotW;
     return CGRectMake(x, top, w, slotH);
 }
 
-static CGRect MMCapsuleFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
-    CGRect slot = MMSlotFrameForIndex(host, idx, cnt);
-    CGFloat horizInset = MMInterItemInset() * 0.5;
-    return CGRectInset(slot, horizInset, 1.0);
+static CGRect MMCapsuleFrameForIndex(UIView *view, NSInteger idx, NSInteger cnt) {
+    CGRect slot = MMSlotFrameForIndex(view, idx, cnt);
+    return CGRectInset(slot, MMInterItemInset() * 0.5, 1.0);
 }
 
 static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
@@ -460,41 +370,6 @@ static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
     ];
 }
 
-static void MMSwitchToIndex(UIView *view, NSInteger idx) {
-    UIViewController *vc = MMFindTabBarControllerFromView(view);
-    if (!vc) return;
-
-    UITabBar *tb = MMFindTabBar(vc);
-
-    if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-        @try {
-            [(id)vc setSelectedIndex:idx];
-        } @catch (__unused NSException *e) {
-        }
-    }
-
-    if (tb && idx >= 0 && idx < (NSInteger)tb.items.count) {
-        @try {
-            tb.selectedItem = tb.items[idx];
-        } @catch (__unused NSException *e) {
-        }
-    }
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        MMUpdate(vc);
-    });
-}
-
-@interface MMHitButton : UIControl
-@end
-
-@implementation MMHitButton
-- (void)mmTap {
-    NSInteger idx = self.tag - 2000;
-    MMSwitchToIndex(self, idx);
-}
-@end
-
 static void MMApplyColorRecursively(UIView *view, UIColor *color) {
     if ([view isKindOfClass:[UIImageView class]]) {
         UIImageView *iv = (UIImageView *)view;
@@ -521,70 +396,33 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
         backgroundView.alpha = 0.0;
     }
 
-    MMSetItemSelected(item, selected);
     UIColor *color = selected ? MMSelectedColor(trait) : MMNormalColor(trait);
     MMApplyColorRecursively(item, color);
 }
 
-static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
-    UIView *container = MMButtonsContainer(host);
+static void MMLayoutItemViews(UITabBar *tabBar) {
     NSArray<UIView *> *itemViews = MMItemViews(tabBar);
     NSInteger cnt = itemViews.count;
     if (cnt == 0) return;
 
     NSInteger sel = MMSelectedIndex(tabBar);
     if (sel < 0 || sel >= cnt) sel = 0;
-    MMCapsuleLayout(host, sel, cnt);
 
     for (NSInteger i = 0; i < cnt; i++) {
         UIView *item = itemViews[i];
-        if (item.superview != container) {
-            [item removeFromSuperview];
-            [container addSubview:item];
-        }
+        CGRect slot = MMSlotFrameForIndex(tabBar, i, cnt);
 
-        CGRect slot = MMSlotFrameForIndex(host, i, cnt);
-        CGRect target = (i == sel) ? MMCapsuleFrameForIndex(host, i, cnt) : slot;
-
-        item.frame = target;
+        item.frame = slot;
         item.hidden = NO;
         item.alpha = 1.0;
-        item.userInteractionEnabled = NO;
+        item.userInteractionEnabled = YES;
         item.backgroundColor = [UIColor clearColor];
         item.opaque = NO;
-        item.layer.zPosition = 10;
+        item.layer.zPosition = 20;
         item.clipsToBounds = NO;
 
-        MMLayoutSingleItemView(item, i == sel, host.traitCollection);
+        MMLayoutSingleItemView(item, i == sel, tabBar.traitCollection);
     }
-
-    [host bringSubviewToFront:[host viewWithTag:kMMCapsuleTag]];
-    [host bringSubviewToFront:container];
-}
-
-static void MMLayoutHitButtons(UITabBar *tabBar, UIView *host) {
-    UIView *container = MMHitContainer(host);
-    for (UIView *sub in [container.subviews copy]) {
-        [sub removeFromSuperview];
-    }
-
-    NSArray<UIView *> *itemViews = MMItemViews(tabBar);
-    NSInteger cnt = itemViews.count;
-    if (cnt == 0) return;
-
-    for (NSInteger i = 0; i < cnt; i++) {
-        CGRect slot = MMSlotFrameForIndex(host, i, cnt);
-
-        MMHitButton *button = [MMHitButton new];
-        button.frame = slot;
-        button.tag = 2000 + i;
-        button.backgroundColor = [UIColor clearColor];
-        button.userInteractionEnabled = YES;
-        [button addTarget:button action:@selector(mmTap) forControlEvents:UIControlEventTouchUpInside];
-        [container addSubview:button];
-    }
-
-    [host bringSubviewToFront:container];
 }
 
 static void MMUpdate(UIViewController *vc) {
@@ -602,11 +440,13 @@ static void MMUpdate(UIViewController *vc) {
 
     if (!MMShouldShowFloatingBar(vc)) {
         host.hidden = YES;
+        tabBar.hidden = YES;
         kMMUpdatingLayout = NO;
         return;
     }
 
     host.hidden = NO;
+    tabBar.hidden = NO;
 
     CGFloat inset = MMBottomInset(root);
     CGFloat height = 66.0;
@@ -617,17 +457,16 @@ static void MMUpdate(UIViewController *vc) {
     MMStyleHost(host);
     MMGlass(host);
 
+    tabBar.frame = frame;
+    tabBar.alpha = 1.0;
+    tabBar.userInteractionEnabled = YES;
     MMClearTabBar(tabBar);
 
-    tabBar.frame = CGRectMake(0, root.bounds.size.height + 200.0, 1.0, 1.0);
-    tabBar.userInteractionEnabled = NO;
-    tabBar.hidden = NO;
-    tabBar.alpha = 0.01;
-
-    MMLayoutItemViews(tabBar, host);
-    MMLayoutHitButtons(tabBar, host);
+    MMCapsuleLayout(host, MMSelectedIndex(tabBar), tabBar.items.count);
+    MMLayoutItemViews(tabBar);
 
     [root bringSubviewToFront:host];
+    [root bringSubviewToFront:tabBar];
 
     kMMUpdatingLayout = NO;
 }
@@ -716,6 +555,14 @@ static void MMUpdate(UIViewController *vc) {
 %end
 
 %hook UITabBar
+
+- (void)layoutSubviews {
+    %orig;
+    UIViewController *vc = MMFindVC(self);
+    if (vc) {
+        MMUpdate(vc);
+    }
+}
 
 - (void)setSelectedItem:(UITabBarItem *)item {
     %orig(item);
