@@ -1,12 +1,8 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
-#import <objc/runtime.h>
 
 static NSInteger const kMMGlassHostTag = 990001;
 static NSInteger const kMMGlassViewTag = 990002;
-static NSInteger const kMMCapsuleTag = 990005;
-static NSInteger const kMMCapsuleBorderTag = 990006;
-static NSInteger const kMMCapsuleGlowTag = 990007;
 
 static BOOL kMMUpdatingLayout = NO;
 
@@ -43,14 +39,6 @@ static void MMSetRadius(UIView *view, CGFloat radius) {
     }
 }
 
-static id MMKVC(id obj, NSString *key) {
-    @try {
-        return [obj valueForKey:key];
-    } @catch (__unused NSException *e) {
-        return nil;
-    }
-}
-
 static CAGradientLayer *MMFindGradient(CALayer *layer, NSString *name) {
     for (CALayer *sub in layer.sublayers) {
         if ([sub isKindOfClass:[CAGradientLayer class]] && [sub.name isEqualToString:name]) {
@@ -84,15 +72,6 @@ static UIViewController *MMFindVC(UIView *view) {
     return nil;
 }
 
-static NSInteger MMSelectedIndex(UITabBar *tabBar) {
-    if (!tabBar || tabBar.items.count == 0) return 0;
-    if (tabBar.selectedItem) {
-        NSInteger idx = [tabBar.items indexOfObject:tabBar.selectedItem];
-        if (idx != NSNotFound) return idx;
-    }
-    return 0;
-}
-
 static UIViewController *MMCurrentContentController(UIViewController *vc) {
     id selected = nil;
     @try {
@@ -115,6 +94,7 @@ static UIViewController *MMCurrentContentController(UIViewController *vc) {
 
 static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return NO;
+
     UIViewController *content = MMCurrentContentController(vc);
 
     id selected = nil;
@@ -139,51 +119,6 @@ static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
     }
 
     return YES;
-}
-
-static void MMCollectItemViewsRecursive(UIView *view, NSMutableArray<UIView *> *result) {
-    NSString *name = NSStringFromClass([view class]);
-    if ([name containsString:@"MMTabBarItemView"]) {
-        [result addObject:view];
-        return;
-    }
-    for (UIView *sub in view.subviews) {
-        MMCollectItemViewsRecursive(sub, result);
-    }
-}
-
-static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
-    NSMutableArray<UIView *> *result = [NSMutableArray array];
-    MMCollectItemViewsRecursive(tabBar, result);
-
-    [result sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
-        CGFloat x1 = CGRectGetMinX(a.frame);
-        CGFloat x2 = CGRectGetMinX(b.frame);
-        if (x1 < x2) return NSOrderedAscending;
-        if (x1 > x2) return NSOrderedDescending;
-        return NSOrderedSame;
-    }];
-
-    return result;
-}
-
-static void MMClearTreeBackground(UIView *view, BOOL preserveBadge) {
-    NSString *name = NSStringFromClass([view class]);
-
-    if (!preserveBadge) {
-        if ([name localizedCaseInsensitiveContainsString:@"background"]) {
-            view.hidden = YES;
-            view.alpha = 0.0;
-        } else {
-            view.backgroundColor = [UIColor clearColor];
-            view.opaque = NO;
-        }
-    }
-
-    BOOL childPreserveBadge = preserveBadge || [name localizedCaseInsensitiveContainsString:@"badge"];
-    for (UIView *sub in view.subviews) {
-        MMClearTreeBackground(sub, childPreserveBadge);
-    }
 }
 
 static void MMClearTabBar(UITabBar *tabBar) {
@@ -259,40 +194,6 @@ static UIVisualEffectView *MMGlass(UIView *host) {
     return glass;
 }
 
-static UIView *MMCapsule(UIView *host) {
-    UIView *capsule = [host viewWithTag:kMMCapsuleTag];
-    if (!capsule) {
-        capsule = [UIView new];
-        capsule.tag = kMMCapsuleTag;
-        capsule.backgroundColor = [UIColor clearColor];
-        capsule.userInteractionEnabled = NO;
-        capsule.clipsToBounds = NO;
-        [host addSubview:capsule];
-    }
-
-    UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
-    if (!border) {
-        border = [UIView new];
-        border.tag = kMMCapsuleBorderTag;
-        border.backgroundColor = [UIColor clearColor];
-        border.userInteractionEnabled = NO;
-        border.clipsToBounds = YES;
-        [capsule addSubview:border];
-    }
-
-    UIView *glow = [capsule viewWithTag:kMMCapsuleGlowTag];
-    if (!glow) {
-        glow = [UIView new];
-        glow.tag = kMMCapsuleGlowTag;
-        glow.backgroundColor = [UIColor clearColor];
-        glow.userInteractionEnabled = NO;
-        glow.clipsToBounds = YES;
-        [capsule addSubview:glow];
-    }
-
-    return capsule;
-}
-
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, host.bounds.size.height / 2.0);
     host.layer.borderWidth = 0.42;
@@ -301,96 +202,37 @@ static void MMStyleHost(UIView *host) {
     host.layer.shadowOpacity = 1.0;
     host.layer.shadowRadius = 18.0;
     host.layer.shadowOffset = CGSizeMake(0, 8);
-    host.backgroundColor = [UIColor clearColor];
 }
 
-static CGFloat MMSideInset(void) {
-    return 18.0;
-}
-
-static CGFloat MMTopInset(void) {
-    return 7.0;
-}
-
-static CGFloat MMInterItemInset(void) {
-    return 10.0;
-}
-
-static CGRect MMSlotFrameForIndex(UIView *view, NSInteger idx, NSInteger cnt) {
-    CGFloat side = MMSideInset();
-    CGFloat top = MMTopInset();
-    CGFloat totalW = view.bounds.size.width - side * 2.0;
-    CGFloat slotW = floor(totalW / cnt);
-    CGFloat slotH = view.bounds.size.height - top * 2.0;
-    CGFloat x = side + slotW * idx;
-    CGFloat w = (idx == cnt - 1) ? (view.bounds.size.width - side - x) : slotW;
-    return CGRectMake(x, top, w, slotH);
-}
-
-static CGRect MMCapsuleFrameForIndex(UIView *view, NSInteger idx, NSInteger cnt) {
-    CGRect slot = MMSlotFrameForIndex(view, idx, cnt);
-    return CGRectInset(slot, MMInterItemInset() * 0.5, 1.0);
-}
-
-static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
-    if (cnt <= 0) return;
-
-    UIView *capsule = MMCapsule(host);
-    CGRect target = MMCapsuleFrameForIndex(host, idx, cnt);
-
-    [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
-        capsule.frame = target;
-        capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.10) : MMRGBA(255, 255, 255, 0.24);
-        MMSetRadius(capsule, target.size.height / 2.0);
-    } completion:nil];
-
-    UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
-    border.frame = capsule.bounds;
-    border.layer.borderWidth = 0.55;
-    border.layer.borderColor = (MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.12) : MMRGBA(255, 255, 255, 0.24)).CGColor;
-    MMSetRadius(border, border.bounds.size.height / 2.0);
-
-    UIView *glow = [capsule viewWithTag:kMMCapsuleGlowTag];
-    glow.frame = CGRectInset(capsule.bounds, 1.0, 1.0);
-    MMSetRadius(glow, glow.bounds.size.height / 2.0);
-
-    CAGradientLayer *grad = MMFindGradient(glow.layer, @"capsuleGlow");
-    if (!grad) {
-        grad = [CAGradientLayer layer];
-        grad.name = @"capsuleGlow";
-        [glow.layer addSublayer:grad];
-    }
-    grad.frame = glow.bounds;
-    grad.startPoint = CGPointMake(0.5, 0.0);
-    grad.endPoint = CGPointMake(0.5, 1.0);
-    grad.colors = @[
-        (__bridge id)MMRGBA(255, 255, 255, 0.10).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.03).CGColor,
-        (__bridge id)MMRGBA(255, 255, 255, 0.00).CGColor
-    ];
-}
-
-static void MMApplyColorRecursively(UIView *view, UIColor *color) {
-    if ([view isKindOfClass:[UIImageView class]]) {
-        UIImageView *iv = (UIImageView *)view;
-        if (iv.image) {
-            iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-            iv.tintColor = color;
+static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
+    NSMutableArray<UIView *> *result = [NSMutableArray array];
+    for (UIView *sub in tabBar.subviews) {
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name containsString:@"MMTabBarItemView"]) {
+            [result addObject:sub];
         }
-    } else if ([view isKindOfClass:[UILabel class]]) {
-        UILabel *lab = (UILabel *)view;
-        lab.textColor = color;
     }
 
-    for (UIView *sub in view.subviews) {
-        MMApplyColorRecursively(sub, color);
-    }
+    [result sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
+        CGFloat x1 = CGRectGetMinX(a.frame);
+        CGFloat x2 = CGRectGetMinX(b.frame);
+        if (x1 < x2) return NSOrderedAscending;
+        if (x1 > x2) return NSOrderedDescending;
+        return NSOrderedSame;
+    }];
+
+    return result;
 }
 
-static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollection *trait) {
-    MMClearTreeBackground(item, NO);
-    UIColor *color = selected ? MMSelectedColor(trait) : MMNormalColor(trait);
-    MMApplyColorRecursively(item, color);
+static CGRect MMSlotFrameForIndex(UITabBar *tabBar, NSInteger idx, NSInteger cnt) {
+    CGFloat side = 18.0;
+    CGFloat top = 7.0;
+    CGFloat totalW = tabBar.bounds.size.width - side * 2.0;
+    CGFloat slotW = floor(totalW / cnt);
+    CGFloat slotH = tabBar.bounds.size.height - top * 2.0;
+    CGFloat x = side + slotW * idx;
+    CGFloat w = (idx == cnt - 1) ? (tabBar.bounds.size.width - side - x) : slotW;
+    return CGRectMake(x, top, w, slotH);
 }
 
 static void MMLayoutItemViews(UITabBar *tabBar) {
@@ -398,23 +240,25 @@ static void MMLayoutItemViews(UITabBar *tabBar) {
     NSInteger cnt = itemViews.count;
     if (cnt == 0) return;
 
-    NSInteger sel = MMSelectedIndex(tabBar);
-    if (sel < 0 || sel >= cnt) sel = 0;
+    NSInteger selectedIndex = 0;
+    if (tabBar.selectedItem) {
+        NSInteger idx = [tabBar.items indexOfObject:tabBar.selectedItem];
+        if (idx != NSNotFound) selectedIndex = idx;
+    }
 
     for (NSInteger i = 0; i < cnt; i++) {
         UIView *item = itemViews[i];
-        CGRect target = (i == sel) ? MMCapsuleFrameForIndex(tabBar, i, cnt) : MMSlotFrameForIndex(tabBar, i, cnt);
-
-        item.frame = target;
+        item.frame = MMSlotFrameForIndex(tabBar, i, cnt);
         item.hidden = NO;
         item.alpha = 1.0;
         item.userInteractionEnabled = YES;
         item.backgroundColor = [UIColor clearColor];
         item.opaque = NO;
-        item.layer.zPosition = 20;
         item.clipsToBounds = NO;
+        item.layer.zPosition = 20;
 
-        MMLayoutSingleItemView(item, i == sel, tabBar.traitCollection);
+        UIColor *color = (i == selectedIndex) ? MMSelectedColor(tabBar.traitCollection) : MMNormalColor(tabBar.traitCollection);
+        MMApplyColorRecursively(item, color);
     }
 }
 
@@ -454,8 +298,6 @@ static void MMUpdate(UIViewController *vc) {
     tabBar.alpha = 1.0;
     tabBar.userInteractionEnabled = YES;
     MMClearTabBar(tabBar);
-
-    MMCapsuleLayout(host, MMSelectedIndex(tabBar), tabBar.items.count);
     MMLayoutItemViews(tabBar);
 
     [root bringSubviewToFront:host];
@@ -503,13 +345,6 @@ static void MMUpdate(UIViewController *vc) {
     textLabel.textAlignment = NSTextAlignmentCenter;
     textLabel.adjustsFontSizeToFitWidth = YES;
     textLabel.minimumScaleFactor = 0.72;
-}
-
-- (void)setSelected:(BOOL)selected {
-    %orig(selected);
-    UIView *itemView = (UIView *)self;
-    [itemView setNeedsLayout];
-    [itemView layoutIfNeeded];
 }
 
 %end
