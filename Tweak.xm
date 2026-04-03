@@ -10,7 +10,6 @@ static NSInteger const kMMCapsuleTag = 990005;
 static NSInteger const kMMCapsuleBorderTag = 990006;
 static NSInteger const kMMCapsuleGlowTag = 990007;
 
-static const void *kMMStoredItemViewsKey = &kMMStoredItemViewsKey;
 static BOOL kMMUpdatingLayout = NO;
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -583,6 +582,7 @@ static void MMUpdate(UIViewController *vc) {
 - (void)layoutSubviews {
     %orig;
 
+    UIView *itemView = (UIView *)self;
     UIImageView *imageView = nil;
     UILabel *textLabel = nil;
 
@@ -600,8 +600,8 @@ static void MMUpdate(UIViewController *vc) {
         return;
     }
 
-    CGFloat bw = self.bounds.size.width;
-    CGFloat bh = self.bounds.size.height;
+    CGFloat bw = itemView.bounds.size.width;
+    CGFloat bh = itemView.bounds.size.height;
     CGFloat iconSize = 27.0;
     CGFloat titleH = 14.0;
     CGFloat spacing = 4.0;
@@ -620,8 +620,9 @@ static void MMUpdate(UIViewController *vc) {
 
 - (void)setSelected:(BOOL)selected {
     %orig(selected);
-    [self setNeedsLayout];
-    [self layoutIfNeeded];
+    UIView *itemView = (UIView *)self;
+    [itemView setNeedsLayout];
+    [itemView layoutIfNeeded];
 }
 
 %end
