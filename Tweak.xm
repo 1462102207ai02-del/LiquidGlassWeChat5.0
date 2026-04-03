@@ -546,10 +546,13 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
         }
 
         CGRect slot = MMSlotFrameForIndex(host, i, cnt);
-        CGFloat itemW = MAX(0.0, slot.size.width - 12.0);
+        CGRect capsule = MMCapsuleFrameForIndex(host, i, cnt);
+        CGRect target = (i == sel) ? capsule : slot;
+
+        CGFloat itemW = MAX(0.0, target.size.width - 10.0);
         CGFloat itemH = 56.0;
-        CGFloat centerX = CGRectGetMidX(slot);
-        CGFloat centerY = CGRectGetMidY(slot);
+        CGFloat centerX = CGRectGetMidX(target);
+        CGFloat centerY = CGRectGetMidY(target);
 
         item.frame = CGRectMake(floor(centerX - itemW * 0.5), floor(centerY - itemH * 0.5), itemW, itemH);
         item.hidden = NO;
