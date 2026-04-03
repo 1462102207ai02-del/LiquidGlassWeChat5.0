@@ -166,6 +166,7 @@ static UIVisualEffectView *MMGlass(UIView *host) {
         shine.name = @"hostShine";
         [glass.contentView.layer addSublayer:shine];
     }
+
     shine.frame = CGRectMake(0, 0, glass.bounds.size.width, glass.bounds.size.height * 0.52);
     shine.startPoint = CGPointMake(0.5, 0.0);
     shine.endPoint = CGPointMake(0.5, 1.0);
@@ -230,6 +231,80 @@ static void MMUpdate(UIViewController *vc) {
 
     kMMUpdatingLayout = NO;
 }
+
+%hook MMTabBarItemView
+
+- (void)layoutSubviews {
+    %orig;
+
+    UIView *itemView = (UIView *)self;
+
+    id customContentController = nil;
+    @try {
+        customContentController = [self valueForKey:@"_customContentView"];
+    } @catch (__unused NSException *e) {
+    }
+
+    if (customContentController && [customContentController respondsToSelector:@selector(view)]) {
+        @try {
+            UIView *customView = [customContentController view];
+            if ([customView isKindOfClass:[UIView class]]) {
+                customView.hidden = YES;
+                customView.alpha = 0.0;
+            }
+        } @catch (__unused NSException *e) {
+        }
+    }
+
+    UIImageView *imageView = nil;
+    UILabel *textLabel = nil;
+    UIView *badgeView = nil;
+
+    @try {
+        imageView = [self valueForKey:@"_imageView"];
+    } @catch (__unused NSException *e) {
+    }
+
+    @try {
+        textLabel = [self valueForKey:@"_textLabel"];
+    } @catch (__unused NSException *e) {
+    }
+
+    @try {
+        badgeView = [self valueForKey:@"_badgeView"];
+    } @catch (__unused NSException *e) {
+    }
+
+    if (![imageView isKindOfClass:[UIImageView class]] || ![textLabel isKindOfClass:[UILabel class]]) {
+        return;
+    }
+
+    CGFloat bw = itemView.bounds.size.width;
+    CGFloat bh = itemView.bounds.size.height;
+    CGFloat iconSize = 27.0;
+    CGFloat titleH = 14.0;
+    CGFloat spacing = 4.0;
+    CGFloat totalH = iconSize + spacing + titleH;
+    CGFloat startY = floor((bh - totalH) * 0.5);
+    if (startY < 4.0) startY = 4.0;
+
+    imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
+    imageView.contentMode = UIViewContentModeScaleAspectFit;
+
+    textLabel.frame = CGRectMake(0.0, startY + iconSize + spacing, bw, titleH);
+    textLabel.textAlignment = NSTextAlignmentCenter;
+    textLabel.adjustsFontSizeToFitWidth = YES;
+    textLabel.minimumScaleFactor = 0.72;
+
+    if ([badgeView isKindOfClass:[UIView class]]) {
+        CGRect bf = badgeView.frame;
+        bf.origin.x = CGRectGetMaxX(imageView.frame) - 2.0;
+        bf.origin.y = CGRectGetMinY(imageView.frame) - 2.0;
+        badgeView.frame = bf;
+    }
+}
+
+%end
 
 %hook MMTabBarController
 
