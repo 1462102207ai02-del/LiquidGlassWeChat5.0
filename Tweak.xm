@@ -355,7 +355,7 @@ static void MMStyleHost(UIView *host) {
 }
 
 static CGFloat MMSideInset(void) {
-    return 14.0;
+    return 12.0;
 }
 
 static CGFloat MMTopInset(void) {
@@ -363,7 +363,7 @@ static CGFloat MMTopInset(void) {
 }
 
 static CGFloat MMInterItemInset(void) {
-    return 10.0;
+    return 8.0;
 }
 
 static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
@@ -380,7 +380,7 @@ static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
 static CGRect MMCapsuleFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
     CGRect slot = MMSlotFrameForIndex(host, idx, cnt);
     CGFloat horizInset = MMInterItemInset() * 0.5;
-    CGFloat vertInset = 1.5;
+    CGFloat vertInset = 1.0;
     return CGRectInset(slot, horizInset, vertInset);
 }
 
@@ -390,10 +390,7 @@ static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
     UIView *capsule = MMCapsule(host);
     CGRect target = MMCapsuleFrameForIndex(host, idx, cnt);
 
-    [UIView animateWithDuration:0.22
-                          delay:0
-                        options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut
-                     animations:^{
+    [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut animations:^{
         capsule.frame = target;
         capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.10) : MMRGBA(255, 255, 255, 0.24);
         MMSetRadius(capsule, target.size.height / 2.0);
@@ -497,7 +494,7 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
     CGFloat titleH = 14.0;
     CGFloat spacing = 4.0;
     CGFloat totalH = iconSize + spacing + titleH;
-    CGFloat startY = floor((bh - totalH) * 0.5) - 0.5;
+    CGFloat startY = floor((bh - totalH) * 0.5);
     if (startY < 4.0) startY = 4.0;
 
     if ([imageView isKindOfClass:[UIImageView class]]) {
@@ -512,7 +509,7 @@ static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollectio
     }
 
     if ([textLabel isKindOfClass:[UILabel class]]) {
-        textLabel.frame = CGRectMake(2.0, startY + iconSize + spacing, bw - 4.0, titleH);
+        textLabel.frame = CGRectMake(0.0, startY + iconSize + spacing, bw, titleH);
         textLabel.textAlignment = NSTextAlignmentCenter;
         textLabel.textColor = color;
         textLabel.font = [UIFont systemFontOfSize:11.0 weight:selected ? UIFontWeightSemibold : UIFontWeightRegular];
@@ -551,11 +548,12 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
 
         CGRect slot = MMSlotFrameForIndex(host, i, cnt);
         CGRect capsule = MMCapsuleFrameForIndex(host, i, cnt);
+        CGRect targetRect = (i == sel) ? capsule : slot;
 
-        CGFloat itemW = MAX(0.0, slot.size.width - 10.0);
+        CGFloat itemW = MAX(0.0, targetRect.size.width - (i == sel ? 6.0 : 10.0));
         CGFloat itemH = 56.0;
-        CGFloat centerX = (i == sel) ? CGRectGetMidX(capsule) : CGRectGetMidX(slot);
-        CGFloat centerY = CGRectGetMidY(slot);
+        CGFloat centerX = CGRectGetMidX(targetRect);
+        CGFloat centerY = CGRectGetMidY(targetRect);
 
         CGFloat itemX = floor(centerX - itemW * 0.5);
         CGFloat itemY = floor(centerY - itemH * 0.5);
@@ -623,7 +621,7 @@ static void MMUpdate(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat height = 66.0;
-    CGFloat margin = 16.0;
+    CGFloat margin = 28.0;
     CGRect frame = CGRectMake(margin, root.bounds.size.height - inset - height - 10.0, root.bounds.size.width - margin * 2.0, height);
 
     host.frame = frame;
