@@ -389,13 +389,6 @@ static void MMApplyColorRecursively(UIView *view, UIColor *color) {
 
 static void MMLayoutSingleItemView(UIView *item, BOOL selected, UITraitCollection *trait) {
     MMClearTreeBackground(item, NO);
-
-    UIView *backgroundView = MMKVC(item, @"backgroundView");
-    if ([backgroundView isKindOfClass:[UIView class]]) {
-        backgroundView.hidden = YES;
-        backgroundView.alpha = 0.0;
-    }
-
     UIColor *color = selected ? MMSelectedColor(trait) : MMNormalColor(trait);
     MMApplyColorRecursively(item, color);
 }
@@ -410,9 +403,9 @@ static void MMLayoutItemViews(UITabBar *tabBar) {
 
     for (NSInteger i = 0; i < cnt; i++) {
         UIView *item = itemViews[i];
-        CGRect slot = MMSlotFrameForIndex(tabBar, i, cnt);
+        CGRect target = (i == sel) ? MMCapsuleFrameForIndex(tabBar, i, cnt) : MMSlotFrameForIndex(tabBar, i, cnt);
 
-        item.frame = slot;
+        item.frame = target;
         item.hidden = NO;
         item.alpha = 1.0;
         item.userInteractionEnabled = YES;
@@ -555,14 +548,6 @@ static void MMUpdate(UIViewController *vc) {
 %end
 
 %hook UITabBar
-
-- (void)layoutSubviews {
-    %orig;
-    UIViewController *vc = MMFindVC(self);
-    if (vc) {
-        MMUpdate(vc);
-    }
-}
 
 - (void)setSelectedItem:(UITabBarItem *)item {
     %orig(item);
