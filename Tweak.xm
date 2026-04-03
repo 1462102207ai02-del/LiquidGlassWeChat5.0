@@ -355,7 +355,7 @@ static void MMStyleHost(UIView *host) {
 }
 
 static CGFloat MMSideInset(void) {
-    return 12.0;
+    return 18.0;
 }
 
 static CGFloat MMTopInset(void) {
@@ -363,7 +363,7 @@ static CGFloat MMTopInset(void) {
 }
 
 static CGFloat MMInterItemInset(void) {
-    return 8.0;
+    return 10.0;
 }
 
 static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
@@ -380,8 +380,7 @@ static CGRect MMSlotFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
 static CGRect MMCapsuleFrameForIndex(UIView *host, NSInteger idx, NSInteger cnt) {
     CGRect slot = MMSlotFrameForIndex(host, idx, cnt);
     CGFloat horizInset = MMInterItemInset() * 0.5;
-    CGFloat vertInset = 1.0;
-    return CGRectInset(slot, horizInset, vertInset);
+    return CGRectInset(slot, horizInset, 1.0);
 }
 
 static void MMCapsuleLayout(UIView *host, NSInteger idx, NSInteger cnt) {
@@ -547,18 +546,12 @@ static void MMLayoutItemViews(UITabBar *tabBar, UIView *host) {
         }
 
         CGRect slot = MMSlotFrameForIndex(host, i, cnt);
-        CGRect capsule = MMCapsuleFrameForIndex(host, i, cnt);
-        CGRect targetRect = (i == sel) ? capsule : slot;
-
-        CGFloat itemW = MAX(0.0, targetRect.size.width - (i == sel ? 6.0 : 10.0));
+        CGFloat itemW = MAX(0.0, slot.size.width - 12.0);
         CGFloat itemH = 56.0;
-        CGFloat centerX = CGRectGetMidX(targetRect);
-        CGFloat centerY = CGRectGetMidY(targetRect);
+        CGFloat centerX = CGRectGetMidX(slot);
+        CGFloat centerY = CGRectGetMidY(slot);
 
-        CGFloat itemX = floor(centerX - itemW * 0.5);
-        CGFloat itemY = floor(centerY - itemH * 0.5);
-
-        item.frame = CGRectMake(itemX, itemY, itemW, itemH);
+        item.frame = CGRectMake(floor(centerX - itemW * 0.5), floor(centerY - itemH * 0.5), itemW, itemH);
         item.hidden = NO;
         item.alpha = 1.0;
         item.userInteractionEnabled = NO;
@@ -621,7 +614,7 @@ static void MMUpdate(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat height = 66.0;
-    CGFloat margin = 28.0;
+    CGFloat margin = 18.0;
     CGRect frame = CGRectMake(margin, root.bounds.size.height - inset - height - 10.0, root.bounds.size.width - margin * 2.0, height);
 
     host.frame = frame;
