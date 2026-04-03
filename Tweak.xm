@@ -17,14 +17,6 @@ static BOOL MMIsDark(UITraitCollection *trait) {
     return NO;
 }
 
-static UIColor *MMSelectedColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 1.0) : MMRGBA(24, 24, 27, 0.96);
-}
-
-static UIColor *MMNormalColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.76) : MMRGBA(82, 82, 91, 0.78);
-}
-
 static CGFloat MMBottomInset(UIView *view) {
     if ([view respondsToSelector:@selector(safeAreaInsets)]) {
         return view.safeAreaInsets.bottom;
@@ -36,23 +28,6 @@ static void MMSetRadius(UIView *view, CGFloat radius) {
     view.layer.cornerRadius = radius;
     if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) {
         view.layer.cornerCurve = kCACornerCurveContinuous;
-    }
-}
-
-static void MMApplyColorRecursively(UIView *view, UIColor *color) {
-    if ([view isKindOfClass:[UIImageView class]]) {
-        UIImageView *iv = (UIImageView *)view;
-        if (iv.image) {
-            iv.image = [iv.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-            iv.tintColor = color;
-        }
-    } else if ([view isKindOfClass:[UILabel class]]) {
-        UILabel *lab = (UILabel *)view;
-        lab.textColor = color;
-    }
-
-    for (UIView *sub in view.subviews) {
-        MMApplyColorRecursively(sub, color);
     }
 }
 
@@ -77,15 +52,7 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
         NSString *name = NSStringFromClass([sub class]);
         if ([name containsString:@"MMTabBar"]) return (UITabBar *)sub;
     }
-    return nil;
-}
 
-static UIViewController *MMFindVC(UIView *view) {
-    UIResponder *r = view;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) return (UIViewController *)r;
-    }
     return nil;
 }
 
@@ -221,64 +188,6 @@ static void MMStyleHost(UIView *host) {
     host.layer.shadowOffset = CGSizeMake(0, 8);
 }
 
-static NSArray<UIView *> *MMItemViews(UITabBar *tabBar) {
-    NSMutableArray<UIView *> *result = [NSMutableArray array];
-    for (UIView *sub in tabBar.subviews) {
-        NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"MMTabBarItemView"]) {
-            [result addObject:sub];
-        }
-    }
-
-    [result sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
-        CGFloat x1 = CGRectGetMinX(a.frame);
-        CGFloat x2 = CGRectGetMinX(b.frame);
-        if (x1 < x2) return NSOrderedAscending;
-        if (x1 > x2) return NSOrderedDescending;
-        return NSOrderedSame;
-    }];
-
-    return result;
-}
-
-static CGRect MMSlotFrameForIndex(UITabBar *tabBar, NSInteger idx, NSInteger cnt) {
-    CGFloat side = 18.0;
-    CGFloat top = 7.0;
-    CGFloat totalW = tabBar.bounds.size.width - side * 2.0;
-    CGFloat slotW = floor(totalW / cnt);
-    CGFloat slotH = tabBar.bounds.size.height - top * 2.0;
-    CGFloat x = side + slotW * idx;
-    CGFloat w = (idx == cnt - 1) ? (tabBar.bounds.size.width - side - x) : slotW;
-    return CGRectMake(x, top, w, slotH);
-}
-
-static void MMLayoutItemViews(UITabBar *tabBar) {
-    NSArray<UIView *> *itemViews = MMItemViews(tabBar);
-    NSInteger cnt = itemViews.count;
-    if (cnt == 0) return;
-
-    NSInteger selectedIndex = 0;
-    if (tabBar.selectedItem) {
-        NSInteger idx = [tabBar.items indexOfObject:tabBar.selectedItem];
-        if (idx != NSNotFound) selectedIndex = idx;
-    }
-
-    for (NSInteger i = 0; i < cnt; i++) {
-        UIView *item = itemViews[i];
-        item.frame = MMSlotFrameForIndex(tabBar, i, cnt);
-        item.hidden = NO;
-        item.alpha = 1.0;
-        item.userInteractionEnabled = YES;
-        item.backgroundColor = [UIColor clearColor];
-        item.opaque = NO;
-        item.clipsToBounds = NO;
-        item.layer.zPosition = 20;
-
-        UIColor *color = (i == selectedIndex) ? MMSelectedColor(tabBar.traitCollection) : MMNormalColor(tabBar.traitCollection);
-        MMApplyColorRecursively(item, color);
-    }
-}
-
 static void MMUpdate(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
@@ -315,56 +224,12 @@ static void MMUpdate(UIViewController *vc) {
     tabBar.alpha = 1.0;
     tabBar.userInteractionEnabled = YES;
     MMClearTabBar(tabBar);
-    MMLayoutItemViews(tabBar);
 
     [root bringSubviewToFront:host];
     [root bringSubviewToFront:tabBar];
 
     kMMUpdatingLayout = NO;
 }
-
-%hook MMTabBarItemView
-
-- (void)layoutSubviews {
-    %orig;
-
-    UIView *itemView = (UIView *)self;
-    UIImageView *imageView = nil;
-    UILabel *textLabel = nil;
-
-    @try {
-        imageView = [self valueForKey:@"_imageView"];
-    } @catch (__unused NSException *e) {
-    }
-
-    @try {
-        textLabel = [self valueForKey:@"_textLabel"];
-    } @catch (__unused NSException *e) {
-    }
-
-    if (![imageView isKindOfClass:[UIImageView class]] || ![textLabel isKindOfClass:[UILabel class]]) {
-        return;
-    }
-
-    CGFloat bw = itemView.bounds.size.width;
-    CGFloat bh = itemView.bounds.size.height;
-    CGFloat iconSize = 27.0;
-    CGFloat titleH = 14.0;
-    CGFloat spacing = 4.0;
-    CGFloat totalH = iconSize + spacing + titleH;
-    CGFloat startY = floor((bh - totalH) * 0.5);
-    if (startY < 4.0) startY = 4.0;
-
-    imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
-    imageView.contentMode = UIViewContentModeScaleAspectFit;
-
-    textLabel.frame = CGRectMake(0.0, startY + iconSize + spacing, bw, titleH);
-    textLabel.textAlignment = NSTextAlignmentCenter;
-    textLabel.adjustsFontSizeToFitWidth = YES;
-    textLabel.minimumScaleFactor = 0.72;
-}
-
-%end
 
 %hook MMTabBarController
 
@@ -395,20 +260,6 @@ static void MMUpdate(UIViewController *vc) {
     dispatch_async(dispatch_get_main_queue(), ^{
         MMUpdate((UIViewController *)self);
     });
-}
-
-%end
-
-%hook UITabBar
-
-- (void)setSelectedItem:(UITabBarItem *)item {
-    %orig(item);
-    UIViewController *vc = MMFindVC(self);
-    if (vc) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            MMUpdate(vc);
-        });
-    }
 }
 
 %end
