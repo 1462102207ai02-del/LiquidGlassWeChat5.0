@@ -2,7 +2,6 @@
 #import <objc/runtime.h>
 
 static const void *kMMFoldOriginalFrameKey = &kMMFoldOriginalFrameKey;
-static const void *kMMFoldLockEnabledKey = &kMMFoldLockEnabledKey;
 
 static UIViewController *MMNearestViewController(UIView *view) {
     UIResponder *r = (UIResponder *)view;
@@ -15,7 +14,7 @@ static UIViewController *MMNearestViewController(UIView *view) {
     return nil;
 }
 
-static BOOL MMIsHomeFoldContext(UIView *view) {
+static BOOL MMIsHomeTableContext(UIView *view) {
     UIViewController *vc = MMNearestViewController(view);
     if (!vc) return NO;
 
@@ -37,6 +36,16 @@ static BOOL MMIsHomeFoldContext(UIView *view) {
     return NO;
 }
 
+static UIView *MMFindFoldViewInTable(UIView *tableView) {
+    for (UIView *sub in tableView.subviews) {
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name isEqualToString:@"MainFrameSectionFoldView"]) {
+            return sub;
+        }
+    }
+    return nil;
+}
+
 static void MMRememberOriginalFoldFrame(UIView *foldView) {
     if (!foldView) return;
     NSValue *stored = objc_getAssociatedObject(foldView, kMMFoldOriginalFrameKey);
@@ -51,81 +60,83 @@ static CGRect MMOriginalFoldFrame(UIView *foldView) {
     return foldView.frame;
 }
 
-static void MMSetFoldLockEnabled(UIView *foldView, BOOL enabled) {
-    objc_setAssociatedObject(foldView, kMMFoldLockEnabledKey, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
+static void MMLockFoldViewTopInTable(UIView *tableView) {
+    if (!tableView) return;
+    if (!MMIsHomeTableContext(tableView)) return;
 
-static BOOL MMFoldLockEnabled(UIView *foldView) {
-    NSNumber *n = objc_getAssociatedObject(foldView, kMMFoldLockEnabledKey);
-    return n ? n.boolValue : NO;
-}
-
-static void MMFixFoldFrameIfNeeded(UIView *foldView) {
+    UIView *foldView = MMFindFoldViewInTable(tableView);
     if (!foldView) return;
-    if (!MMIsHomeFoldContext(foldView)) return;
 
     MMRememberOriginalFoldFrame(foldView);
 
     CGRect original = MMOriginalFoldFrame(foldView);
     CGRect current = foldView.frame;
 
-    BOOL movedDown = current.origin.y > original.origin.y + 0.5;
-    BOOL resized = fabs(current.size.height - original.size.height) > 0.5;
-    BOOL shouldLock = movedDown || resized || MMFoldLockEnabled(foldView);
+    BOOL movedAway = fabs(current.origin.y - original.origin.y) > 0.5;
+    BOOL widthChanged = fabs(current.size.width - original.size.width) > 0.5;
 
-    if (!shouldLock) {
-        return;
+    if (movedAway || widthChanged) {
+        current.origin.x = original.origin.x;
+        current.origin.y = original.origin.y;
+        current.size.width = original.size.width;
+        foldView.frame = current;
     }
 
-    MMSetFoldLockEnabled(foldView, YES);
-
-    current.origin.x = original.origin.x;
-    current.origin.y = original.origin.y;
-    current.size.width = original.size.width;
-    foldView.frame = current;
+    [tableView bringSubviewToFront:foldView];
 }
+
+%hook MainFrameTableView
+
+- (void)layoutSubviews {
+    %orig;
+    UIView *tableView = (UIView *)self;
+    if (MMIsHomeTableContext(tableView)) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            MMLockFoldViewTopInTable(tableView);
+        });
+    }
+}
+
+- (void)setContentOffset:(CGPoint)contentOffset {
+    %orig(contentOffset);
+    UIView *tableView = (UIView *)self;
+    if (MMIsHomeTableContext(tableView)) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            MMLockFoldViewTopInTable(tableView);
+        });
+    }
+}
+
+%end
 
 %hook MainFrameSectionFoldView
 
-- (void)didMoveToWindow {
+- (void)didMoveToSuperview {
     %orig;
-    UIView *view = (UIView *)self;
-    if (MMIsHomeFoldContext(view)) {
-        MMRememberOriginalFoldFrame(view);
+    UIView *foldView = (UIView *)self;
+    UIView *superview = foldView.superview;
+    if (superview && [NSStringFromClass([superview class]) isEqualToString:@"MainFrameTableView"]) {
+        MMRememberOriginalFoldFrame(foldView);
         dispatch_async(dispatch_get_main_queue(), ^{
-            MMFixFoldFrameIfNeeded(view);
+            MMLockFoldViewTopInTable(superview);
         });
     }
 }
 
 - (void)setFrame:(CGRect)frame {
-    UIView *view = (UIView *)self;
-    if (MMIsHomeFoldContext(view)) {
-        MMRememberOriginalFoldFrame(view);
-        CGRect original = MMOriginalFoldFrame(view);
+    UIView *foldView = (UIView *)self;
+    UIView *tableView = foldView.superview;
+    if (tableView && [NSStringFromClass([tableView class]) isEqualToString:@"MainFrameTableView"] && MMIsHomeTableContext(tableView)) {
+        MMRememberOriginalFoldFrame(foldView);
+        CGRect original = MMOriginalFoldFrame(foldView);
 
-        BOOL movedDown = frame.origin.y > original.origin.y + 0.5;
-        BOOL resized = fabs(frame.size.height - original.size.height) > 0.5;
-
-        if (movedDown || resized || MMFoldLockEnabled(view)) {
+        if (fabs(frame.origin.y - original.origin.y) > 0.5) {
             frame.origin.x = original.origin.x;
             frame.origin.y = original.origin.y;
             frame.size.width = original.size.width;
-            MMSetFoldLockEnabled(view, YES);
         }
     }
     %orig(frame);
-}
-
-- (void)layoutSubviews {
-    %orig;
-    UIView *view = (UIView *)self;
-    if (MMIsHomeFoldContext(view)) {
-        MMRememberOriginalFoldFrame(view);
-        dispatch_async(dispatch_get_main_queue(), ^{
-            MMFixFoldFrameIfNeeded(view);
-        });
-    }
 }
 
 %end
