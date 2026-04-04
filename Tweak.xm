@@ -1,19 +1,21 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 
-static const void *kMMBannerOriginalFrameKey = &kMMBannerOriginalFrameKey;
-static const void *kMMBannerLockEnabledKey = &kMMBannerLockEnabledKey;
+static const void *kMMFoldOriginalFrameKey = &kMMFoldOriginalFrameKey;
+static const void *kMMFoldLockEnabledKey = &kMMFoldLockEnabledKey;
 
 static UIViewController *MMNearestViewController(UIView *view) {
-    UIResponder *r = view;
+    UIResponder *r = (UIResponder *)view;
     while (r) {
         r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) return (UIViewController *)r;
+        if ([r isKindOfClass:[UIViewController class]]) {
+            return (UIViewController *)r;
+        }
     }
     return nil;
 }
 
-static BOOL MMIsHomeBannerContext(UIView *view) {
+static BOOL MMIsHomeFoldContext(UIView *view) {
     UIViewController *vc = MMNearestViewController(view);
     if (!vc) return NO;
 
@@ -35,87 +37,81 @@ static BOOL MMIsHomeBannerContext(UIView *view) {
     return NO;
 }
 
-static void MMRememberOriginalBannerFrame(UIView *banner) {
-    if (!banner) return;
-    NSValue *stored = objc_getAssociatedObject(banner, kMMBannerOriginalFrameKey);
+static void MMRememberOriginalFoldFrame(UIView *foldView) {
+    if (!foldView) return;
+    NSValue *stored = objc_getAssociatedObject(foldView, kMMFoldOriginalFrameKey);
     if (!stored) {
-        objc_setAssociatedObject(banner, kMMBannerOriginalFrameKey, [NSValue valueWithCGRect:banner.frame], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(foldView, kMMFoldOriginalFrameKey, [NSValue valueWithCGRect:foldView.frame], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
 }
 
-static CGRect MMOriginalBannerFrame(UIView *banner) {
-    NSValue *stored = objc_getAssociatedObject(banner, kMMBannerOriginalFrameKey);
+static CGRect MMOriginalFoldFrame(UIView *foldView) {
+    NSValue *stored = objc_getAssociatedObject(foldView, kMMFoldOriginalFrameKey);
     if (stored) return [stored CGRectValue];
-    return banner.frame;
+    return foldView.frame;
 }
 
-static void MMSetBannerLockEnabled(UIView *banner, BOOL enabled) {
-    objc_setAssociatedObject(banner, kMMBannerLockEnabledKey, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+static void MMSetFoldLockEnabled(UIView *foldView, BOOL enabled) {
+    objc_setAssociatedObject(foldView, kMMFoldLockEnabledKey, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-static BOOL MMBannerLockEnabled(UIView *banner) {
-    NSNumber *n = objc_getAssociatedObject(banner, kMMBannerLockEnabledKey);
+static BOOL MMFoldLockEnabled(UIView *foldView) {
+    NSNumber *n = objc_getAssociatedObject(foldView, kMMFoldLockEnabledKey);
     return n ? n.boolValue : NO;
 }
 
-static BOOL MMBannerExpanded(UIView *banner) {
-    CGRect original = MMOriginalBannerFrame(banner);
-    CGFloat collapsedHeight = CGRectGetHeight(original);
-    if (collapsedHeight <= 1.0) collapsedHeight = 45.34;
-    return CGRectGetHeight(banner.bounds) > collapsedHeight + 1.0;
-}
+static void MMFixFoldFrameIfNeeded(UIView *foldView) {
+    if (!foldView) return;
+    if (!MMIsHomeFoldContext(foldView)) return;
 
-static void MMFixBannerFrameIfNeeded(UIView *banner) {
-    if (!banner) return;
-    if (!MMIsHomeBannerContext(banner)) return;
+    MMRememberOriginalFoldFrame(foldView);
 
-    MMRememberOriginalBannerFrame(banner);
+    CGRect original = MMOriginalFoldFrame(foldView);
+    CGRect current = foldView.frame;
 
-    CGRect original = MMOriginalBannerFrame(banner);
-    BOOL expanded = MMBannerExpanded(banner);
+    BOOL movedDown = current.origin.y > original.origin.y + 0.5;
+    BOOL resized = fabs(current.size.height - original.size.height) > 0.5;
+    BOOL shouldLock = movedDown || resized || MMFoldLockEnabled(foldView);
 
-    if (!expanded) {
-        MMSetBannerLockEnabled(banner, NO);
+    if (!shouldLock) {
         return;
     }
 
-    MMSetBannerLockEnabled(banner, YES);
+    MMSetFoldLockEnabled(foldView, YES);
 
-    CGRect f = banner.frame;
-    f.origin.x = original.origin.x;
-    f.origin.y = original.origin.y;
-    f.size.width = original.size.width;
-    banner.frame = f;
+    current.origin.x = original.origin.x;
+    current.origin.y = original.origin.y;
+    current.size.width = original.size.width;
+    foldView.frame = current;
 }
 
-%hook MFBannerBtn
+%hook MainFrameSectionFoldView
 
 - (void)didMoveToWindow {
     %orig;
     UIView *view = (UIView *)self;
-    if (MMIsHomeBannerContext(view)) {
-        MMRememberOriginalBannerFrame(view);
+    if (MMIsHomeFoldContext(view)) {
+        MMRememberOriginalFoldFrame(view);
         dispatch_async(dispatch_get_main_queue(), ^{
-            MMFixBannerFrameIfNeeded(view);
+            MMFixFoldFrameIfNeeded(view);
         });
     }
 }
 
 - (void)setFrame:(CGRect)frame {
     UIView *view = (UIView *)self;
-    if (MMIsHomeBannerContext(view)) {
-        MMRememberOriginalBannerFrame(view);
-        CGRect original = MMOriginalBannerFrame(view);
+    if (MMIsHomeFoldContext(view)) {
+        MMRememberOriginalFoldFrame(view);
+        CGRect original = MMOriginalFoldFrame(view);
 
-        CGFloat collapsedHeight = CGRectGetHeight(original);
-        if (collapsedHeight <= 1.0) collapsedHeight = 45.34;
+        BOOL movedDown = frame.origin.y > original.origin.y + 0.5;
+        BOOL resized = fabs(frame.size.height - original.size.height) > 0.5;
 
-        BOOL looksExpanded = frame.size.height > collapsedHeight + 1.0 || MMBannerLockEnabled(view);
-        if (looksExpanded) {
+        if (movedDown || resized || MMFoldLockEnabled(view)) {
             frame.origin.x = original.origin.x;
             frame.origin.y = original.origin.y;
             frame.size.width = original.size.width;
-            MMSetBannerLockEnabled(view, YES);
+            MMSetFoldLockEnabled(view, YES);
         }
     }
     %orig(frame);
@@ -124,10 +120,10 @@ static void MMFixBannerFrameIfNeeded(UIView *banner) {
 - (void)layoutSubviews {
     %orig;
     UIView *view = (UIView *)self;
-    if (MMIsHomeBannerContext(view)) {
-        MMRememberOriginalBannerFrame(view);
+    if (MMIsHomeFoldContext(view)) {
+        MMRememberOriginalFoldFrame(view);
         dispatch_async(dispatch_get_main_queue(), ^{
-            MMFixBannerFrameIfNeeded(view);
+            MMFixFoldFrameIfNeeded(view);
         });
     }
 }
