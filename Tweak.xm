@@ -56,8 +56,9 @@
     }
 
     if ([NSStringFromClass([vc class]) containsString:@"NewMainFrameViewController"]) {
-        if (self.contentOffset.y < 0) {
-            [self setContentOffset:CGPointZero];
+        UIScrollView *scrollView = (UIScrollView *)self;
+        if (scrollView.contentOffset.y < 0) {
+            [scrollView setContentOffset:CGPointZero];
         }
     }
 }
