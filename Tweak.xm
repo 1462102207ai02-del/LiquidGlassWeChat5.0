@@ -3,7 +3,6 @@
 
 static NSInteger const kMMGlassHostTag = 990001;
 static NSInteger const kMMGlassViewTag = 990002;
-
 static BOOL kMMUpdatingLayout = NO;
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -189,26 +188,6 @@ static void MMStyleHost(UIView *host) {
     host.layer.shadowOffset = CGSizeMake(0, 8);
 }
 
-static void MMHideDuplicateCustomContent(UIView *tabBar) {
-    for (UIView *sub in tabBar.subviews) {
-        NSString *cls = NSStringFromClass([sub class]);
-        if (![cls containsString:@"MMTabBarItemView"]) continue;
-
-        @try {
-            id customContentController = [sub valueForKey:@"_customContentView"];
-            if (customContentController && [customContentController respondsToSelector:@selector(view)]) {
-                UIView *customView = [customContentController view];
-                if ([customView isKindOfClass:[UIView class]]) {
-                    customView.hidden = YES;
-                    customView.alpha = 0.0;
-                    customView.userInteractionEnabled = NO;
-                }
-            }
-        } @catch (__unused NSException *e) {
-        }
-    }
-}
-
 static void MMUpdate(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
@@ -233,46 +212,25 @@ static void MMUpdate(UIViewController *vc) {
     tabBar.hidden = NO;
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat height = 66.0;
     CGFloat margin = 18.0;
-    CGRect frame = CGRectMake(margin, root.bounds.size.height - inset - height - 10.0, root.bounds.size.width - margin * 2.0, height);
+    CGFloat height = CGRectGetHeight(tabBar.bounds) > 1.0 ? CGRectGetHeight(tabBar.bounds) : 83.0;
+    CGFloat targetY = CGRectGetHeight(root.bounds) - inset - height - 10.0;
+    CGFloat deltaY = targetY - CGRectGetMinY(tabBar.frame);
 
-    host.frame = frame;
+    host.frame = CGRectMake(margin, targetY, CGRectGetWidth(root.bounds) - margin * 2.0, height);
     MMStyleHost(host);
     MMGlass(host);
 
-    tabBar.frame = frame;
+    tabBar.transform = CGAffineTransformMakeTranslation(0.0, deltaY);
     tabBar.alpha = 1.0;
     tabBar.userInteractionEnabled = YES;
     MMClearTabBar(tabBar);
-    MMHideDuplicateCustomContent(tabBar);
 
     [root bringSubviewToFront:host];
     [root bringSubviewToFront:tabBar];
 
     kMMUpdatingLayout = NO;
 }
-
-%hook MMTabBarItemView
-
-- (void)layoutSubviews {
-    %orig;
-
-    @try {
-        id customContentController = [self valueForKey:@"_customContentView"];
-        if (customContentController && [customContentController respondsToSelector:@selector(view)]) {
-            UIView *customView = [customContentController view];
-            if ([customView isKindOfClass:[UIView class]]) {
-                customView.hidden = YES;
-                customView.alpha = 0.0;
-                customView.userInteractionEnabled = NO;
-            }
-        }
-    } @catch (__unused NSException *e) {
-    }
-}
-
-%end
 
 %hook MMTabBarController
 
