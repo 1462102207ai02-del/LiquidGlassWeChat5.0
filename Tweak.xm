@@ -51,21 +51,68 @@ static CGRect MMOriginalFoldFrame(UIView *foldView) {
     return stored ? [stored CGRectValue] : foldView.frame;
 }
 
-static CGRect MMFixedFoldFrameIfNeeded(UIView *foldView, CGRect incoming) {
+static BOOL MMViewLooksUsable(UIView *view) {
+    if (!view) return NO;
+    if (view.hidden) return NO;
+    if (view.alpha <= 0.01) return NO;
+    if (CGRectIsEmpty(view.frame)) return NO;
+    return YES;
+}
+
+static CGFloat MMNearestUpperBannerBottom(UIView *foldView) {
+    UIView *superview = foldView.superview;
+    if (!superview) return -1.0;
+
+    CGFloat foldY = CGRectGetMinY(foldView.frame);
+    CGFloat bestBottom = -1.0;
+
+    for (UIView *sub in superview.subviews) {
+        if (sub == foldView) continue;
+        if (!MMViewLooksUsable(sub)) continue;
+
+        CGRect f = sub.frame;
+        NSString *name = NSStringFromClass([sub class]);
+
+        if (CGRectGetWidth(f) < 200.0) continue;
+        if (CGRectGetHeight(f) < 30.0 || CGRectGetHeight(f) > 70.0) continue;
+        if (CGRectGetMinY(f) >= foldY) continue;
+
+        if ([name containsString:@"TableViewCell"] || [name containsString:@"ContentView"] || [name containsString:@"Cell"]) {
+            CGFloat bottom = CGRectGetMaxY(f);
+            if (bottom > bestBottom) {
+                bestBottom = bottom;
+            }
+        }
+    }
+
+    return bestBottom;
+}
+
+static CGRect MMFixedFoldFrame(UIView *foldView, CGRect incoming) {
     if (!foldView) return incoming;
     if (!MMIsHomeFoldContext(foldView)) return incoming;
 
     MMRememberOriginalFoldFrame(foldView);
     CGRect original = MMOriginalFoldFrame(foldView);
 
-    CGFloat threshold = original.origin.y + 120.0;
-    BOOL movedTooFarDown = incoming.origin.y > threshold;
-    BOOL widthChangedTooMuch = fabs(incoming.size.width - original.size.width) > 1.0;
-    BOOL xChangedTooMuch = fabs(incoming.origin.x - original.origin.x) > 1.0;
+    CGFloat upperBottom = MMNearestUpperBannerBottom(foldView);
+    CGFloat spacing = 6.67;
+    CGFloat targetY = (upperBottom >= 0.0) ? (upperBottom + spacing) : 0.0;
 
-    if (movedTooFarDown || widthChangedTooMuch || xChangedTooMuch) {
-        incoming.origin.x = original.origin.x;
-        incoming.origin.y = original.origin.y;
+    CGFloat collapsedHeight = CGRectGetHeight(original) > 1.0 ? CGRectGetHeight(original) : 45.33;
+    BOOL collapsed = incoming.size.height <= collapsedHeight + 2.0;
+
+    incoming.origin.x = original.origin.x;
+    incoming.size.width = original.size.width;
+
+    if (collapsed) {
+        incoming.origin.y = targetY;
+        incoming.size.height = collapsedHeight;
+        return incoming;
+    }
+
+    if (incoming.origin.y > targetY + 120.0 || fabs(incoming.origin.x - original.origin.x) > 1.0 || fabs(incoming.size.width - original.size.width) > 1.0) {
+        incoming.origin.y = targetY;
         incoming.size.width = original.size.width;
     }
 
@@ -76,7 +123,7 @@ static void MMFixFoldViewIfNeeded(UIView *foldView) {
     if (!foldView) return;
     if (!MMIsHomeFoldContext(foldView)) return;
 
-    CGRect fixed = MMFixedFoldFrameIfNeeded(foldView, foldView.frame);
+    CGRect fixed = MMFixedFoldFrame(foldView, foldView.frame);
     if (!CGRectEqualToRect(fixed, foldView.frame)) {
         foldView.frame = fixed;
     }
@@ -109,7 +156,7 @@ static void MMFixFoldViewIfNeeded(UIView *foldView) {
 - (void)setFrame:(CGRect)frame {
     UIView *view = (UIView *)self;
     if (MMIsHomeFoldContext(view)) {
-        frame = MMFixedFoldFrameIfNeeded(view, frame);
+        frame = MMFixedFoldFrame(view, frame);
     }
     %orig(frame);
 }
