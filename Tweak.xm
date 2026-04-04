@@ -86,11 +86,6 @@ static UIViewController *MMCurrentContentController(UIViewController *vc) {
     return content;
 }
 
-static BOOL MMIsHomeContentController(UIViewController *vc) {
-    UIViewController *content = MMCurrentContentController(vc);
-    return [NSStringFromClass([content class]) isEqualToString:@"NewMainFrameViewController"];
-}
-
 static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return YES;
 
@@ -354,7 +349,7 @@ static NSArray<UIView *> *MMOriginalItemViews(UITabBar *tabBar) {
     return items;
 }
 
-static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host) {
+static void MMUpdateButtons(UITabBar *tabBar, UIView *host) {
     UIView *container = MMButtonsContainer(host);
     NSArray<UITabBarItem *> *items = tabBar.items;
     NSArray<UIView *> *originalItemViews = MMOriginalItemViews(tabBar);
@@ -552,7 +547,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     tabBar.transform = CGAffineTransformIdentity;
     tabBar.frame = frame;
     MMHideOriginalTabBarVisuals(tabBar);
-    MMUpdateButtons(vc, tabBar, host);
+    MMUpdateButtons(tabBar, host);
     MMAdjustBannerIfNeeded(vc, host);
 
     [root bringSubviewToFront:host];
@@ -618,7 +613,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
 - (void)layoutSubviews {
     %orig;
-    UIResponder *r = self;
+    UIView *view = (UIView *)self;
+    UIResponder *r = view;
     while (r) {
         r = [r nextResponder];
         if ([r isKindOfClass:[UIViewController class]]) {
