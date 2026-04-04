@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <objc/runtime.h>
 
 static NSInteger const kMMFloatingHostTag = 990201;
 static NSInteger const kMMFloatingBlurTag = 990202;
@@ -8,6 +9,7 @@ static NSInteger const kMMFloatingCapsuleBorderTag = 990204;
 static NSInteger const kMMFloatingCapsuleGlowTag = 990205;
 static NSInteger const kMMFloatingButtonsTag = 990206;
 
+static const void *kMMBannerOriginalFrameKey = &kMMBannerOriginalFrameKey;
 static BOOL kMMUpdatingLayout = NO;
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -82,6 +84,11 @@ static UIViewController *MMCurrentContentController(UIViewController *vc) {
         return top ?: content;
     }
     return content;
+}
+
+static BOOL MMIsHomeContentController(UIViewController *vc) {
+    UIViewController *content = MMCurrentContentController(vc);
+    return [NSStringFromClass([content class]) isEqualToString:@"NewMainFrameViewController"];
 }
 
 static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
@@ -263,9 +270,29 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
 @property (nonatomic, strong) UILabel *mm_titleLabel;
 @property (nonatomic, strong) UILabel *mm_badgeLabel;
 @property (nonatomic, assign) NSInteger mm_index;
+- (void)mm_handleTap;
 @end
 
 @implementation MMFloatingTabButton
+- (void)mm_handleTap {
+    UIResponder *r = self;
+    while (r) {
+        r = [r nextResponder];
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                UITabBar *tabBar = MMFindTabBar(vc);
+                if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
+                    @try { [(id)vc setSelectedIndex:self.mm_index]; } @catch (__unused NSException *e) {}
+                }
+                if (tabBar && self.mm_index >= 0 && self.mm_index < (NSInteger)tabBar.items.count) {
+                    @try { tabBar.selectedItem = tabBar.items[self.mm_index]; } @catch (__unused NSException *e) {}
+                }
+                break;
+            }
+        }
+    }
+}
 @end
 
 static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
@@ -303,6 +330,7 @@ static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
         button.mm_badgeLabel = badgeLabel;
         [button addSubview:badgeLabel];
 
+        [button addTarget:button action:@selector(mm_handleTap) forControlEvents:UIControlEventTouchUpInside];
         [container addSubview:button];
     }
     return button;
@@ -326,26 +354,6 @@ static NSArray<UIView *> *MMOriginalItemViews(UITabBar *tabBar) {
     return items;
 }
 
-static void MMSelectIndex(UIView *view, NSInteger index) {
-    UIResponder *r = view;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                UITabBar *tabBar = MMFindTabBar(vc);
-                if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-                    @try { [(id)vc setSelectedIndex:index]; } @catch (__unused NSException *e) {}
-                }
-                if (tabBar && index >= 0 && index < (NSInteger)tabBar.items.count) {
-                    @try { tabBar.selectedItem = tabBar.items[index]; } @catch (__unused NSException *e) {}
-                }
-                break;
-            }
-        }
-    }
-}
-
 static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host) {
     UIView *container = MMButtonsContainer(host);
     NSArray<UITabBarItem *> *items = tabBar.items;
@@ -366,12 +374,8 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         [validTags addObject:@(6000 + i)];
         MMFloatingTabButton *button = MMEnsureButton(container, i);
         button.mm_index = i;
-        [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
-        [button addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull action) {
-            MMSelectIndex(button, button.mm_index);
-        }] forControlEvents:UIControlEventTouchUpInside];
 
-        CGRect frame = (i == selectedIndex) ? MMCapsuleFrame(host, i, count) : MMSlotFrame(host, i, count);
+        CGRect frame = MMSlotFrame(host, i, count);
         button.frame = frame;
         button.backgroundColor = [UIColor clearColor];
         button.layer.backgroundColor = [UIColor clearColor].CGColor;
@@ -442,6 +446,48 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
     }
 }
 
+static UIView *MMFindBannerButtonRecursive(UIView *view) {
+    NSString *name = NSStringFromClass([view class]);
+    if ([name isEqualToString:@"MFBannerBtn"]) return view;
+    for (UIView *sub in view.subviews) {
+        UIView *found = MMFindBannerButtonRecursive(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static void MMAdjustBannerIfNeeded(UIViewController *vc, UIView *floatingHost) {
+    UIViewController *content = MMCurrentContentController(vc);
+    if (![NSStringFromClass([content class]) isEqualToString:@"NewMainFrameViewController"]) return;
+
+    UIView *banner = MMFindBannerButtonRecursive(content.view);
+    if (!banner || !banner.superview) return;
+
+    NSValue *storedValue = objc_getAssociatedObject(banner, kMMBannerOriginalFrameKey);
+    if (!storedValue) {
+        storedValue = [NSValue valueWithCGRect:banner.frame];
+        objc_setAssociatedObject(banner, kMMBannerOriginalFrameKey, storedValue, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+
+    CGRect originalFrame = [storedValue CGRectValue];
+    CGFloat collapsedHeight = 45.34;
+    BOOL expanded = banner.bounds.size.height > collapsedHeight + 1.0;
+
+    if (!expanded) {
+        banner.frame = originalFrame;
+        return;
+    }
+
+    UIView *superview = banner.superview;
+    CGRect targetInRoot = CGRectMake(CGRectGetMidX(floatingHost.frame) - originalFrame.size.width * 0.5,
+                                     CGRectGetMinY(floatingHost.frame) - originalFrame.size.height - 10.0,
+                                     originalFrame.size.width,
+                                     originalFrame.size.height);
+
+    CGRect targetInSuperview = [superview convertRect:targetInRoot fromView:vc.view];
+    banner.frame = targetInSuperview;
+}
+
 static void MMHideOriginalTabBarVisuals(UITabBar *tabBar) {
     tabBar.hidden = NO;
     tabBar.alpha = 0.01;
@@ -507,6 +553,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     tabBar.frame = frame;
     MMHideOriginalTabBarVisuals(tabBar);
     MMUpdateButtons(vc, tabBar, host);
+    MMAdjustBannerIfNeeded(vc, host);
 
     [root bringSubviewToFront:host];
 
@@ -558,6 +605,28 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
             if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     MMUpdateFloatingBar(vc);
+                });
+                break;
+            }
+        }
+    }
+}
+
+%end
+
+%hook MFBannerBtn
+
+- (void)layoutSubviews {
+    %orig;
+    UIResponder *r = self;
+    while (r) {
+        r = [r nextResponder];
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            UITabBarController *tab = vc.tabBarController;
+            if ([NSStringFromClass([tab class]) isEqualToString:@"MainTabBarViewController"]) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    MMUpdateFloatingBar((UIViewController *)tab);
                 });
                 break;
             }
