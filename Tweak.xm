@@ -189,6 +189,26 @@ static void MMStyleHost(UIView *host) {
     host.layer.shadowOffset = CGSizeMake(0, 8);
 }
 
+static void MMHideDuplicateCustomContent(UIView *tabBar) {
+    for (UIView *sub in tabBar.subviews) {
+        NSString *cls = NSStringFromClass([sub class]);
+        if (![cls containsString:@"MMTabBarItemView"]) continue;
+
+        @try {
+            id customContentController = [sub valueForKey:@"_customContentView"];
+            if (customContentController && [customContentController respondsToSelector:@selector(view)]) {
+                UIView *customView = [customContentController view];
+                if ([customView isKindOfClass:[UIView class]]) {
+                    customView.hidden = YES;
+                    customView.alpha = 0.0;
+                    customView.userInteractionEnabled = NO;
+                }
+            }
+        } @catch (__unused NSException *e) {
+        }
+    }
+}
+
 static void MMUpdate(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
@@ -225,12 +245,34 @@ static void MMUpdate(UIViewController *vc) {
     tabBar.alpha = 1.0;
     tabBar.userInteractionEnabled = YES;
     MMClearTabBar(tabBar);
+    MMHideDuplicateCustomContent(tabBar);
 
     [root bringSubviewToFront:host];
     [root bringSubviewToFront:tabBar];
 
     kMMUpdatingLayout = NO;
 }
+
+%hook MMTabBarItemView
+
+- (void)layoutSubviews {
+    %orig;
+
+    @try {
+        id customContentController = [self valueForKey:@"_customContentView"];
+        if (customContentController && [customContentController respondsToSelector:@selector(view)]) {
+            UIView *customView = [customContentController view];
+            if ([customView isKindOfClass:[UIView class]]) {
+                customView.hidden = YES;
+                customView.alpha = 0.0;
+                customView.userInteractionEnabled = NO;
+            }
+        }
+    } @catch (__unused NSException *e) {
+    }
+}
+
+%end
 
 %hook MMTabBarController
 
