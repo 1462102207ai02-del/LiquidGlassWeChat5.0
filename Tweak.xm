@@ -55,7 +55,7 @@ static BOOL MMViewLooksVisible(UIView *view) {
     if (!view) return NO;
     if (view.hidden) return NO;
     if (view.alpha <= 0.01) return NO;
-    if (CGRectIsEmpty(view.bounds)) return NO;
+    if (CGRectIsEmpty(view.frame)) return NO;
     return YES;
 }
 
@@ -63,36 +63,34 @@ static CGFloat MMTopBannerBottomForFold(UIView *foldView) {
     UIView *superview = foldView.superview;
     if (!superview) return 0.0;
 
-    CGFloat candidateBottom = 0.0;
-    CGRect foldFrame = foldView.frame;
+    CGRect original = MMOriginalFoldFrame(foldView);
+    CGFloat bestBottom = 0.0;
 
     for (UIView *sub in superview.subviews) {
         if (sub == foldView) continue;
         if (!MMViewLooksVisible(sub)) continue;
 
+        CGRect f = sub.frame;
         NSString *name = NSStringFromClass([sub class]);
 
-        // 过滤明显无关的小控件/分割线
-        if (CGRectGetHeight(sub.bounds) < 20.0) continue;
-        if (CGRectGetWidth(sub.bounds) < 120.0) continue;
+        // 只识别“上方那条横幅”这种尺寸，避免误伤大容器/列表内容
+        if (CGRectGetWidth(f) < 200.0) continue;
+        if (CGRectGetHeight(f) < 24.0 || CGRectGetHeight(f) > 80.0) continue;
 
-        CGRect f = sub.frame;
+        // 必须在 fold 原始位置上方或与其顶部轻微接壤
+        if (CGRectGetMinY(f) > original.origin.y + 4.0) continue;
+        if (CGRectGetMaxY(f) < 20.0) continue;
 
-        // 只关心在 fold 上方或与其顶部区域重叠的横幅类视图
-        BOOL nearTopArea = CGRectGetMinY(f) < CGRectGetMaxY(foldFrame);
-        BOOL notFarBelow = CGRectGetMinY(f) < CGRectGetMinY(foldFrame) + 20.0;
-        if (!(nearTopArea && notFarBelow)) continue;
+        // 排除明显无关的通用容器
+        if ([name containsString:@"Table"] || [name containsString:@"Cell"] || [name containsString:@"Wrapper"] || [name containsString:@"Separator"]) continue;
 
-        // 跳过 table 背景/普通 cell 容器
-        if ([name containsString:@"Cell"] || [name containsString:@"Wrapper"] || [name containsString:@"Separator"]) continue;
-
-        CGFloat maxY = CGRectGetMaxY(f);
-        if (maxY > candidateBottom) {
-            candidateBottom = maxY;
+        CGFloat bottom = CGRectGetMaxY(f);
+        if (bottom > bestBottom && bottom <= original.origin.y + 30.0) {
+            bestBottom = bottom;
         }
     }
 
-    return candidateBottom;
+    return bestBottom;
 }
 
 static CGRect MMFixedFoldFrameIfNeeded(UIView *foldView, CGRect incoming) {
@@ -107,15 +105,15 @@ static CGRect MMFixedFoldFrameIfNeeded(UIView *foldView, CGRect incoming) {
     BOOL collapsed = incoming.size.height <= collapsedHeight + 2.0;
 
     if (collapsed) {
-        // 收起时不要和上面的“其他设备登录”等横幅重叠
+        // 收起时只做“轻微下移避让”，避免和上方横幅重叠，但绝不把自己挪没
         CGFloat topBannerBottom = MMTopBannerBottomForFold(foldView);
         CGFloat targetY = original.origin.y;
 
         if (topBannerBottom > 0.0) {
-            CGFloat spacing = 8.0;
-            CGFloat minY = topBannerBottom + spacing;
-            if (minY > targetY) {
-                targetY = minY;
+            CGFloat desiredY = topBannerBottom + 8.0;
+            CGFloat maxAllowedY = original.origin.y + 28.0; // 最多只往下让一点点
+            if (desiredY > targetY) {
+                targetY = MIN(desiredY, maxAllowedY);
             }
         }
 
@@ -125,7 +123,7 @@ static CGRect MMFixedFoldFrameIfNeeded(UIView *foldView, CGRect incoming) {
         return incoming;
     }
 
-    // 展开时只拦“被甩到底部”的情况
+    // 展开时只拦“被甩到底部”
     CGFloat threshold = original.origin.y + 120.0;
     BOOL movedTooFarDown = incoming.origin.y > threshold;
     BOOL widthChangedTooMuch = fabs(incoming.size.width - original.size.width) > 1.0;
