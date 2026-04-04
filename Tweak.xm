@@ -367,8 +367,6 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         MMFloatingTabButton *button = MMEnsureButton(container, i);
         button.mm_index = i;
         [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
-        [button addTarget:button action:@selector(mm_noop) forControlEvents:UIControlEventTouchUpInside];
-        [button removeTarget:button action:@selector(mm_noop) forControlEvents:UIControlEventTouchUpInside];
         [button addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull action) {
             MMSelectIndex(button, button.mm_index);
         }] forControlEvents:UIControlEventTouchUpInside];
@@ -389,6 +387,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         } else {
             img = item.image;
         }
+
         if (img) {
             img = [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
             button.mm_imageView.hidden = NO;
@@ -418,15 +417,21 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         CGFloat iconSize = 27.0;
         CGFloat titleH = 14.0;
         CGFloat spacing = 4.0;
-        CGFloat totalH = iconSize + spacing + titleH;
+        CGFloat totalH = (button.mm_imageView.hidden ? titleH : (iconSize + spacing + titleH));
         CGFloat startY = floor((bh - totalH) * 0.5);
         if (startY < 4.0) startY = 4.0;
 
-        button.mm_imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
-        button.mm_titleLabel.frame = CGRectMake(0.0, startY + iconSize + spacing, bw, titleH);
+        if (!button.mm_imageView.hidden) {
+            button.mm_imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
+            button.mm_titleLabel.frame = CGRectMake(0.0, startY + iconSize + spacing, bw, titleH);
+        } else {
+            button.mm_titleLabel.frame = CGRectMake(0.0, floor((bh - titleH) * 0.5), bw, titleH);
+        }
 
         CGFloat badgeW = MAX(18.0, MIN(28.0, 10.0 + badge.length * 8.0));
-        button.mm_badgeLabel.frame = CGRectMake(CGRectGetMaxX(button.mm_imageView.frame) - 2.0, CGRectGetMinY(button.mm_imageView.frame) - 4.0, badgeW, 18.0);
+        if (!button.mm_imageView.hidden) {
+            button.mm_badgeLabel.frame = CGRectMake(CGRectGetMaxX(button.mm_imageView.frame) - 2.0, CGRectGetMinY(button.mm_imageView.frame) - 4.0, badgeW, 18.0);
+        }
         MMSetRadius(button.mm_badgeLabel, 9.0);
     }
 
