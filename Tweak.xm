@@ -28,13 +28,19 @@
         topBanner.hidden = YES;
     }
 
-    // Ensuring the group chat is fully expanded (simplified approach without the non-existing method)
-    [self fullyExpandGroupChat];
+    // Directly ensure the group chat is fully expanded
+    [self ensureGroupChatExpanded];
 }
 
-- (void)fullyExpandGroupChat {
-    // Implementing a simple method to ensure the group chat is expanded
-    // This is where you can adjust the logic for expanding the group chat based on your UI structure
+// Directly controlling group chat expansion here
+- (void)ensureGroupChatExpanded {
+    // Assuming that we will modify the layout or trigger any needed actions to fully expand the group chat
+    UIView *groupChatView = [self.view viewWithTag:5678];  // Assuming a tag for the group chat
+    if (groupChatView) {
+        CGRect expandedFrame = groupChatView.frame;
+        expandedFrame.size.height = 200;  // Example, adjust according to actual layout requirements
+        groupChatView.frame = expandedFrame;
+    }
 }
 
 %end
