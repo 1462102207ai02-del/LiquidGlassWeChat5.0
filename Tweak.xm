@@ -1,6 +1,7 @@
 
 #import <UIKit/UIKit.h>
-#import <objc/runtime.h>
+#import "NewMainFrameViewController.h"  // Import the actual class to avoid forward declaration issues
+#import "MainFrameTableView.h"  // Similarly, import the necessary classes for complete access
 
 %hook MainFrameTableView
 
@@ -21,7 +22,7 @@
 - (void)viewDidLoad {
     %orig;
 
-    // Using subviews to locate the top banner and hide it when expanded
+    // Use subviews to locate the top banner and hide it when expanded
     UIView *topBanner = nil;
     for (UIView *subview in self.view.subviews) {
         if ([NSStringFromClass([subview class]) containsString:@"TopBanner"]) {
@@ -38,11 +39,11 @@
     }
 }
 
-// Checking if the group chat is expanded by inspecting subviews for the group chat view
 - (BOOL)isGroupChatExpanded {
+    // Check the subviews to determine if the group chat is expanded
     for (UIView *subview in self.view.subviews) {
         if ([NSStringFromClass([subview class]) containsString:@"GroupChat"]) {
-            return YES;  // Return YES if group chat is found (adjust logic as needed)
+            return YES;  // Return YES if group chat view is found
         }
     }
     return NO;  // Return NO if not found
