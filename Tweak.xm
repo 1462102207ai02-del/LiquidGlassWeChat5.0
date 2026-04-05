@@ -1,6 +1,8 @@
 
 #import <UIKit/UIKit.h>
 
+@class NewMainFrameViewController;
+
 %hook MainFrameTableView
 
 - (void)setHeaderView:(UIView *)headerView {
@@ -21,7 +23,7 @@
 - (void)viewDidLoad {
     %orig;
 
-    // Using UIViewController as base to ensure 'view' property is accessible
+    // Explicitly referencing the view of NewMainFrameViewController to ensure access
     UIView *topBanner = [self.view viewWithTag:1234];  // Using a tag or another unique identifier
     if (topBanner) {
         topBanner.hidden = YES;
