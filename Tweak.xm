@@ -1,5 +1,7 @@
 
 #import <UIKit/UIKit.h>
+#import "NewMainFrameViewController.h"  // Import the actual class to avoid forward declaration issues
+#import "MainFrameTableView.h"  // Ensure necessary class declaration for full access
 
 %hook MainFrameTableView
 
@@ -37,11 +39,11 @@
     }
 }
 
-// Check for group chat expansion using subviews
 - (BOOL)isGroupChatExpanded {
+    // Use subviews to check if the group chat is expanded
     for (UIView *subview in self.view.subviews) {
         if ([NSStringFromClass([subview class]) containsString:@"GroupChat"]) {
-            return YES;  // Return YES if group chat view is found
+            return YES;  // Return YES if the group chat view is found
         }
     }
     return NO;  // Return NO if not found
