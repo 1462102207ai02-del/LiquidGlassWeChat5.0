@@ -22,11 +22,11 @@ static BOOL MMIsDark(UITraitCollection *trait) {
 }
 
 static UIColor *MMSelectedColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(0, 216, 95, 1.0) : MMRGBA(0, 190, 80, 1.0);
+    return MMIsDark(trait) ? MMRGBA(0, 150, 150, 1.0) : MMRGBA(0, 170, 150, 1.0);
 }
 
 static UIColor *MMNormalColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.82) : MMRGBA(60, 60, 67, 0.82);
+    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.82) : MMRGBA(100, 100, 100, 0.82);
 }
 
 static CGFloat MMBottomInset(UIView *view) {
@@ -218,7 +218,7 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     UIView *capsule = MMCapsule(host);
     CGRect frame = MMCapsuleFrame(host, selectedIndex, count);
     capsule.frame = frame;
-    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.10) : MMRGBA(255,255,255,0.24);
+    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.12) : MMRGBA(100,100,100,0.12);
     MMSetRadius(capsule, frame.size.height * 0.5);
     capsule.clipsToBounds = YES;
     capsule.layer.masksToBounds = YES;
