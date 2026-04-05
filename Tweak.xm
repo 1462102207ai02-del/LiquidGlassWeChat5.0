@@ -1,7 +1,6 @@
 
 #import <UIKit/UIKit.h>
-
-@class NewMainFrameViewController;
+#import "NewMainFrameViewController.h"  // Ensuring we import the correct header
 
 %hook MainFrameTableView
 
@@ -23,7 +22,7 @@
 - (void)viewDidLoad {
     %orig;
 
-    // Explicitly referencing the view of NewMainFrameViewController to ensure access
+    // Accessing view property explicitly after ensuring correct header import
     UIView *topBanner = [self.view viewWithTag:1234];  // Using a tag or another unique identifier
     if (topBanner) {
         topBanner.hidden = YES;
