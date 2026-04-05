@@ -2,6 +2,13 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
+static NSInteger const kMMFloatingHostTag = 990201;
+static NSInteger const kMMFloatingBlurTag = 990202;
+static NSInteger const kMMFloatingCapsuleTag = 990203;
+static NSInteger const kMMFloatingCapsuleBorderTag = 990204;
+static NSInteger const kMMFloatingCapsuleGlowTag = 990205;
+static NSInteger const kMMFloatingButtonsTag = 990206;
+
 static BOOL kMMUpdatingLayout = NO;
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -46,18 +53,25 @@ CGFloat getCapsuleOpacity() {
     return kCapsuleOpacity;
 }
 
+static void MMSetRadius(UIView *view, CGFloat radius) {
+    view.layer.cornerRadius = radius;
+    if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) {
+        view.layer.cornerCurve = kCACornerCurveContinuous;
+    }
+}
+
 static void MMUpdateLayout(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
 
     UIView *root = vc.view;
-    UITabBar *tabBar = [root viewWithTag:990201];
+    UITabBar *tabBar = [root viewWithTag:kMMFloatingHostTag];
     if (!root || !tabBar) {
         kMMUpdatingLayout = NO;
         return;
     }
 
-    UIView *host = [root viewWithTag:990201];
+    UIView *host = [root viewWithTag:kMMFloatingHostTag];
     host.hidden = NO;
 
     CGFloat backgroundOpacity = getBackgroundOpacity();
@@ -67,7 +81,7 @@ static void MMUpdateLayout(UIViewController *vc) {
     tabBar.frame = root.bounds;
     tabBar.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, backgroundOpacity) : MMRGBA(255, 255, 255, backgroundOpacity);
 
-    UIView *capsule = [host viewWithTag:990203];
+    UIView *capsule = [host viewWithTag:kMMFloatingCapsuleTag];
     capsule.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255,255,255,capsuleOpacity) : MMRGBA(255,255,255,capsuleOpacity);
 
     kMMUpdatingLayout = NO;
