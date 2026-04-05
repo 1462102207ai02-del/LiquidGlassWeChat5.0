@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>backgroundOpacity</key>
+    <real>0.18</real>
+    <key>capsuleOpacity</key>
+    <real>0.35</real>
+</dict>
+</plist>
