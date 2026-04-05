@@ -1,5 +1,5 @@
 
-#include <UIKit/UIKit.h>
+#import <UIKit/UIKit.h>
 
 %hook MainFrameTableView
 
@@ -21,7 +21,7 @@
 - (void)viewDidLoad {
     %orig;
 
-    // Hide top banner initially
+    // Accessing view property explicitly
     UIView *topBanner = [self.view viewWithTag:1234];  // Using a tag or another unique identifier
     if (topBanner) {
         topBanner.hidden = YES;
