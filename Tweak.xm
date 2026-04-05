@@ -53,6 +53,13 @@ CGFloat getCapsuleOpacity() {
     return kCapsuleOpacity;
 }
 
+static void MMSetRadius(UIView *view, CGFloat radius) {
+    view.layer.cornerRadius = radius;
+    if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) {
+        view.layer.cornerCurve = kCACornerCurveContinuous;
+    }
+}
+
 static void MMUpdateLayout(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
@@ -80,11 +87,27 @@ static void MMUpdateLayout(UIViewController *vc) {
     kMMUpdatingLayout = NO;
 }
 
+static void MMAddFloatingBar(UIView *view) {
+    UIView *floatingBar = [view viewWithTag:kMMFloatingHostTag];
+    if (!floatingBar) {
+        floatingBar = [[UIView alloc] initWithFrame:CGRectMake(0, view.frame.size.height - 60, view.frame.size.width, 60)];
+        floatingBar.tag = kMMFloatingHostTag;
+        floatingBar.backgroundColor = MMRGBA(255, 255, 255, getBackgroundOpacity());
+        floatingBar.layer.shadowColor = [UIColor blackColor].CGColor;
+        floatingBar.layer.shadowOpacity = 0.5;
+        floatingBar.layer.shadowOffset = CGSizeMake(0, -3);
+        floatingBar.layer.shadowRadius = 10;
+        [view addSubview:floatingBar];
+    }
+    MMSetRadius(floatingBar, 30);
+}
+
 %hook MainTabBarViewController
 
 - (void)viewDidLoad {
     %orig;
     loadOpacitySettings();
+    MMAddFloatingBar(self.view); // 添加悬浮底栏
 }
 
 - (void)viewDidLayoutSubviews {
