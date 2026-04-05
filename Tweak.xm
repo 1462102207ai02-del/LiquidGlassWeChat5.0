@@ -1,7 +1,6 @@
 
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
-#import "MainTabBarViewController.h"  // 完整引入 MainTabBarViewController 类
 
 static NSInteger const kMMFloatingHostTag = 990201;
 static NSInteger const kMMFloatingBlurTag = 990202;
