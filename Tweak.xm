@@ -1,13 +1,11 @@
 
 #import <UIKit/UIKit.h>
-#import "NewMainFrameViewController.h"  // Ensure full class declaration
-#import "MainFrameTableView.h"
 
 %hook MainFrameTableView
 
 - (void)setHeaderView:(UIView *)headerView {
     if (headerView) {
-        UIView *topBanner = [self.view viewWithTag:1234];  // Assuming tag is used to identify the top banner view
+        UIView *topBanner = [self viewWithTag:1234];  // Using tag to identify top banner
         if (topBanner) {
             topBanner.hidden = NO;  // Show the top banner when collapsed
         }
@@ -39,8 +37,8 @@
     }
 }
 
+// Check for group chat expansion using subviews
 - (BOOL)isGroupChatExpanded {
-    // Check for the presence of group chat in subviews to determine if it's expanded
     for (UIView *subview in self.view.subviews) {
         if ([NSStringFromClass([subview class]) containsString:@"GroupChat"]) {
             return YES;  // Return YES if group chat view is found
