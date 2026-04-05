@@ -53,13 +53,6 @@ CGFloat getCapsuleOpacity() {
     return kCapsuleOpacity;
 }
 
-static void MMSetRadius(UIView *view, CGFloat radius) {
-    view.layer.cornerRadius = radius;
-    if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) {
-        view.layer.cornerCurve = kCACornerCurveContinuous;
-    }
-}
-
 static void MMUpdateLayout(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
