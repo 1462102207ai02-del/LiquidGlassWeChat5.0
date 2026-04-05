@@ -132,7 +132,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
         [host addSubview:blur];
     }
     blur.frame = host.bounds;
-    blur.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.08) : MMRGBA(255, 255, 255, 0.18);
+    blur.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.05) : MMRGBA(255, 255, 255, 0.13);
     MMSetRadius(blur, host.bounds.size.height * 0.5);
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
@@ -218,7 +218,7 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     UIView *capsule = MMCapsule(host);
     CGRect frame = MMCapsuleFrame(host, selectedIndex, count);
     capsule.frame = frame;
-    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.12) : MMRGBA(255,255,255,0.30);
+    capsule.backgroundColor = MMIsDark(host.traitCollection) ? MMRGBA(255,255,255,0.10) : MMRGBA(255,255,255,0.24);
     MMSetRadius(capsule, frame.size.height * 0.5);
     capsule.clipsToBounds = YES;
     capsule.layer.masksToBounds = YES;
