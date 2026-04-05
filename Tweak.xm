@@ -21,7 +21,7 @@
 - (void)viewDidLoad {
     %orig;
 
-    // Hiding the top banner explicitly using subviews or other references
+    // Get the top banner and hide it when the group chat is expanded
     UIView *topBanner = nil;
     for (UIView *subview in self.view.subviews) {
         if ([NSStringFromClass([subview class]) containsString:@"TopBanner"]) {
@@ -38,9 +38,9 @@
     }
 }
 
+// Using a simplified check for group chat expansion status
 - (BOOL)isGroupChatExpanded {
-    // Using a simpler method to determine if the group chat is expanded
-    // Check whether the group chat section is expanded
+    // Example logic for determining if the group chat is expanded
     for (UIView *subview in self.view.subviews) {
         if ([NSStringFromClass([subview class]) containsString:@"GroupChat"]) {
             return YES;  // Return YES if group chat is found (adjust logic as needed)
