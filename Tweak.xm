@@ -1,17 +1,18 @@
 
 #import <UIKit/UIKit.h>
-#import <objc/runtime.h>
+#import "NewMainFrameViewController.h"  // Ensure full class declaration
+#import "MainFrameTableView.h"
 
 %hook MainFrameTableView
 
 - (void)setHeaderView:(UIView *)headerView {
     if (headerView) {
-        UIView *topBanner = [self viewWithTag:1234]; 
+        UIView *topBanner = [self.view viewWithTag:1234];  // Assuming tag is used to identify the top banner view
         if (topBanner) {
-            topBanner.hidden = NO;  // 收起时显示横幅
+            topBanner.hidden = NO;  // Show the top banner when collapsed
         }
     }
-    %orig;
+    %orig;  // Calls the original method after modification
 }
 
 %end
@@ -21,18 +22,31 @@
 - (void)viewDidLoad {
     %orig;
 
-    UIView *topBanner = [self.view viewWithTag:1234];
+    // Use subviews to locate the top banner and hide it when expanded
+    UIView *topBanner = nil;
+    for (UIView *subview in self.view.subviews) {
+        if ([NSStringFromClass([subview class]) containsString:@"TopBanner"]) {
+            topBanner = subview;
+            break;
+        }
+    }
     if (topBanner) {
-        if (self.isGroupChatExpanded) {
-            topBanner.hidden = YES; // 展开时隐藏横幅
+        if ([self isGroupChatExpanded]) {
+            topBanner.hidden = YES;  // Hide the top banner when expanded
         } else {
-            topBanner.hidden = NO; // 收起时显示横幅
+            topBanner.hidden = NO;  // Show the top banner when collapsed
         }
     }
 }
 
 - (BOOL)isGroupChatExpanded {
-    return YES; 
+    // Check for the presence of group chat in subviews to determine if it's expanded
+    for (UIView *subview in self.view.subviews) {
+        if ([NSStringFromClass([subview class]) containsString:@"GroupChat"]) {
+            return YES;  // Return YES if group chat view is found
+        }
+    }
+    return NO;  // Return NO if not found
 }
 
 %end
