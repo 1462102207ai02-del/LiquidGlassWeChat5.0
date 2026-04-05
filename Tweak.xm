@@ -21,7 +21,7 @@
 - (void)viewDidLoad {
     %orig;
 
-    // Accessing view property explicitly
+    // Using UIViewController as base to ensure 'view' property is accessible
     UIView *topBanner = [self.view viewWithTag:1234];  // Using a tag or another unique identifier
     if (topBanner) {
         topBanner.hidden = YES;
