@@ -1049,67 +1049,6 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     [CATransaction commit];
 }
 
-static void MMUpdateFloatingBar(UIViewController *vc) {
-    if (kMMUpdatingLayout) return;
-    kMMUpdatingLayout = YES;
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-
-    UIView *root = vc.view;
-    UITabBar *tabBar = MMFindTabBar(vc);
-    if (!root || !tabBar) {
-        [CATransaction commit];
-        kMMUpdatingLayout = NO;
-        return;
-    }
-
-    UIView *host = MMHost(root);
-
-    if (MMShouldHideFloatingBar(vc)) {
-        host.hidden = YES;
-        tabBar.hidden = YES;
-        MMHideDockSearchHost(root);
-        [CATransaction commit];
-        kMMUpdatingLayout = NO;
-        return;
-    }
-
-    host.hidden = NO;
-    tabBar.hidden = NO;
-
-    CGFloat inset = MMBottomInset(root);
-    CGFloat margin = 18.0;
-    CGFloat gap = 12.0;
-    CGFloat dockSize = 84.0;
-    CGFloat height = 84.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 10.0;
-
-    UIViewController *content = MMCurrentSelectedContentControllerFromMainTab(vc);
-    UIView *searchBar = nil;
-    BOOL showDockSearch = NO;
-    if ([NSStringFromClass([content class]) isEqualToString:@"NewMainFrameViewController"]) {
-        searchBar = MMFindSearchBarInView(content.view);
-        showDockSearch = (searchBar != nil);
-    }
-
-    CGFloat hostWidth = CGRectGetWidth(root.bounds) - margin * 2.0 - (showDockSearch ? (dockSize + gap) : 0.0);
-    CGRect frame = CGRectMake(margin, y, hostWidth, height);
-
-    host.frame = frame;
-    MMStyleHost(host);
-    MMBlur(host);
-
-    tabBar.transform = CGAffineTransformIdentity;
-    tabBar.frame = frame;
-    MMHideOriginalTabBarVisuals(tabBar);
-    MMUpdateButtons(vc, tabBar, host);
-
-    [root bringSubviewToFront:host];
-    MMUpdateDockSearchButton(vc);
-
-    [CATransaction commit];
-    kMMUpdatingLayout = NO;
-}
 
 
 @interface MMFloatingObserver : NSObject
