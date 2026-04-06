@@ -17,6 +17,10 @@ static NSInteger const kMMDockSearchHitButtonTag = 991204;
 static BOOL kMMUpdatingLayout = NO;
 static BOOL kMMSettingsPresented = NO;
 
+static void MMRequestFloatingBarRefresh(UIViewController *vc);
+static void MMShowSettingsMenu(UIViewController *vc);
+static void MMTriggerSearchBar(UIView *searchBar);
+
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
 static BOOL MMIsDark(UITraitCollection *trait);
 static CGFloat MMClamp(CGFloat value, CGFloat min, CGFloat max);
