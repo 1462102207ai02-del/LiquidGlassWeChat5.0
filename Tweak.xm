@@ -12,6 +12,7 @@ static NSInteger const kMMFloatingButtonsTag = 990206;
 static NSInteger const kMMDockSearchHostTag = 991201;
 static NSInteger const kMMDockSearchBlurTag = 991202;
 static NSInteger const kMMDockSearchIconTag = 991203;
+static NSInteger const kMMDockSearchHitButtonTag = 991204;
 
 static BOOL kMMUpdatingLayout = NO;
 static BOOL kMMSettingsPresented = NO;
@@ -848,6 +849,77 @@ static void MMHideOriginalTabBarVisuals(UITabBar *tabBar) {
 }
 
 
+
+static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
+    NSArray *targets = nil;
+    @try {
+        targets = [gesture valueForKey:@"_targets"];
+    } @catch (__unused NSException *e) {
+        targets = nil;
+    }
+
+    for (id targetObj in targets) {
+        id target = nil;
+        SEL action = NULL;
+        @try { target = [targetObj valueForKey:@"target"]; } @catch (__unused NSException *e) {}
+        @try { action = NSSelectorFromString([targetObj valueForKey:@"action"]); } @catch (__unused NSException *e) {}
+        if (target && action && [target respondsToSelector:action]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(target, action, gesture);
+        }
+    }
+}
+
+static void MMTriggerSearchBar(UIView *searchBar) {
+    if (!searchBar) return;
+
+    if ([searchBar isKindOfClass:[UIControl class]]) {
+        UIControl *control = (UIControl *)searchBar;
+        [control sendActionsForControlEvents:UIControlEventTouchUpInside];
+        [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
+    }
+
+    for (UIGestureRecognizer *gesture in searchBar.gestureRecognizers) {
+        MMTriggerGestureTargets(gesture);
+    }
+
+    for (UIView *sub in searchBar.subviews) {
+        if ([sub isKindOfClass:[UIControl class]]) {
+            UIControl *control = (UIControl *)sub;
+            [control sendActionsForControlEvents:UIControlEventTouchUpInside];
+            [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
+        }
+        for (UIGestureRecognizer *gesture in sub.gestureRecognizers) {
+            MMTriggerGestureTargets(gesture);
+        }
+    }
+
+    @try {
+        if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
+            [searchBar becomeFirstResponder];
+        }
+    } @catch (__unused NSException *e) {
+    }
+}
+
+@interface MMDockSearchTapProxy : NSObject
+@property (nonatomic, assign) UIView *searchBar;
+@end
+
+@implementation MMDockSearchTapProxy
+- (void)handleTap:(__unused id)sender {
+    MMTriggerSearchBar(self.searchBar);
+}
+@end
+
+static MMDockSearchTapProxy *MMSharedDockSearchTapProxy(void) {
+    static MMDockSearchTapProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMDockSearchTapProxy new];
+    });
+    return proxy;
+}
+
 static UIView *MMFindSearchBarInView(UIView *root) {
     if (!root) return nil;
     NSString *name = NSStringFromClass([root class]);
@@ -869,7 +941,7 @@ static UIView *MMDockSearchHost(UIView *root) {
         host = [UIView new];
         host.tag = kMMDockSearchHostTag;
         host.backgroundColor = [UIColor clearColor];
-        host.userInteractionEnabled = NO;
+        host.userInteractionEnabled = YES;
         host.clipsToBounds = NO;
         [root addSubview:host];
 
@@ -883,6 +955,11 @@ static UIView *MMDockSearchHost(UIView *root) {
         icon.contentMode = UIViewContentModeScaleAspectFit;
         icon.userInteractionEnabled = NO;
         [host addSubview:icon];
+
+        UIButton *hit = [UIButton buttonWithType:UIButtonTypeCustom];
+        hit.tag = kMMDockSearchHitButtonTag;
+        hit.backgroundColor = [UIColor clearColor];
+        [host addSubview:hit];
     }
     return host;
 }
@@ -943,18 +1020,14 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     }
 
-    searchBar.hidden = NO;
-    searchBar.alpha = 0.015;
-    searchBar.userInteractionEnabled = YES;
-    searchBar.frame = host.frame;
-    searchBar.clipsToBounds = YES;
-    searchBar.layer.cornerRadius = dockSize * 0.5;
-    if ([searchBar.layer respondsToSelector:@selector(setCornerCurve:)]) {
-        searchBar.layer.cornerCurve = kCACornerCurveContinuous;
-    }
+    UIButton *hit = (UIButton *)[host viewWithTag:kMMDockSearchHitButtonTag];
+    hit.frame = host.bounds;
+    [hit removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
+    MMDockSearchTapProxy *proxy = MMSharedDockSearchTapProxy();
+    proxy.searchBar = searchBar;
+    [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
 
     [root bringSubviewToFront:host];
-    [root bringSubviewToFront:searchBar];
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
