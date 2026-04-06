@@ -246,6 +246,13 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
 
 
 static void MMUpdateFloatingBar(UIViewController *vc);
+
+static void MMUpdateFloatingBar(UIViewController *vc) {
+    if (!vc) return;
+    UIView *root = vc.view;
+    if (!root) return;
+    MMUpdateDockSearchButton(vc);
+}
 static void MMRequestFloatingBarRefresh(UIViewController *vc) {
     if (!vc) return;
     dispatch_async(dispatch_get_main_queue(), ^{
