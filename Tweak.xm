@@ -902,10 +902,6 @@ static UIView *MMFindSearchBarInView(UIView *root) {
     return nil;
 }
 
-static UIViewController *MMCurrentSelectedContentControllerFromMainTab(UIViewController *vc) {
-    return MMCurrentContentController(vc);
-}
-
 static UIViewController *MMFindHomeContentControllerFromController(UIViewController *vc) {
     if (!vc) return nil;
     NSString *name = NSStringFromClass([vc class]);
