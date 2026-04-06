@@ -1,10 +1,10 @@
+#import <UIKit/UIKit.h>
 @interface UITapGestureRecognizer (MMSearchAction)
 - (void)handleAction:(id)arg1;
 - (void)trackTapGestureAction:(id)arg1;
 - (void)amb_trackTapGestureAction:(id)arg1;
 @end
 
-#import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
 
