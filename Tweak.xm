@@ -67,6 +67,8 @@ static void MMTriggerSearchBar(UIView *searchBar);
 static void MMUpdateDockSearchButton(UIViewController *vc);
 static void MMUpdateFloatingBar(UIViewController *vc);
 static void MMRequestFloatingBarRefresh(UIViewController *vc);
+static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible);
+static BOOL MMTriggerGestureTargetsInViewTree(UIView *view);
 static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString *title, NSString *placeholder, CGFloat fallback);
 static void MMShowSingleAlphaAlert(UIViewController *vc, NSString *type);
 static void MMShowColorMenu(UIViewController *vc);
@@ -962,21 +964,49 @@ static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
         @try { action = NSSelectorFromString([targetObj valueForKey:@"action"]); } @catch (__unused NSException *e) {}
         if (target && action && [target respondsToSelector:action]) {
             ((void (*)(id, SEL, id))objc_msgSend)(target, action, gesture);
-            return;
         }
     }
+}
+
+static BOOL MMTriggerGestureTargetsInViewTree(UIView *view) {
+    BOOL didTrigger = NO;
+    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
+        MMTriggerGestureTargets(gesture);
+        didTrigger = YES;
+    }
+    for (UIView *sub in view.subviews) {
+        if (MMTriggerGestureTargetsInViewTree(sub)) didTrigger = YES;
+    }
+    return didTrigger;
 }
 
 static void MMTriggerSearchBar(UIView *searchBar) {
     if (!searchBar) return;
 
-    for (UIGestureRecognizer *gesture in searchBar.gestureRecognizers) {
-        MMTriggerGestureTargets(gesture);
+    if ([searchBar isKindOfClass:[UIControl class]]) {
+        UIControl *control = (UIControl *)searchBar;
+        [control sendActionsForControlEvents:UIControlEventTouchUpInside];
+        [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
     }
-    for (UIView *sub in searchBar.subviews) {
-        for (UIGestureRecognizer *gesture in sub.gestureRecognizers) {
-            MMTriggerGestureTargets(gesture);
-        }
+
+    MMTriggerGestureTargetsInViewTree(searchBar);
+
+    if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
+        @try { [searchBar becomeFirstResponder]; } @catch (__unused NSException *e) {}
+    }
+}
+
+static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
+    CGFloat alpha = visible ? 1.0 : 0.0;
+    if (host) {
+        host.hidden = NO;
+        host.alpha = alpha;
+        host.userInteractionEnabled = visible;
+    }
+    if (dockHost) {
+        dockHost.hidden = NO;
+        dockHost.alpha = alpha;
+        dockHost.userInteractionEnabled = visible;
     }
 }
 
@@ -1005,6 +1035,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     UIView *host = MMDockSearchHost(root);
     host.hidden = NO;
+    host.alpha = 1.0;
     host.frame = CGRectMake(x, y, dockSize, dockSize);
     MMSetRadius(host, dockSize * 0.5);
     host.layer.borderWidth = 0.36;
@@ -1060,18 +1091,16 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     }
 
     UIView *host = MMHost(root);
+    UIView *dockHost = [root viewWithTag:kMMDockSearchHostTag];
 
     if (MMShouldHideFloatingBar(vc)) {
-        host.hidden = YES;
-        tabBar.hidden = YES;
-        MMHideDockSearchHost(root);
+        tabBar.hidden = NO;
+        MMHideOriginalTabBarVisuals(tabBar);
+        MMSetFloatingVisible(host, dockHost, NO);
         [CATransaction commit];
         kMMUpdatingLayout = NO;
         return;
     }
-
-    host.hidden = NO;
-    tabBar.hidden = NO;
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
@@ -1095,11 +1124,13 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     MMStyleHost(host);
     MMBlur(host);
 
+    tabBar.hidden = NO;
     tabBar.transform = CGAffineTransformIdentity;
     tabBar.frame = frame;
     MMHideOriginalTabBarVisuals(tabBar);
     MMUpdateButtons(vc, tabBar, host);
 
+    MMSetFloatingVisible(host, nil, YES);
     [root bringSubviewToFront:host];
     MMUpdateDockSearchButton(vc);
 
