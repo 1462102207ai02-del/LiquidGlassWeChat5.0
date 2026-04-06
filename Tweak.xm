@@ -996,38 +996,13 @@ static void MMTriggerSearchBar(UIView *searchBar) {
 static void MMOpenSearchFromMainTab(UIViewController *vc) {
     if (!vc) return;
 
-    void (^triggerBlock)(void) = ^{
-        UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
-        UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
-        if (searchBar) {
-            MMTriggerSearchBar(searchBar);
-        }
-    };
+    UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
+    UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
+    if (!searchBar) return;
 
-    NSInteger selectedIndex = -1;
-    @try {
-        id idxObj = [vc valueForKey:@"selectedIndex"];
-        if ([idxObj respondsToSelector:@selector(integerValue)]) {
-            selectedIndex = [idxObj integerValue];
-        }
-    } @catch (__unused NSException *e) {
-    }
-
-    if (selectedIndex != 0) {
-        if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-            @try { [(id)vc setSelectedIndex:0]; } @catch (__unused NSException *e) {}
-        }
-        UITabBar *tabBar = MMFindTabBar(vc);
-        if (tabBar && [tabBar.items count] > 0) {
-            @try { tabBar.selectedItem = [tabBar.items objectAtIndex:0]; } @catch (__unused NSException *e) {}
-        }
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.18 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            triggerBlock();
-        });
-        return;
-    }
-
-    triggerBlock();
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMTriggerSearchBar(searchBar);
+    });
 }
 
 static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
