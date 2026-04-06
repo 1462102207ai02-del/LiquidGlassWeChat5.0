@@ -20,6 +20,7 @@ static BOOL kMMSettingsPresented = NO;
 static void MMRequestFloatingBarRefresh(UIViewController *vc);
 static void MMShowSettingsMenu(UIViewController *vc);
 static void MMTriggerSearchBar(UIView *searchBar);
+static void MMOpenSearchFromMainTab(UIViewController *vc);
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -352,12 +353,12 @@ static MMGestureProxy *MMSharedGestureProxy(void) {
 }
 
 @interface MMDockSearchTapProxy : NSObject
-@property (nonatomic, assign) UIView *searchBar;
+@property (nonatomic, assign) UIViewController *mainTabVC;
 @end
 
 @implementation MMDockSearchTapProxy
 - (void)handleTap:(__unused id)sender {
-    MMTriggerSearchBar(self.searchBar);
+    MMOpenSearchFromMainTab(self.mainTabVC);
 }
 @end
 
@@ -1009,6 +1010,43 @@ static void MMTriggerSearchBar(UIView *searchBar) {
     }
 }
 
+static void MMOpenSearchFromMainTab(UIViewController *vc) {
+    if (!vc) return;
+
+    void (^triggerBlock)(void) = ^{
+        UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
+        UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
+        if (searchBar) {
+            MMTriggerSearchBar(searchBar);
+        }
+    };
+
+    NSInteger selectedIndex = -1;
+    @try {
+        id idxObj = [vc valueForKey:@"selectedIndex"];
+        if ([idxObj respondsToSelector:@selector(integerValue)]) {
+            selectedIndex = [idxObj integerValue];
+        }
+    } @catch (__unused NSException *e) {
+    }
+
+    if (selectedIndex != 0) {
+        if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
+            @try { [(id)vc setSelectedIndex:0]; } @catch (__unused NSException *e) {}
+        }
+        UITabBar *tabBar = MMFindTabBar(vc);
+        if (tabBar && [tabBar.items count] > 0) {
+            @try { tabBar.selectedItem = [tabBar.items objectAtIndex:0]; } @catch (__unused NSException *e) {}
+        }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.18 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            triggerBlock();
+        });
+        return;
+    }
+
+    triggerBlock();
+}
+
 static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
     CGFloat targetAlpha = visible ? 1.0 : 0.0;
 
@@ -1097,7 +1135,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     hit.frame = host.bounds;
     [hit removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
     MMDockSearchTapProxy *proxy = MMSharedDockSearchTapProxy();
-    proxy.searchBar = searchBar;
+    proxy.mainTabVC = vc;
     [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
 
     [root bringSubviewToFront:host];
