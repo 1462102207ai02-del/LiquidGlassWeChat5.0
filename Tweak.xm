@@ -21,6 +21,7 @@ static void MMRequestFloatingBarRefresh(UIViewController *vc);
 static void MMShowSettingsMenu(UIViewController *vc);
 static void MMTriggerSearchBar(UIView *searchBar);
 static void MMOpenSearchFromMainTab(UIViewController *vc);
+static void MMOpenSearchRetry(UIViewController *vc, NSInteger remaining);
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -1010,16 +1011,24 @@ static void MMTriggerSearchBar(UIView *searchBar) {
     }
 }
 
+static void MMOpenSearchRetry(UIViewController *vc, NSInteger remaining) {
+    if (!vc || remaining <= 0) return;
+
+    UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
+    UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
+
+    if (searchBar && searchBar.window) {
+        MMTriggerSearchBar(searchBar);
+        return;
+    }
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        MMOpenSearchRetry(vc, remaining - 1);
+    });
+}
+
 static void MMOpenSearchFromMainTab(UIViewController *vc) {
     if (!vc) return;
-
-    void (^triggerBlock)(void) = ^{
-        UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
-        UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
-        if (searchBar) {
-            MMTriggerSearchBar(searchBar);
-        }
-    };
 
     NSInteger selectedIndex = -1;
     @try {
@@ -1038,14 +1047,11 @@ static void MMOpenSearchFromMainTab(UIViewController *vc) {
         if (tabBar && [tabBar.items count] > 0) {
             @try { tabBar.selectedItem = [tabBar.items objectAtIndex:0]; } @catch (__unused NSException *e) {}
         }
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.18 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            triggerBlock();
-        });
-        return;
     }
 
-    triggerBlock();
+    MMOpenSearchRetry(vc, 8);
 }
+
 
 static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
     CGFloat targetAlpha = visible ? 1.0 : 0.0;
