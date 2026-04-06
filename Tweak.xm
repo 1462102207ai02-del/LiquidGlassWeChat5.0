@@ -22,6 +22,10 @@ static void MMShowSettingsMenu(UIViewController *vc);
 static void MMTriggerSearchBar(UIView *searchBar);
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
+static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
+    return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
+}
+
 static BOOL MMIsDark(UITraitCollection *trait);
 static CGFloat MMClamp(CGFloat value, CGFloat min, CGFloat max);
 static NSString *MMModeSuffix(UITraitCollection *trait);
