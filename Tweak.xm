@@ -964,25 +964,6 @@ static UIView *MMDockSearchHost(UIView *root) {
 
 
 
-static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
-    NSArray *targets = nil;
-    @try {
-        targets = [gesture valueForKey:@"_targets"];
-    } @catch (__unused NSException *e) {
-        targets = nil;
-    }
-
-    for (id targetObj in targets) {
-        id target = nil;
-        SEL action = NULL;
-        @try { target = [targetObj valueForKey:@"target"]; } @catch (__unused NSException *e) {}
-        @try { action = NSSelectorFromString([targetObj valueForKey:@"action"]); } @catch (__unused NSException *e) {}
-        if (target && action && [target respondsToSelector:action]) {
-            ((void (*)(id, SEL, id))objc_msgSend)(target, action, gesture);
-        }
-    }
-}
-
 static UIView *MMFindTextField(UIView *view) {
     if (!view) return nil;
 
