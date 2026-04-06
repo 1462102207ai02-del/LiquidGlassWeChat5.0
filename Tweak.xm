@@ -9,6 +9,7 @@ static NSInteger const kMMFloatingCapsuleGlowTag = 990205;
 static NSInteger const kMMFloatingButtonsTag = 990206;
 
 static BOOL kMMUpdatingLayout = NO;
+static BOOL kMMSettingsPresented = NO;
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
     return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
@@ -145,6 +146,98 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     return NO;
 }
 
+static void MMUpdateFloatingBar(UIViewController *vc);
+
+static void MMSaveAlphaValue(NSString *key, CGFloat value) {
+    [[NSUserDefaults standardUserDefaults] setFloat:MMClamp(value, 0.0, 1.0) forKey:key];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+static void MMShowSettingsAlert(UIViewController *vc) {
+    if (!vc || kMMSettingsPresented) return;
+    kMMSettingsPresented = YES;
+
+    BOOL dark = MMIsDark(vc.traitCollection);
+    NSString *bgKey = dark ? @"mm_bg_alpha_dark" : @"mm_bg_alpha_light";
+    NSString *capsuleKey = dark ? @"mm_capsule_alpha_dark" : @"mm_capsule_alpha_light";
+    NSString *title = dark ? @"底栏设置（深色模式）" : @"底栏设置（浅色模式）";
+
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:@"输入 0 到 1 之间的小数" preferredStyle:UIAlertControllerStyleAlert];
+
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.placeholder = @"背景透明度";
+        textField.keyboardType = UIKeyboardTypeDecimalPad;
+        textField.text = [NSString stringWithFormat:@"%.2f", MMUserFloat(bgKey, dark ? 0.05 : 0.13)];
+    }];
+
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.placeholder = @"胶囊透明度";
+        textField.keyboardType = UIKeyboardTypeDecimalPad;
+        textField.text = [NSString stringWithFormat:@"%.2f", MMUserFloat(capsuleKey, dark ? 0.10 : 0.24)];
+    }];
+
+    __weak UIViewController *weakVC = vc;
+
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
+        kMMSettingsPresented = NO;
+    }]];
+
+    [alert addAction:[UIAlertAction actionWithTitle:@"恢复默认" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
+        if (dark) {
+            MMSaveAlphaValue(@"mm_bg_alpha_dark", 0.05);
+            MMSaveAlphaValue(@"mm_capsule_alpha_dark", 0.10);
+        } else {
+            MMSaveAlphaValue(@"mm_bg_alpha_light", 0.13);
+            MMSaveAlphaValue(@"mm_capsule_alpha_light", 0.24);
+        }
+        kMMSettingsPresented = NO;
+        if (weakVC) MMUpdateFloatingBar(weakVC);
+    }]];
+
+    [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        UITextField *bgField = alert.textFields.count > 0 ? alert.textFields[0] : nil;
+        UITextField *capsuleField = alert.textFields.count > 1 ? alert.textFields[1] : nil;
+
+        CGFloat bgValue = bgField.text.length ? [bgField.text doubleValue] : (dark ? 0.05 : 0.13);
+        CGFloat capsuleValue = capsuleField.text.length ? [capsuleField.text doubleValue] : (dark ? 0.10 : 0.24);
+
+        MMSaveAlphaValue(bgKey, bgValue);
+        MMSaveAlphaValue(capsuleKey, capsuleValue);
+
+        kMMSettingsPresented = NO;
+        if (weakVC) MMUpdateFloatingBar(weakVC);
+    }]];
+
+    [vc presentViewController:alert animated:YES completion:nil];
+}
+
+@interface MMGestureProxy : NSObject
+- (void)handleLongPress:(UILongPressGestureRecognizer *)gesture;
+@end
+
+@implementation MMGestureProxy
+- (void)handleLongPress:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan) return;
+    UIResponder *r = gesture.view;
+    while (r) {
+        r = [r nextResponder];
+        if ([r isKindOfClass:[UIViewController class]]) {
+            MMShowSettingsAlert((UIViewController *)r);
+            break;
+        }
+    }
+}
+@end
+
+static MMGestureProxy *MMSharedGestureProxy(void) {
+    static MMGestureProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMGestureProxy new];
+    });
+    return proxy;
+}
+
 static UIView *MMHost(UIView *root) {
     UIView *host = [root viewWithTag:kMMFloatingHostTag];
     if (!host) {
@@ -155,6 +248,19 @@ static UIView *MMHost(UIView *root) {
         host.clipsToBounds = NO;
         [root addSubview:host];
     }
+
+    BOOL hasLongPress = NO;
+    for (UIGestureRecognizer *g in host.gestureRecognizers) {
+        if ([g isKindOfClass:[UILongPressGestureRecognizer class]]) {
+            hasLongPress = YES;
+            break;
+        }
+    }
+    if (!hasLongPress) {
+        UILongPressGestureRecognizer *press = [[UILongPressGestureRecognizer alloc] initWithTarget:MMSharedGestureProxy() action:@selector(handleLongPress:)];
+        [host addGestureRecognizer:press];
+    }
+
     return host;
 }
 
