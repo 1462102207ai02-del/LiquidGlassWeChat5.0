@@ -234,7 +234,6 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     return NO;
 }
 
-static void MMUpdateFloatingBar(UIViewController *vc);
 
 @interface MMColorPickerProxy : NSObject <UIColorPickerViewControllerDelegate>
 @property (nonatomic, assign) UIViewController *vc;
