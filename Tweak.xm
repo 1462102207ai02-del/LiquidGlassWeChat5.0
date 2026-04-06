@@ -1,3 +1,9 @@
+@interface UITapGestureRecognizer (MMSearchAction)
+- (void)handleAction:(id)arg1;
+- (void)trackTapGestureAction:(id)arg1;
+- (void)amb_trackTapGestureAction:(id)arg1;
+@end
+
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
@@ -20,8 +26,6 @@ static BOOL kMMSettingsPresented = NO;
 static void MMRequestFloatingBarRefresh(UIViewController *vc);
 static void MMShowSettingsMenu(UIViewController *vc);
 static void MMTriggerSearchBar(UIView *searchBar);
-static void MMOpenSearchFromMainTab(UIViewController *vc);
-static void MMOpenSearchRetry(UIViewController *vc, NSInteger remaining);
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -354,12 +358,12 @@ static MMGestureProxy *MMSharedGestureProxy(void) {
 }
 
 @interface MMDockSearchTapProxy : NSObject
-@property (nonatomic, assign) UIViewController *mainTabVC;
+@property (nonatomic, assign) UIView *searchBar;
 @end
 
 @implementation MMDockSearchTapProxy
 - (void)handleTap:(__unused id)sender {
-    MMOpenSearchFromMainTab(self.mainTabVC);
+    MMTriggerSearchBar(self.searchBar);
 }
 @end
 
@@ -998,60 +1002,22 @@ static BOOL MMTriggerGestureTargetsInViewTree(UIView *view) {
 static void MMTriggerSearchBar(UIView *searchBar) {
     if (!searchBar) return;
 
-    if ([searchBar isKindOfClass:[UIControl class]]) {
-        UIControl *control = (UIControl *)searchBar;
-        [control sendActionsForControlEvents:UIControlEventTouchUpInside];
-        [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
-    }
+    for (UIGestureRecognizer *gesture in searchBar.gestureRecognizers) {
+        if (![gesture isKindOfClass:[UITapGestureRecognizer class]]) continue;
 
-    MMTriggerGestureTargetsInViewTree(searchBar);
-
-    if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
-        @try { [searchBar becomeFirstResponder]; } @catch (__unused NSException *e) {}
-    }
-}
-
-static void MMOpenSearchRetry(UIViewController *vc, NSInteger remaining) {
-    if (!vc || remaining <= 0) return;
-
-    UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
-    UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
-
-    if (searchBar && searchBar.window) {
-        MMTriggerSearchBar(searchBar);
-        return;
-    }
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        MMOpenSearchRetry(vc, remaining - 1);
-    });
-}
-
-static void MMOpenSearchFromMainTab(UIViewController *vc) {
-    if (!vc) return;
-
-    NSInteger selectedIndex = -1;
-    @try {
-        id idxObj = [vc valueForKey:@"selectedIndex"];
-        if ([idxObj respondsToSelector:@selector(integerValue)]) {
-            selectedIndex = [idxObj integerValue];
+        if ([gesture respondsToSelector:@selector(handleAction:)]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(gesture, @selector(handleAction:), gesture);
         }
-    } @catch (__unused NSException *e) {
-    }
 
-    if (selectedIndex != 0) {
-        if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-            @try { [(id)vc setSelectedIndex:0]; } @catch (__unused NSException *e) {}
+        if ([gesture respondsToSelector:@selector(trackTapGestureAction:)]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(gesture, @selector(trackTapGestureAction:), gesture);
         }
-        UITabBar *tabBar = MMFindTabBar(vc);
-        if (tabBar && [tabBar.items count] > 0) {
-            @try { tabBar.selectedItem = [tabBar.items objectAtIndex:0]; } @catch (__unused NSException *e) {}
+
+        if ([gesture respondsToSelector:@selector(amb_trackTapGestureAction:)]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(gesture, @selector(amb_trackTapGestureAction:), gesture);
         }
     }
-
-    MMOpenSearchRetry(vc, 8);
 }
-
 
 static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
     CGFloat targetAlpha = visible ? 1.0 : 0.0;
@@ -1141,7 +1107,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     hit.frame = host.bounds;
     [hit removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
     MMDockSearchTapProxy *proxy = MMSharedDockSearchTapProxy();
-    proxy.mainTabVC = vc;
+    proxy.searchBar = searchBar;
     [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
 
     [root bringSubviewToFront:host];
