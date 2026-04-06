@@ -19,8 +19,6 @@ static BOOL kMMSettingsPresented = NO;
 
 static void MMRequestFloatingBarRefresh(UIViewController *vc);
 static void MMShowSettingsMenu(UIViewController *vc);
-static UIView *MMFindTextField(UIView *view);
-static void MMTriggerSearchBar(UIView *searchBar);
 static void MMOpenSearchFromMainTab(UIViewController *vc);
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
@@ -964,45 +962,15 @@ static UIView *MMDockSearchHost(UIView *root) {
 
 
 
-static UIView *MMFindTextField(UIView *view) {
-    if (!view) return nil;
-
-    if ([NSStringFromClass([view class]) containsString:@"TextField"]) {
-        return view;
-    }
-
-    for (UIView *sub in view.subviews) {
-        UIView *found = MMFindTextField(sub);
-        if (found) return found;
-    }
-
-    return nil;
-}
-
-static void MMTriggerSearchBar(UIView *searchBar) {
-    if (!searchBar) return;
-
-    UIView *textField = MMFindTextField(searchBar);
-    if (textField && [textField respondsToSelector:@selector(becomeFirstResponder)]) {
-        [textField becomeFirstResponder];
-        return;
-    }
-
-    if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
-        [searchBar becomeFirstResponder];
-    }
-}
-
 static void MMOpenSearchFromMainTab(UIViewController *vc) {
     if (!vc) return;
 
-    UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
-    UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
-    if (!searchBar) return;
+    UIViewController *targetVC = MMFindHomeContentControllerFromController(vc);
+    if (!targetVC) targetVC = vc;
 
-    dispatch_async(dispatch_get_main_queue(), ^{
-        MMTriggerSearchBar(searchBar);
-    });
+    if ([targetVC respondsToSelector:@selector(onTapOnSearchButton)]) {
+        ((void (*)(id, SEL))objc_msgSend)(targetVC, @selector(onTapOnSearchButton));
+    }
 }
 
 static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
