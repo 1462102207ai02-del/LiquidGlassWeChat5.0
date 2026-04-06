@@ -276,26 +276,15 @@ static void MMPresentColorPicker(UIViewController *vc, NSString *prefix, UIColor
     [vc presentViewController:picker animated:YES completion:nil];
 }
 
-static void MMShowAlphaAlert(UIViewController *vc) {
-    if (!vc) return;
-
-    BOOL dark = MMIsDark(vc.traitCollection);
-    NSString *bgKey = dark ? @"mm_bg_alpha_dark" : @"mm_bg_alpha_light";
-    NSString *capsuleKey = dark ? @"mm_capsule_alpha_dark" : @"mm_capsule_alpha_light";
-    NSString *title = dark ? @"透明度设置（深色模式）" : @"透明度设置（浅色模式）";
+static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString *title, NSString *placeholder, CGFloat fallback) {
+    if (!vc || !key.length) return;
 
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:@"请输入百分比 0 到 100" preferredStyle:UIAlertControllerStyleAlert];
 
     [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
-        textField.placeholder = @"背景透明度 %";
+        textField.placeholder = placeholder;
         textField.keyboardType = UIKeyboardTypeNumberPad;
-        textField.text = MMPercentString(MMUserAlpha(bgKey, dark ? 0.05 : 0.13));
-    }];
-
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
-        textField.placeholder = @"胶囊透明度 %";
-        textField.keyboardType = UIKeyboardTypeNumberPad;
-        textField.text = MMPercentString(MMUserAlpha(capsuleKey, dark ? 0.10 : 0.24));
+        textField.text = MMPercentString(MMUserAlpha(key, fallback));
     }];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
@@ -303,32 +292,64 @@ static void MMShowAlphaAlert(UIViewController *vc) {
     }]];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"恢复默认" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
-        if (dark) {
-            MMSaveFloat(@"mm_bg_alpha_dark", 0.05);
-            MMSaveFloat(@"mm_capsule_alpha_dark", 0.10);
-        } else {
-            MMSaveFloat(@"mm_bg_alpha_light", 0.13);
-            MMSaveFloat(@"mm_capsule_alpha_light", 0.24);
-        }
+        MMSaveFloat(key, fallback);
         kMMSettingsPresented = NO;
         MMUpdateFloatingBar(vc);
     }]];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        UITextField *bgField = alert.textFields.count > 0 ? alert.textFields[0] : nil;
-        UITextField *capsuleField = alert.textFields.count > 1 ? alert.textFields[1] : nil;
-
-        CGFloat bgValue = MMPercentToAlpha(bgField.text, dark ? 0.05 : 0.13);
-        CGFloat capsuleValue = MMPercentToAlpha(capsuleField.text, dark ? 0.10 : 0.24);
-
-        MMSaveFloat(bgKey, bgValue);
-        MMSaveFloat(capsuleKey, capsuleValue);
-
+        UITextField *field = alert.textFields.count > 0 ? alert.textFields[0] : nil;
+        CGFloat value = MMPercentToAlpha(field.text, fallback);
+        MMSaveFloat(key, value);
         kMMSettingsPresented = NO;
         MMUpdateFloatingBar(vc);
     }]];
 
     [vc presentViewController:alert animated:YES completion:nil];
+}
+
+static void MMShowSingleAlphaAlert(UIViewController *vc, NSString *type) {
+    if (!vc || !type.length) return;
+
+    BOOL dark = MMIsDark(vc.traitCollection);
+    NSString *title = nil;
+    NSString *placeholder = nil;
+    NSString *key = nil;
+    CGFloat fallback = 0.0;
+
+    if ([type isEqualToString:@"bg"]) {
+        key = dark ? @"mm_bg_alpha_dark" : @"mm_bg_alpha_light";
+        title = dark ? @"底栏背景透明度（深色模式）" : @"底栏背景透明度（浅色模式）";
+        placeholder = @"底栏背景透明度 %";
+        fallback = dark ? 0.05 : 0.13;
+    } else if ([type isEqualToString:@"capsule"]) {
+        key = dark ? @"mm_capsule_alpha_dark" : @"mm_capsule_alpha_light";
+        title = dark ? @"胶囊透明度（深色模式）" : @"胶囊透明度（浅色模式）";
+        placeholder = @"胶囊透明度 %";
+        fallback = dark ? 0.10 : 0.24;
+    } else if ([type isEqualToString:@"host_border"]) {
+        key = dark ? @"mm_host_border_alpha_dark" : @"mm_host_border_alpha_light";
+        title = dark ? @"底栏描边透明度（深色模式）" : @"底栏描边透明度（浅色模式）";
+        placeholder = @"底栏描边透明度 %";
+        fallback = dark ? 0.12 : 0.22;
+    } else if ([type isEqualToString:@"capsule_border"]) {
+        key = dark ? @"mm_capsule_border_alpha_dark" : @"mm_capsule_border_alpha_light";
+        title = dark ? @"胶囊描边透明度（深色模式）" : @"胶囊描边透明度（浅色模式）";
+        placeholder = @"胶囊描边透明度 %";
+        fallback = dark ? 0.12 : 0.24;
+    } else if ([type isEqualToString:@"glow_top"]) {
+        key = dark ? @"mm_glow_top_alpha_dark" : @"mm_glow_top_alpha_light";
+        title = dark ? @"高光顶部透明度（深色模式）" : @"高光顶部透明度（浅色模式）";
+        placeholder = @"高光顶部透明度 %";
+        fallback = 0.10;
+    } else if ([type isEqualToString:@"glow_mid"]) {
+        key = dark ? @"mm_glow_mid_alpha_dark" : @"mm_glow_mid_alpha_light";
+        title = dark ? @"高光中段透明度（深色模式）" : @"高光中段透明度（浅色模式）";
+        placeholder = @"高光中段透明度 %";
+        fallback = 0.03;
+    }
+
+    MMShowNamedAlphaAlert(vc, key, title, placeholder, fallback);
 }
 
 static void MMShowColorMenu(UIViewController *vc) {
@@ -380,8 +401,28 @@ static void MMShowSettingsMenu(UIViewController *vc) {
 
     UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"LiquidGlass 设置" message:@"当前模式单独保存" preferredStyle:UIAlertControllerStyleActionSheet];
 
-    [menu addAction:[UIAlertAction actionWithTitle:@"修改透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        MMShowAlphaAlert(vc);
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改底栏背景透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowSingleAlphaAlert(vc, @"bg");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改胶囊透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowSingleAlphaAlert(vc, @"capsule");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改底栏描边透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowSingleAlphaAlert(vc, @"host_border");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改胶囊描边透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowSingleAlphaAlert(vc, @"capsule_border");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改高光顶部透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowSingleAlphaAlert(vc, @"glow_top");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改高光中段透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowSingleAlphaAlert(vc, @"glow_mid");
     }]];
 
     [menu addAction:[UIAlertAction actionWithTitle:@"修改颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
