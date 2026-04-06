@@ -17,6 +17,61 @@ static NSInteger const kMMDockSearchHitButtonTag = 991204;
 static BOOL kMMUpdatingLayout = NO;
 static BOOL kMMSettingsPresented = NO;
 
+static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
+static BOOL MMIsDark(UITraitCollection *trait);
+static CGFloat MMClamp(CGFloat value, CGFloat min, CGFloat max);
+static NSString *MMModeSuffix(UITraitCollection *trait);
+static NSString *MMKey(NSString *prefix, UITraitCollection *trait, NSString *component);
+static CGFloat MMUserFloat(NSString *key, CGFloat fallback);
+static CGFloat MMUserAlpha(NSString *key, CGFloat fallback);
+static NSString *MMPercentString(CGFloat alpha);
+static CGFloat MMPercentToAlpha(NSString *text, CGFloat fallback);
+static void MMSaveFloat(NSString *key, CGFloat value);
+static UIColor *MMColorFromStored(NSString *prefix, UITraitCollection *trait, UIColor *fallback);
+static void MMSaveColor(NSString *prefix, UITraitCollection *trait, UIColor *color);
+static void MMRemoveColor(NSString *prefix, UITraitCollection *trait);
+static CGFloat MMBackgroundAlpha(UITraitCollection *trait);
+static CGFloat MMCapsuleAlpha(UITraitCollection *trait);
+static CGFloat MMGlowTopAlpha(UITraitCollection *trait);
+static CGFloat MMGlowMidAlpha(UITraitCollection *trait);
+static CGFloat MMHostBorderAlpha(UITraitCollection *trait);
+static CGFloat MMCapsuleBorderAlpha(UITraitCollection *trait);
+static UIColor *MMBackgroundTintColor(UITraitCollection *trait);
+static UIColor *MMCapsuleTintColor(UITraitCollection *trait);
+static UIColor *MMSelectedColor(UITraitCollection *trait);
+static UIColor *MMNormalColor(UITraitCollection *trait);
+static CGFloat MMBottomInset(UIView *view);
+static void MMSetRadius(UIView *view, CGFloat radius);
+static id MMKVC(id obj, NSString *key);
+static UITabBar *MMFindTabBar(UIViewController *vc);
+static UIViewController *MMCurrentContentController(UIViewController *vc);
+static BOOL MMShouldHideFloatingBar(UIViewController *vc);
+static UIView *MMHost(UIView *root);
+static UIVisualEffectView *MMBlur(UIView *host);
+static UIView *MMCapsule(UIView *host);
+static UIView *MMButtonsContainer(UIView *host);
+static void MMStyleHost(UIView *host);
+static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count);
+static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count);
+static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger count);
+static NSArray *MMOriginalItemViews(UITabBar *tabBar);
+static void MMSelectIndex(UIView *view, NSInteger index);
+static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host);
+static void MMHideOriginalTabBarVisuals(UITabBar *tabBar);
+static UIView *MMFindSearchBarInView(UIView *root);
+static UIViewController *MMCurrentSelectedContentControllerFromMainTab(UIViewController *vc);
+static UIView *MMDockSearchHost(UIView *root);
+static void MMHideDockSearchHost(UIView *root);
+static void MMTriggerGestureTargets(UIGestureRecognizer *gesture);
+static void MMTriggerSearchBar(UIView *searchBar);
+static void MMUpdateDockSearchButton(UIViewController *vc);
+static void MMUpdateFloatingBar(UIViewController *vc);
+static void MMRequestFloatingBarRefresh(UIViewController *vc);
+static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString *title, NSString *placeholder, CGFloat fallback);
+static void MMShowSingleAlphaAlert(UIViewController *vc, NSString *type);
+static void MMShowColorMenu(UIViewController *vc);
+static void MMShowSettingsMenu(UIViewController *vc);
+
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
     return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
 }
@@ -56,7 +111,7 @@ static NSString *MMPercentString(CGFloat alpha) {
 }
 
 static CGFloat MMPercentToAlpha(NSString *text, CGFloat fallback) {
-    if (!text.length) return fallback;
+    if (![text length]) return fallback;
     return MMClamp(([text doubleValue] / 100.0), 0.0, 1.0);
 }
 
@@ -81,7 +136,7 @@ static UIColor *MMColorFromStored(NSString *prefix, UITraitCollection *trait, UI
 }
 
 static void MMSaveColor(NSString *prefix, UITraitCollection *trait, UIColor *color) {
-    CGFloat r = 0.0, g = 0.0, b = 0.0, a = 0.0;
+    CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     UIColor *resolved = color ?: [UIColor whiteColor];
     if (![resolved getRed:&r green:&g blue:&b alpha:&a]) {
         CGColorRef cgColor = resolved.CGColor;
@@ -98,10 +153,11 @@ static void MMSaveColor(NSString *prefix, UITraitCollection *trait, UIColor *col
         }
     }
 
-    [[NSUserDefaults standardUserDefaults] setFloat:r forKey:MMKey(prefix, trait, @"r")];
-    [[NSUserDefaults standardUserDefaults] setFloat:g forKey:MMKey(prefix, trait, @"g")];
-    [[NSUserDefaults standardUserDefaults] setFloat:b forKey:MMKey(prefix, trait, @"b")];
-    [[NSUserDefaults standardUserDefaults] synchronize];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setFloat:r forKey:MMKey(prefix, trait, @"r")];
+    [defaults setFloat:g forKey:MMKey(prefix, trait, @"g")];
+    [defaults setFloat:b forKey:MMKey(prefix, trait, @"b")];
+    [defaults synchronize];
 }
 
 static void MMRemoveColor(NSString *prefix, UITraitCollection *trait) {
@@ -203,7 +259,7 @@ static UIViewController *MMCurrentContentController(UIViewController *vc) {
     UIViewController *content = [selected isKindOfClass:[UIViewController class]] ? (UIViewController *)selected : vc;
     if ([content isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)content;
-        UIViewController *top = nav.topViewController ?: nav.visibleViewController ?: nav.viewControllers.firstObject;
+        UIViewController *top = nav.topViewController ?: nav.visibleViewController ?: [nav.viewControllers firstObject];
         return top ?: content;
     }
     return content;
@@ -225,40 +281,26 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     } @catch (__unused NSException *e) {
     }
 
-    UIViewController *presented = nil;
     if ([selected isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)selected;
-        if (nav.viewControllers.count > 0 && nav.topViewController != nav.viewControllers.firstObject) return YES;
-        presented = nav.presentedViewController;
+        if ([nav.viewControllers count] > 0 && nav.topViewController != [nav.viewControllers firstObject]) return YES;
+        if (nav.presentedViewController && !kMMSettingsPresented) return YES;
     } else if ([content isKindOfClass:[UIViewController class]]) {
-        presented = content.presentedViewController;
-    }
-
-    if (presented) {
-        if ([presented isKindOfClass:[UIAlertController class]]) return NO;
-        NSString *presentedName = NSStringFromClass([presented class]);
-        if ([presentedName containsString:@"UIColorPickerViewController"]) return NO;
-        return YES;
+        if (content.presentedViewController && !kMMSettingsPresented) return YES;
     }
 
     return NO;
 }
 
+@interface MMFloatingTabButton : UIControl
+@property (nonatomic, retain) UIImageView *mm_imageView;
+@property (nonatomic, retain) UILabel *mm_titleLabel;
+@property (nonatomic, retain) UILabel *mm_badgeLabel;
+@property (nonatomic, assign) NSInteger mm_index;
+@end
 
-static void MMUpdateFloatingBar(UIViewController *vc);
-
-static void MMUpdateFloatingBar(UIViewController *vc) {
-    if (!vc) return;
-    UIView *root = vc.view;
-    if (!root) return;
-    MMUpdateDockSearchButton(vc);
-}
-static void MMRequestFloatingBarRefresh(UIViewController *vc) {
-    if (!vc) return;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        MMUpdateFloatingBar(vc);
-    });
-}
+@implementation MMFloatingTabButton
+@end
 
 @interface MMColorPickerProxy : NSObject <UIColorPickerViewControllerDelegate>
 @property (nonatomic, assign) UIViewController *vc;
@@ -267,13 +309,13 @@ static void MMRequestFloatingBarRefresh(UIViewController *vc) {
 
 @implementation MMColorPickerProxy
 - (void)colorPickerViewControllerDidSelectColor:(UIColorPickerViewController *)viewController {
-    if (self.vc && self.prefix.length) {
+    if (self.vc && [self.prefix length]) {
         MMSaveColor(self.prefix, self.vc.traitCollection, viewController.selectedColor);
         MMRequestFloatingBarRefresh(self.vc);
     }
 }
 - (void)colorPickerViewControllerDidFinish:(UIColorPickerViewController *)viewController {
-    if (self.vc && self.prefix.length) {
+    if (self.vc && [self.prefix length]) {
         MMSaveColor(self.prefix, self.vc.traitCollection, viewController.selectedColor);
         MMRequestFloatingBarRefresh(self.vc);
     }
@@ -290,9 +332,53 @@ static MMColorPickerProxy *MMSharedColorPickerProxy(void) {
     return proxy;
 }
 
+@interface MMGestureProxy : NSObject
+@end
+
+@implementation MMGestureProxy
+- (void)handleLongPress:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan) return;
+    UIResponder *r = gesture.view;
+    while (r) {
+        r = [r nextResponder];
+        if ([r isKindOfClass:[UIViewController class]]) {
+            MMShowSettingsMenu((UIViewController *)r);
+            break;
+        }
+    }
+}
+@end
+
+static MMGestureProxy *MMSharedGestureProxy(void) {
+    static MMGestureProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMGestureProxy new];
+    });
+    return proxy;
+}
+
+@interface MMDockSearchTapProxy : NSObject
+@property (nonatomic, assign) UIView *searchBar;
+@end
+
+@implementation MMDockSearchTapProxy
+- (void)handleTap:(__unused id)sender {
+    MMTriggerSearchBar(self.searchBar);
+}
+@end
+
+static MMDockSearchTapProxy *MMSharedDockSearchTapProxy(void) {
+    static MMDockSearchTapProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMDockSearchTapProxy new];
+    });
+    return proxy;
+}
+
 static void MMPresentColorPicker(UIViewController *vc, NSString *prefix, UIColor *currentColor, NSString *title) {
-    if (!vc) return;
-    if (!NSClassFromString(@"UIColorPickerViewController")) return;
+    if (!vc || !NSClassFromString(@"UIColorPickerViewController")) return;
 
     MMColorPickerProxy *proxy = MMSharedColorPickerProxy();
     proxy.vc = vc;
@@ -306,10 +392,9 @@ static void MMPresentColorPicker(UIViewController *vc, NSString *prefix, UIColor
 }
 
 static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString *title, NSString *placeholder, CGFloat fallback) {
-    if (!vc || !key.length) return;
+    if (!vc || ![key length]) return;
 
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:@"请输入百分比 0 到 100" preferredStyle:UIAlertControllerStyleAlert];
-
     [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
         textField.placeholder = placeholder;
         textField.keyboardType = UIKeyboardTypeNumberPad;
@@ -318,6 +403,7 @@ static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString 
 
     [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
         kMMSettingsPresented = NO;
+        MMRequestFloatingBarRefresh(vc);
     }]];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"恢复默认" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
@@ -327,7 +413,7 @@ static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString 
     }]];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        UITextField *field = alert.textFields.count > 0 ? alert.textFields[0] : nil;
+        UITextField *field = [alert.textFields count] > 0 ? [alert.textFields objectAtIndex:0] : nil;
         CGFloat value = MMPercentToAlpha(field.text, fallback);
         MMSaveFloat(key, value);
         kMMSettingsPresented = NO;
@@ -338,7 +424,7 @@ static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString 
 }
 
 static void MMShowSingleAlphaAlert(UIViewController *vc, NSString *type) {
-    if (!vc || !type.length) return;
+    if (!vc || ![type length]) return;
 
     BOOL dark = MMIsDark(vc.traitCollection);
     NSString *title = nil;
@@ -389,19 +475,15 @@ static void MMShowColorMenu(UIViewController *vc) {
     [menu addAction:[UIAlertAction actionWithTitle:@"背景颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMPresentColorPicker(vc, @"mm_bg_color", MMBackgroundTintColor(vc.traitCollection), @"背景颜色");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"胶囊颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMPresentColorPicker(vc, @"mm_capsule_color", MMCapsuleTintColor(vc.traitCollection), @"胶囊颜色");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"选中图标文字颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMPresentColorPicker(vc, @"mm_selected_color", MMSelectedColor(vc.traitCollection), @"选中颜色");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"未选中图标文字颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMPresentColorPicker(vc, @"mm_normal_color", MMNormalColor(vc.traitCollection), @"未选中颜色");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"恢复当前模式默认颜色" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
         MMRemoveColor(@"mm_bg_color", vc.traitCollection);
         MMRemoveColor(@"mm_capsule_color", vc.traitCollection);
@@ -410,9 +492,9 @@ static void MMShowColorMenu(UIViewController *vc) {
         kMMSettingsPresented = NO;
         MMRequestFloatingBarRefresh(vc);
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"返回" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
         kMMSettingsPresented = NO;
+        MMRequestFloatingBarRefresh(vc);
     }]];
 
     UIPopoverPresentationController *popover = menu.popoverPresentationController;
@@ -420,7 +502,6 @@ static void MMShowColorMenu(UIViewController *vc) {
         popover.sourceView = vc.view;
         popover.sourceRect = CGRectMake(CGRectGetMidX(vc.view.bounds), CGRectGetMaxY(vc.view.bounds) - 80.0, 1.0, 1.0);
     }
-
     [vc presentViewController:menu animated:YES completion:nil];
 }
 
@@ -429,37 +510,30 @@ static void MMShowSettingsMenu(UIViewController *vc) {
     kMMSettingsPresented = YES;
 
     UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"LiquidGlass 设置" message:@"当前模式单独保存" preferredStyle:UIAlertControllerStyleActionSheet];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"修改底栏背景透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMShowSingleAlphaAlert(vc, @"bg");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"修改胶囊透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMShowSingleAlphaAlert(vc, @"capsule");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"修改底栏描边透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMShowSingleAlphaAlert(vc, @"host_border");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"修改胶囊描边透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMShowSingleAlphaAlert(vc, @"capsule_border");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"修改高光顶部透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMShowSingleAlphaAlert(vc, @"glow_top");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"修改高光中段透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMShowSingleAlphaAlert(vc, @"glow_mid");
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"修改颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         MMShowColorMenu(vc);
     }]];
-
     [menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
         kMMSettingsPresented = NO;
+        MMRequestFloatingBarRefresh(vc);
     }]];
 
     UIPopoverPresentationController *popover = menu.popoverPresentationController;
@@ -467,34 +541,7 @@ static void MMShowSettingsMenu(UIViewController *vc) {
         popover.sourceView = vc.view;
         popover.sourceRect = CGRectMake(CGRectGetMidX(vc.view.bounds), CGRectGetMaxY(vc.view.bounds) - 80.0, 1.0, 1.0);
     }
-
     [vc presentViewController:menu animated:YES completion:nil];
-}
-
-@interface MMGestureProxy : NSObject
-@end
-
-@implementation MMGestureProxy
-- (void)handleLongPress:(UILongPressGestureRecognizer *)gesture {
-    if (gesture.state != UIGestureRecognizerStateBegan) return;
-    UIResponder *r = gesture.view;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            MMShowSettingsMenu((UIViewController *)r);
-            break;
-        }
-    }
-}
-@end
-
-static MMGestureProxy *MMSharedGestureProxy(void) {
-    static MMGestureProxy *proxy = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        proxy = [MMGestureProxy new];
-    });
-    return proxy;
 }
 
 static UIView *MMHost(UIView *root) {
@@ -628,14 +675,10 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     border.layer.borderWidth = 0.48;
     border.layer.borderColor = MMRGBA(255,255,255,MMCapsuleBorderAlpha(host.traitCollection)).CGColor;
     MMSetRadius(border, border.bounds.size.height * 0.5);
-    border.clipsToBounds = YES;
-    border.layer.masksToBounds = YES;
 
     UIView *glow = [capsule viewWithTag:kMMFloatingCapsuleGlowTag];
     glow.frame = CGRectInset(capsule.bounds, 1.0, 1.0);
     MMSetRadius(glow, glow.bounds.size.height * 0.5);
-    glow.clipsToBounds = YES;
-    glow.layer.masksToBounds = YES;
 
     CAGradientLayer *grad = nil;
     for (CALayer *layer in glow.layer.sublayers) {
@@ -658,16 +701,6 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     ];
 }
 
-@interface MMFloatingTabButton : UIControl
-@property (nonatomic, retain) UIImageView *mm_imageView;
-@property (nonatomic, retain) UILabel *mm_titleLabel;
-@property (nonatomic, retain) UILabel *mm_badgeLabel;
-@property (nonatomic, assign) NSInteger mm_index;
-@end
-
-@implementation MMFloatingTabButton
-@end
-
 static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
     MMFloatingTabButton *button = (MMFloatingTabButton *)[container viewWithTag:6000 + index];
     if (!button) {
@@ -680,7 +713,6 @@ static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
         UIImageView *imageView = [UIImageView new];
         imageView.contentMode = UIViewContentModeScaleAspectFit;
         imageView.backgroundColor = [UIColor clearColor];
-        imageView.opaque = NO;
         button.mm_imageView = imageView;
         [button addSubview:imageView];
 
@@ -689,7 +721,6 @@ static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
         titleLabel.adjustsFontSizeToFitWidth = YES;
         titleLabel.minimumScaleFactor = 0.72;
         titleLabel.backgroundColor = [UIColor clearColor];
-        titleLabel.opaque = NO;
         button.mm_titleLabel = titleLabel;
         [button addSubview:titleLabel];
 
@@ -712,9 +743,7 @@ static NSArray *MMOriginalItemViews(UITabBar *tabBar) {
     NSMutableArray *items = [NSMutableArray array];
     for (UIView *sub in tabBar.subviews) {
         NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"MMTabBarItemView"]) {
-            [items addObject:sub];
-        }
+        if ([name containsString:@"MMTabBarItemView"]) [items addObject:sub];
     }
     [items sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
         CGFloat x1 = CGRectGetMinX(a.frame);
@@ -737,7 +766,7 @@ static void MMSelectIndex(UIView *view, NSInteger index) {
                 if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
                     @try { [(id)vc setSelectedIndex:index]; } @catch (__unused NSException *e) {}
                 }
-                if (tabBar && index >= 0 && index < (NSInteger)tabBar.items.count) {
+                if (tabBar && index >= 0 && index < (NSInteger)[tabBar.items count]) {
                     @try { tabBar.selectedItem = [tabBar.items objectAtIndex:index]; } @catch (__unused NSException *e) {}
                 }
                 break;
@@ -774,10 +803,9 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         CGRect frame = (i == selectedIndex) ? MMCapsuleFrame(host, i, count) : MMSlotFrame(host, i, count);
         button.frame = frame;
         button.backgroundColor = [UIColor clearColor];
-        button.layer.backgroundColor = [UIColor clearColor].CGColor;
 
         UITabBarItem *item = [items objectAtIndex:i];
-        UIView *sourceItemView = (i < (NSInteger)[originalItemViews count]) ? [originalItemViews objectAtIndex:i] : nil;
+        UIView *sourceItemView = i < (NSInteger)[originalItemViews count] ? [originalItemViews objectAtIndex:i] : nil;
         UIImageView *sourceImageView = MMKVC(sourceItemView, @"_imageView");
         UIImage *img = nil;
         if ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.image) {
@@ -817,7 +845,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         CGFloat iconSize = 27.0;
         CGFloat titleH = 14.0;
         CGFloat spacing = 4.0;
-        CGFloat totalH = (button.mm_imageView.hidden ? titleH : (iconSize + spacing + titleH));
+        CGFloat totalH = button.mm_imageView.hidden ? titleH : (iconSize + spacing + titleH);
         CGFloat startY = floor((bh - totalH) * 0.5);
         if (startY < 4.0) startY = 4.0;
 
@@ -870,78 +898,6 @@ static void MMHideOriginalTabBarVisuals(UITabBar *tabBar) {
     }
 }
 
-
-
-static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
-    NSArray *targets = nil;
-    @try {
-        targets = [gesture valueForKey:@"_targets"];
-    } @catch (__unused NSException *e) {
-        targets = nil;
-    }
-
-    for (id targetObj in targets) {
-        id target = nil;
-        SEL action = NULL;
-        @try { target = [targetObj valueForKey:@"target"]; } @catch (__unused NSException *e) {}
-        @try { action = NSSelectorFromString([targetObj valueForKey:@"action"]); } @catch (__unused NSException *e) {}
-        if (target && action && [target respondsToSelector:action]) {
-            ((void (*)(id, SEL, id))objc_msgSend)(target, action, gesture);
-        }
-    }
-}
-
-static void MMTriggerSearchBar(UIView *searchBar) {
-    if (!searchBar) return;
-
-    if ([searchBar isKindOfClass:[UIControl class]]) {
-        UIControl *control = (UIControl *)searchBar;
-        [control sendActionsForControlEvents:UIControlEventTouchUpInside];
-        [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
-    }
-
-    for (UIGestureRecognizer *gesture in searchBar.gestureRecognizers) {
-        MMTriggerGestureTargets(gesture);
-    }
-
-    for (UIView *sub in searchBar.subviews) {
-        if ([sub isKindOfClass:[UIControl class]]) {
-            UIControl *control = (UIControl *)sub;
-            [control sendActionsForControlEvents:UIControlEventTouchUpInside];
-            [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
-        }
-        for (UIGestureRecognizer *gesture in sub.gestureRecognizers) {
-            MMTriggerGestureTargets(gesture);
-        }
-    }
-
-    @try {
-        if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
-            [searchBar becomeFirstResponder];
-        }
-    } @catch (__unused NSException *e) {
-    }
-}
-
-@interface MMDockSearchTapProxy : NSObject
-@property (nonatomic, assign) UIView *searchBar;
-@end
-
-@implementation MMDockSearchTapProxy
-- (void)handleTap:(__unused id)sender {
-    MMTriggerSearchBar(self.searchBar);
-}
-@end
-
-static MMDockSearchTapProxy *MMSharedDockSearchTapProxy(void) {
-    static MMDockSearchTapProxy *proxy = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        proxy = [MMDockSearchTapProxy new];
-    });
-    return proxy;
-}
-
 static UIView *MMFindSearchBarInView(UIView *root) {
     if (!root) return nil;
     NSString *name = NSStringFromClass([root class]);
@@ -991,10 +947,41 @@ static void MMHideDockSearchHost(UIView *root) {
     if (host) host.hidden = YES;
 }
 
+static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
+    NSArray *targets = nil;
+    @try {
+        targets = [gesture valueForKey:@"_targets"];
+    } @catch (__unused NSException *e) {
+        targets = nil;
+    }
+
+    for (id targetObj in targets) {
+        id target = nil;
+        SEL action = NULL;
+        @try { target = [targetObj valueForKey:@"target"]; } @catch (__unused NSException *e) {}
+        @try { action = NSSelectorFromString([targetObj valueForKey:@"action"]); } @catch (__unused NSException *e) {}
+        if (target && action && [target respondsToSelector:action]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(target, action, gesture);
+            return;
+        }
+    }
+}
+
+static void MMTriggerSearchBar(UIView *searchBar) {
+    if (!searchBar) return;
+
+    for (UIGestureRecognizer *gesture in searchBar.gestureRecognizers) {
+        MMTriggerGestureTargets(gesture);
+    }
+    for (UIView *sub in searchBar.subviews) {
+        for (UIGestureRecognizer *gesture in sub.gestureRecognizers) {
+            MMTriggerGestureTargets(gesture);
+        }
+    }
+}
+
 static void MMUpdateDockSearchButton(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded) return;
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
 
     UIView *root = vc.view;
     UIViewController *content = MMCurrentSelectedContentControllerFromMainTab(vc);
@@ -1007,7 +994,6 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     if (![contentName isEqualToString:@"NewMainFrameViewController"] || !searchBar) {
         MMHideDockSearchHost(root);
-        [CATransaction commit];
         return;
     }
 
@@ -1043,6 +1029,8 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     icon.tintColor = MMNormalColor(host.traitCollection);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    } else {
+        icon.image = nil;
     }
 
     UIButton *hit = (UIButton *)[host viewWithTag:kMMDockSearchHitButtonTag];
@@ -1053,41 +1041,83 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
 
     [root bringSubviewToFront:host];
-    [CATransaction commit];
 }
 
+static void MMUpdateFloatingBar(UIViewController *vc) {
+    if (!vc) return;
+    if (kMMUpdatingLayout) return;
+    kMMUpdatingLayout = YES;
 
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
 
-@interface MMFloatingObserver : NSObject
-@end
-
-@implementation MMFloatingObserver
-- (void)appDidBecomeActive:(NSNotification *)note {
-    for (UIWindow *window in [UIApplication sharedApplication].windows) {
-        UIViewController *root = window.rootViewController;
-        if ([NSStringFromClass([root class]) isEqualToString:@"MainTabBarViewController"]) {
-            MMRequestFloatingBarRefresh(root);
-            break;
-        }
+    UIView *root = vc.view;
+    UITabBar *tabBar = MMFindTabBar(vc);
+    if (!root || !tabBar) {
+        [CATransaction commit];
+        kMMUpdatingLayout = NO;
+        return;
     }
-}
-@end
 
-static MMFloatingObserver *MMSharedFloatingObserver(void) {
-    static MMFloatingObserver *observer = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        observer = [MMFloatingObserver new];
-        [[NSNotificationCenter defaultCenter] addObserver:observer selector:@selector(appDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
+    UIView *host = MMHost(root);
+
+    if (MMShouldHideFloatingBar(vc)) {
+        host.hidden = YES;
+        tabBar.hidden = YES;
+        MMHideDockSearchHost(root);
+        [CATransaction commit];
+        kMMUpdatingLayout = NO;
+        return;
+    }
+
+    host.hidden = NO;
+    tabBar.hidden = NO;
+
+    CGFloat inset = MMBottomInset(root);
+    CGFloat margin = 18.0;
+    CGFloat gap = 12.0;
+    CGFloat dockSize = 84.0;
+    CGFloat height = 84.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 10.0;
+
+    UIViewController *content = MMCurrentSelectedContentControllerFromMainTab(vc);
+    UIView *searchBar = nil;
+    BOOL showDockSearch = NO;
+    if ([NSStringFromClass([content class]) isEqualToString:@"NewMainFrameViewController"]) {
+        searchBar = MMFindSearchBarInView(content.view);
+        showDockSearch = (searchBar != nil);
+    }
+
+    CGFloat hostWidth = CGRectGetWidth(root.bounds) - margin * 2.0 - (showDockSearch ? (dockSize + gap) : 0.0);
+    CGRect frame = CGRectMake(margin, y, hostWidth, height);
+
+    host.frame = frame;
+    MMStyleHost(host);
+    MMBlur(host);
+
+    tabBar.transform = CGAffineTransformIdentity;
+    tabBar.frame = frame;
+    MMHideOriginalTabBarVisuals(tabBar);
+    MMUpdateButtons(vc, tabBar, host);
+
+    [root bringSubviewToFront:host];
+    MMUpdateDockSearchButton(vc);
+
+    [CATransaction commit];
+    kMMUpdatingLayout = NO;
+}
+
+static void MMRequestFloatingBarRefresh(UIViewController *vc) {
+    if (!vc) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMUpdateFloatingBar(vc);
     });
-    return observer;
 }
 
 %hook MainTabBarViewController
 
 - (void)viewDidLoad {
     %orig;
-    MMSharedFloatingObserver();
     MMRequestFloatingBarRefresh((UIViewController *)self);
 }
 
@@ -1123,9 +1153,7 @@ static MMFloatingObserver *MMSharedFloatingObserver(void) {
         if ([r isKindOfClass:[UIViewController class]]) {
             UIViewController *vc = (UIViewController *)r;
             if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    MMRequestFloatingBarRefresh(vc);
-                });
+                MMRequestFloatingBarRefresh(vc);
                 break;
             }
         }
