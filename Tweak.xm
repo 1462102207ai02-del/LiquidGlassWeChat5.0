@@ -915,6 +915,35 @@ static UIViewController *MMCurrentSelectedContentControllerFromMainTab(UIViewCon
     return MMCurrentContentController(vc);
 }
 
+static UIViewController *MMFindHomeContentControllerFromController(UIViewController *vc) {
+    if (!vc) return nil;
+    NSString *name = NSStringFromClass([vc class]);
+    if ([name isEqualToString:@"NewMainFrameViewController"]) return vc;
+
+    if ([vc isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)vc;
+        for (UIViewController *sub in nav.viewControllers) {
+            UIViewController *found = MMFindHomeContentControllerFromController(sub);
+            if (found) return found;
+        }
+    }
+
+    for (UIViewController *child in vc.childViewControllers) {
+        UIViewController *found = MMFindHomeContentControllerFromController(child);
+        if (found) return found;
+    }
+
+    id tabs = nil;
+    @try { tabs = [vc valueForKey:@"viewControllers"]; } @catch (__unused NSException *e) {}
+    if ([tabs isKindOfClass:[NSArray class]]) {
+        for (UIViewController *sub in (NSArray *)tabs) {
+            UIViewController *found = MMFindHomeContentControllerFromController(sub);
+            if (found) return found;
+        }
+    }
+    return nil;
+}
+
 static UIView *MMDockSearchHost(UIView *root) {
     UIView *host = [root viewWithTag:kMMDockSearchHostTag];
     if (!host) {
@@ -969,15 +998,15 @@ static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
 }
 
 static BOOL MMTriggerGestureTargetsInViewTree(UIView *view) {
-    BOOL didTrigger = NO;
+    BOOL triggered = NO;
     for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
         MMTriggerGestureTargets(gesture);
-        didTrigger = YES;
+        triggered = YES;
     }
     for (UIView *sub in view.subviews) {
-        if (MMTriggerGestureTargetsInViewTree(sub)) didTrigger = YES;
+        if (MMTriggerGestureTargetsInViewTree(sub)) triggered = YES;
     }
-    return didTrigger;
+    return triggered;
 }
 
 static void MMTriggerSearchBar(UIView *searchBar) {
@@ -997,15 +1026,35 @@ static void MMTriggerSearchBar(UIView *searchBar) {
 }
 
 static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
-    CGFloat alpha = visible ? 1.0 : 0.0;
+    CGFloat targetAlpha = visible ? 1.0 : 0.0;
+
     if (host) {
-        host.hidden = NO;
-        host.alpha = alpha;
+        if (visible) host.hidden = NO;
+        if (fabs(host.alpha - targetAlpha) > 0.01) {
+            [UIView animateWithDuration:0.14 delay:0 options:UIViewAnimationOptionBeginFromCurrentState|UIViewAnimationOptionAllowUserInteraction animations:^{
+                host.alpha = targetAlpha;
+            } completion:^(BOOL finished) {
+                if (finished && !visible) host.hidden = YES;
+            }];
+        } else {
+            host.alpha = targetAlpha;
+            host.hidden = !visible;
+        }
         host.userInteractionEnabled = visible;
     }
+
     if (dockHost) {
-        dockHost.hidden = NO;
-        dockHost.alpha = alpha;
+        if (visible) dockHost.hidden = NO;
+        if (fabs(dockHost.alpha - targetAlpha) > 0.01) {
+            [UIView animateWithDuration:0.14 delay:0 options:UIViewAnimationOptionBeginFromCurrentState|UIViewAnimationOptionAllowUserInteraction animations:^{
+                dockHost.alpha = targetAlpha;
+            } completion:^(BOOL finished) {
+                if (finished && !visible) dockHost.hidden = YES;
+            }];
+        } else {
+            dockHost.alpha = targetAlpha;
+            dockHost.hidden = !visible;
+        }
         dockHost.userInteractionEnabled = visible;
     }
 }
@@ -1014,29 +1063,25 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded) return;
 
     UIView *root = vc.view;
-    UIViewController *content = MMCurrentSelectedContentControllerFromMainTab(vc);
-    NSString *contentName = NSStringFromClass([content class]);
-    UIView *searchBar = nil;
+    UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
+    UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
 
-    if ([contentName isEqualToString:@"NewMainFrameViewController"]) {
-        searchBar = MMFindSearchBarInView(content.view);
-    }
-
-    if (![contentName isEqualToString:@"NewMainFrameViewController"] || !searchBar) {
-        MMHideDockSearchHost(root);
+    UIView *host = MMDockSearchHost(root);
+    if (!searchBar) {
+        MMSetFloatingVisible(nil, host, NO);
         return;
     }
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat dockSize = 84.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 10.0;
+    CGFloat dockSize = 72.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 12.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
-    UIView *host = MMDockSearchHost(root);
+    host.frame = CGRectMake(x, y, dockSize, dockSize);
     host.hidden = NO;
     host.alpha = 1.0;
-    host.frame = CGRectMake(x, y, dockSize, dockSize);
+    host.userInteractionEnabled = YES;
     MMSetRadius(host, dockSize * 0.5);
     host.layer.borderWidth = 0.36;
     host.layer.borderColor = MMRGBA(255,255,255,MMHostBorderAlpha(host.traitCollection)).CGColor;
@@ -1056,7 +1101,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     blur.clipsToBounds = YES;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
-    icon.frame = CGRectMake(floor((dockSize - 30.0) * 0.5), floor((dockSize - 30.0) * 0.5), 30.0, 30.0);
+    icon.frame = CGRectMake(floor((dockSize - 28.0) * 0.5), floor((dockSize - 28.0) * 0.5), 28.0, 28.0);
     icon.tintColor = MMNormalColor(host.traitCollection);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -1079,13 +1124,9 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
 
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-
     UIView *root = vc.view;
     UITabBar *tabBar = MMFindTabBar(vc);
     if (!root || !tabBar) {
-        [CATransaction commit];
         kMMUpdatingLayout = NO;
         return;
     }
@@ -1097,7 +1138,6 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         tabBar.hidden = NO;
         MMHideOriginalTabBarVisuals(tabBar);
         MMSetFloatingVisible(host, dockHost, NO);
-        [CATransaction commit];
         kMMUpdatingLayout = NO;
         return;
     }
@@ -1105,17 +1145,13 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat gap = 12.0;
-    CGFloat dockSize = 84.0;
-    CGFloat height = 84.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 10.0;
+    CGFloat dockSize = 72.0;
+    CGFloat height = 74.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 11.0;
 
-    UIViewController *content = MMCurrentSelectedContentControllerFromMainTab(vc);
-    UIView *searchBar = nil;
-    BOOL showDockSearch = NO;
-    if ([NSStringFromClass([content class]) isEqualToString:@"NewMainFrameViewController"]) {
-        searchBar = MMFindSearchBarInView(content.view);
-        showDockSearch = (searchBar != nil);
-    }
+    UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
+    UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
+    BOOL showDockSearch = (searchBar != nil);
 
     CGFloat hostWidth = CGRectGetWidth(root.bounds) - margin * 2.0 - (showDockSearch ? (dockSize + gap) : 0.0);
     CGRect frame = CGRectMake(margin, y, hostWidth, height);
@@ -1134,7 +1170,6 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     [root bringSubviewToFront:host];
     MMUpdateDockSearchButton(vc);
 
-    [CATransaction commit];
     kMMUpdatingLayout = NO;
 }
 
