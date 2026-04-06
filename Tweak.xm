@@ -176,7 +176,7 @@ static void MMShowSettingsAlert(UIViewController *vc) {
         textField.text = [NSString stringWithFormat:@"%.2f", MMUserFloat(capsuleKey, dark ? 0.10 : 0.24)];
     }];
 
-    __weak UIViewController *weakVC = vc;
+    UIViewController *weakVC = vc;
 
     [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
         kMMSettingsPresented = NO;
