@@ -249,7 +249,7 @@ static void MMUpdateFloatingBar(UIViewController *vc);
 static void MMRequestFloatingBarRefresh(UIViewController *vc) {
     if (!vc) return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        MMRequestFloatingBarRefresh(vc);
+        MMUpdateFloatingBar(vc);
     });
 }
 
