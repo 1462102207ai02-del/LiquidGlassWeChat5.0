@@ -1,10 +1,4 @@
 #import <UIKit/UIKit.h>
-@interface UITapGestureRecognizer (MMSearchAction)
-- (void)handleAction:(id)arg1;
-- (void)trackTapGestureAction:(id)arg1;
-- (void)amb_trackTapGestureAction:(id)arg1;
-@end
-
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
 
@@ -25,7 +19,9 @@ static BOOL kMMSettingsPresented = NO;
 
 static void MMRequestFloatingBarRefresh(UIViewController *vc);
 static void MMShowSettingsMenu(UIViewController *vc);
+static UIView *MMFindTextField(UIView *view);
 static void MMTriggerSearchBar(UIView *searchBar);
+static void MMOpenSearchFromMainTab(UIViewController *vc);
 
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a);
 static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
@@ -358,12 +354,12 @@ static MMGestureProxy *MMSharedGestureProxy(void) {
 }
 
 @interface MMDockSearchTapProxy : NSObject
-@property (nonatomic, assign) UIView *searchBar;
+@property (nonatomic, assign) UIViewController *mainTabVC;
 @end
 
 @implementation MMDockSearchTapProxy
 - (void)handleTap:(__unused id)sender {
-    MMTriggerSearchBar(self.searchBar);
+    MMOpenSearchFromMainTab(self.mainTabVC);
 }
 @end
 
@@ -968,35 +964,101 @@ static UIView *MMDockSearchHost(UIView *root) {
 
 
 
+static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
+    NSArray *targets = nil;
+    @try {
+        targets = [gesture valueForKey:@"_targets"];
+    } @catch (__unused NSException *e) {
+        targets = nil;
+    }
+
+    for (id targetObj in targets) {
+        id target = nil;
+        SEL action = NULL;
+        @try { target = [targetObj valueForKey:@"target"]; } @catch (__unused NSException *e) {}
+        @try { action = NSSelectorFromString([targetObj valueForKey:@"action"]); } @catch (__unused NSException *e) {}
+        if (target && action && [target respondsToSelector:action]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(target, action, gesture);
+        }
+    }
+}
+
+static BOOL MMTriggerGestureTargetsInViewTree(UIView *view) {
+    BOOL triggered = NO;
+    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
+        MMTriggerGestureTargets(gesture);
+        triggered = YES;
+    }
+    for (UIView *sub in view.subviews) {
+        if (MMTriggerGestureTargetsInViewTree(sub)) triggered = YES;
+    }
+    return triggered;
+}
+
+static UIView *MMFindTextField(UIView *view) {
+    if (!view) return nil;
+
+    if ([NSStringFromClass([view class]) containsString:@"TextField"]) {
+        return view;
+    }
+
+    for (UIView *sub in view.subviews) {
+        UIView *found = MMFindTextField(sub);
+        if (found) return found;
+    }
+
+    return nil;
+}
+
 static void MMTriggerSearchBar(UIView *searchBar) {
     if (!searchBar) return;
+
+    UIView *textField = MMFindTextField(searchBar);
+    if (textField && [textField respondsToSelector:@selector(becomeFirstResponder)]) {
+        [textField becomeFirstResponder];
+        return;
+    }
 
     if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
         [searchBar becomeFirstResponder];
     }
+}
 
-    UIView *textField = nil;
+static void MMOpenSearchFromMainTab(UIViewController *vc) {
+    if (!vc) return;
 
-    for (UIView *sub in searchBar.subviews) {
-        for (UIView *sub2 in sub.subviews) {
-            if ([NSStringFromClass([sub2 class]) containsString:@"TextField"]) {
-                textField = sub2;
-                break;
-            }
+    void (^triggerBlock)(void) = ^{
+        UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
+        UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
+        if (searchBar) {
+            MMTriggerSearchBar(searchBar);
         }
+    };
+
+    NSInteger selectedIndex = -1;
+    @try {
+        id idxObj = [vc valueForKey:@"selectedIndex"];
+        if ([idxObj respondsToSelector:@selector(integerValue)]) {
+            selectedIndex = [idxObj integerValue];
+        }
+    } @catch (__unused NSException *e) {
     }
 
-    if (textField && [textField respondsToSelector:@selector(becomeFirstResponder)]) {
-        [textField becomeFirstResponder];
+    if (selectedIndex != 0) {
+        if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
+            @try { [(id)vc setSelectedIndex:0]; } @catch (__unused NSException *e) {}
+        }
+        UITabBar *tabBar = MMFindTabBar(vc);
+        if (tabBar && [tabBar.items count] > 0) {
+            @try { tabBar.selectedItem = [tabBar.items objectAtIndex:0]; } @catch (__unused NSException *e) {}
+        }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.18 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            triggerBlock();
+        });
+        return;
     }
 
-    if ([searchBar respondsToSelector:@selector(sendActionsForControlEvents:)]) {
-        ((void (*)(id, SEL, UIControlEvents))objc_msgSend)(
-            searchBar,
-            @selector(sendActionsForControlEvents:),
-            UIControlEventEditingDidBegin
-        );
-    }
+    triggerBlock();
 }
 
 static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
@@ -1087,7 +1149,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     hit.frame = host.bounds;
     [hit removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
     MMDockSearchTapProxy *proxy = MMSharedDockSearchTapProxy();
-    proxy.searchBar = searchBar;
+    proxy.mainTabVC = vc;
     [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
 
     [root bringSubviewToFront:host];
