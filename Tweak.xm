@@ -26,43 +26,126 @@ static CGFloat MMClamp(CGFloat value, CGFloat min, CGFloat max) {
     return value < min ? min : (value > max ? max : value);
 }
 
+static NSString *MMModeSuffix(UITraitCollection *trait) {
+    return MMIsDark(trait) ? @"dark" : @"light";
+}
+
+static NSString *MMKey(NSString *prefix, UITraitCollection *trait, NSString *component) {
+    return [NSString stringWithFormat:@"%@_%@_%@", prefix, MMModeSuffix(trait), component];
+}
+
 static CGFloat MMUserFloat(NSString *key, CGFloat fallback) {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     id obj = [defaults objectForKey:key];
     if (!obj) return fallback;
-    return MMClamp([defaults floatForKey:key], 0.0, 1.0);
+    return [defaults floatForKey:key];
+}
+
+static CGFloat MMUserAlpha(NSString *key, CGFloat fallback) {
+    return MMClamp(MMUserFloat(key, fallback), 0.0, 1.0);
+}
+
+static NSString *MMPercentString(CGFloat alpha) {
+    return [NSString stringWithFormat:@"%.0f", MMClamp(alpha, 0.0, 1.0) * 100.0];
+}
+
+static CGFloat MMPercentToAlpha(NSString *text, CGFloat fallback) {
+    if (!text.length) return fallback;
+    return MMClamp(([text doubleValue] / 100.0), 0.0, 1.0);
+}
+
+static void MMSaveFloat(NSString *key, CGFloat value) {
+    [[NSUserDefaults standardUserDefaults] setFloat:value forKey:key];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+static UIColor *MMColorFromStored(NSString *prefix, UITraitCollection *trait, UIColor *fallback) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSString *rKey = MMKey(prefix, trait, @"r");
+    NSString *gKey = MMKey(prefix, trait, @"g");
+    NSString *bKey = MMKey(prefix, trait, @"b");
+
+    if ([defaults objectForKey:rKey] && [defaults objectForKey:gKey] && [defaults objectForKey:bKey]) {
+        CGFloat r = MMClamp([defaults floatForKey:rKey], 0.0, 1.0);
+        CGFloat g = MMClamp([defaults floatForKey:gKey], 0.0, 1.0);
+        CGFloat b = MMClamp([defaults floatForKey:bKey], 0.0, 1.0);
+        return [UIColor colorWithRed:r green:g blue:b alpha:1.0];
+    }
+    return fallback;
+}
+
+static void MMSaveColor(NSString *prefix, UITraitCollection *trait, UIColor *color) {
+    CGFloat r = 0.0, g = 0.0, b = 0.0, a = 0.0;
+    UIColor *resolved = color ?: [UIColor whiteColor];
+    if (![resolved getRed:&r green:&g blue:&b alpha:&a]) {
+        CGColorRef cgColor = resolved.CGColor;
+        size_t count = CGColorGetNumberOfComponents(cgColor);
+        const CGFloat *components = CGColorGetComponents(cgColor);
+        if (count >= 3) {
+            r = components[0];
+            g = components[1];
+            b = components[2];
+        } else if (count == 2) {
+            r = components[0];
+            g = components[0];
+            b = components[0];
+        }
+    }
+
+    [[NSUserDefaults standardUserDefaults] setFloat:r forKey:MMKey(prefix, trait, @"r")];
+    [[NSUserDefaults standardUserDefaults] setFloat:g forKey:MMKey(prefix, trait, @"g")];
+    [[NSUserDefaults standardUserDefaults] setFloat:b forKey:MMKey(prefix, trait, @"b")];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+static void MMRemoveColor(NSString *prefix, UITraitCollection *trait) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults removeObjectForKey:MMKey(prefix, trait, @"r")];
+    [defaults removeObjectForKey:MMKey(prefix, trait, @"g")];
+    [defaults removeObjectForKey:MMKey(prefix, trait, @"b")];
+    [defaults synchronize];
 }
 
 static CGFloat MMBackgroundAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserFloat(@"mm_bg_alpha_dark", 0.05) : MMUserFloat(@"mm_bg_alpha_light", 0.13);
+    return MMIsDark(trait) ? MMUserAlpha(@"mm_bg_alpha_dark", 0.05) : MMUserAlpha(@"mm_bg_alpha_light", 0.13);
 }
 
 static CGFloat MMCapsuleAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserFloat(@"mm_capsule_alpha_dark", 0.10) : MMUserFloat(@"mm_capsule_alpha_light", 0.24);
+    return MMIsDark(trait) ? MMUserAlpha(@"mm_capsule_alpha_dark", 0.10) : MMUserAlpha(@"mm_capsule_alpha_light", 0.24);
 }
 
 static CGFloat MMGlowTopAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserFloat(@"mm_glow_top_alpha_dark", 0.10) : MMUserFloat(@"mm_glow_top_alpha_light", 0.10);
+    return MMIsDark(trait) ? MMUserAlpha(@"mm_glow_top_alpha_dark", 0.10) : MMUserAlpha(@"mm_glow_top_alpha_light", 0.10);
 }
 
 static CGFloat MMGlowMidAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserFloat(@"mm_glow_mid_alpha_dark", 0.03) : MMUserFloat(@"mm_glow_mid_alpha_light", 0.03);
+    return MMIsDark(trait) ? MMUserAlpha(@"mm_glow_mid_alpha_dark", 0.03) : MMUserAlpha(@"mm_glow_mid_alpha_light", 0.03);
 }
 
 static CGFloat MMHostBorderAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserFloat(@"mm_host_border_alpha_dark", 0.12) : MMUserFloat(@"mm_host_border_alpha_light", 0.22);
+    return MMIsDark(trait) ? MMUserAlpha(@"mm_host_border_alpha_dark", 0.12) : MMUserAlpha(@"mm_host_border_alpha_light", 0.22);
 }
 
 static CGFloat MMCapsuleBorderAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserFloat(@"mm_capsule_border_alpha_dark", 0.12) : MMUserFloat(@"mm_capsule_border_alpha_light", 0.24);
+    return MMIsDark(trait) ? MMUserAlpha(@"mm_capsule_border_alpha_dark", 0.12) : MMUserAlpha(@"mm_capsule_border_alpha_light", 0.24);
+}
+
+static UIColor *MMBackgroundTintColor(UITraitCollection *trait) {
+    return MMColorFromStored(@"mm_bg_color", trait, [UIColor whiteColor]);
+}
+
+static UIColor *MMCapsuleTintColor(UITraitCollection *trait) {
+    return MMColorFromStored(@"mm_capsule_color", trait, [UIColor whiteColor]);
 }
 
 static UIColor *MMSelectedColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(0, 216, 95, 1.0) : MMRGBA(0, 190, 80, 1.0);
+    UIColor *fallback = MMIsDark(trait) ? MMRGBA(0, 216, 95, 1.0) : MMRGBA(0, 190, 80, 1.0);
+    return MMColorFromStored(@"mm_selected_color", trait, fallback);
 }
 
 static UIColor *MMNormalColor(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.82) : MMRGBA(60, 60, 67, 0.82);
+    UIColor *fallback = MMIsDark(trait) ? MMRGBA(255, 255, 255, 0.82) : MMRGBA(60, 60, 67, 0.82);
+    return MMColorFromStored(@"mm_normal_color", trait, fallback);
 }
 
 static CGFloat MMBottomInset(UIView *view) {
@@ -148,35 +231,72 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
 
 static void MMUpdateFloatingBar(UIViewController *vc);
 
-static void MMSaveAlphaValue(NSString *key, CGFloat value) {
-    [[NSUserDefaults standardUserDefaults] setFloat:MMClamp(value, 0.0, 1.0) forKey:key];
-    [[NSUserDefaults standardUserDefaults] synchronize];
+@interface MMColorPickerProxy : NSObject <UIColorPickerViewControllerDelegate>
+@property (nonatomic, assign) UIViewController *vc;
+@property (nonatomic, copy) NSString *prefix;
+@end
+
+@implementation MMColorPickerProxy
+- (void)colorPickerViewControllerDidSelectColor:(UIColorPickerViewController *)viewController {
+    if (self.vc && self.prefix.length) {
+        MMSaveColor(self.prefix, self.vc.traitCollection, viewController.selectedColor);
+        MMUpdateFloatingBar(self.vc);
+    }
+}
+- (void)colorPickerViewControllerDidFinish:(UIColorPickerViewController *)viewController {
+    if (self.vc && self.prefix.length) {
+        MMSaveColor(self.prefix, self.vc.traitCollection, viewController.selectedColor);
+        MMUpdateFloatingBar(self.vc);
+    }
+    kMMSettingsPresented = NO;
+}
+@end
+
+static MMColorPickerProxy *MMSharedColorPickerProxy(void) {
+    static MMColorPickerProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMColorPickerProxy new];
+    });
+    return proxy;
 }
 
-static void MMShowSettingsAlert(UIViewController *vc) {
-    if (!vc || kMMSettingsPresented) return;
-    kMMSettingsPresented = YES;
+static void MMPresentColorPicker(UIViewController *vc, NSString *prefix, UIColor *currentColor, NSString *title) {
+    if (!vc) return;
+    if (!NSClassFromString(@"UIColorPickerViewController")) return;
+
+    MMColorPickerProxy *proxy = MMSharedColorPickerProxy();
+    proxy.vc = vc;
+    proxy.prefix = prefix;
+
+    UIColorPickerViewController *picker = [UIColorPickerViewController new];
+    picker.delegate = proxy;
+    picker.selectedColor = currentColor ?: [UIColor whiteColor];
+    picker.title = title;
+    [vc presentViewController:picker animated:YES completion:nil];
+}
+
+static void MMShowAlphaAlert(UIViewController *vc) {
+    if (!vc) return;
 
     BOOL dark = MMIsDark(vc.traitCollection);
     NSString *bgKey = dark ? @"mm_bg_alpha_dark" : @"mm_bg_alpha_light";
     NSString *capsuleKey = dark ? @"mm_capsule_alpha_dark" : @"mm_capsule_alpha_light";
-    NSString *title = dark ? @"底栏设置（深色模式）" : @"底栏设置（浅色模式）";
+    NSString *title = dark ? @"透明度设置（深色模式）" : @"透明度设置（浅色模式）";
 
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:@"输入 0 到 1 之间的小数" preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:@"请输入百分比 0 到 100" preferredStyle:UIAlertControllerStyleAlert];
 
     [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
-        textField.placeholder = @"背景透明度";
-        textField.keyboardType = UIKeyboardTypeDecimalPad;
-        textField.text = [NSString stringWithFormat:@"%.2f", MMUserFloat(bgKey, dark ? 0.05 : 0.13)];
+        textField.placeholder = @"背景透明度 %";
+        textField.keyboardType = UIKeyboardTypeNumberPad;
+        textField.text = MMPercentString(MMUserAlpha(bgKey, dark ? 0.05 : 0.13));
     }];
 
     [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
-        textField.placeholder = @"胶囊透明度";
-        textField.keyboardType = UIKeyboardTypeDecimalPad;
-        textField.text = [NSString stringWithFormat:@"%.2f", MMUserFloat(capsuleKey, dark ? 0.10 : 0.24)];
+        textField.placeholder = @"胶囊透明度 %";
+        textField.keyboardType = UIKeyboardTypeNumberPad;
+        textField.text = MMPercentString(MMUserAlpha(capsuleKey, dark ? 0.10 : 0.24));
     }];
-
-    UIViewController *weakVC = vc;
 
     [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
         kMMSettingsPresented = NO;
@@ -184,35 +304,104 @@ static void MMShowSettingsAlert(UIViewController *vc) {
 
     [alert addAction:[UIAlertAction actionWithTitle:@"恢复默认" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
         if (dark) {
-            MMSaveAlphaValue(@"mm_bg_alpha_dark", 0.05);
-            MMSaveAlphaValue(@"mm_capsule_alpha_dark", 0.10);
+            MMSaveFloat(@"mm_bg_alpha_dark", 0.05);
+            MMSaveFloat(@"mm_capsule_alpha_dark", 0.10);
         } else {
-            MMSaveAlphaValue(@"mm_bg_alpha_light", 0.13);
-            MMSaveAlphaValue(@"mm_capsule_alpha_light", 0.24);
+            MMSaveFloat(@"mm_bg_alpha_light", 0.13);
+            MMSaveFloat(@"mm_capsule_alpha_light", 0.24);
         }
         kMMSettingsPresented = NO;
-        if (weakVC) MMUpdateFloatingBar(weakVC);
+        MMUpdateFloatingBar(vc);
     }]];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
         UITextField *bgField = alert.textFields.count > 0 ? alert.textFields[0] : nil;
         UITextField *capsuleField = alert.textFields.count > 1 ? alert.textFields[1] : nil;
 
-        CGFloat bgValue = bgField.text.length ? [bgField.text doubleValue] : (dark ? 0.05 : 0.13);
-        CGFloat capsuleValue = capsuleField.text.length ? [capsuleField.text doubleValue] : (dark ? 0.10 : 0.24);
+        CGFloat bgValue = MMPercentToAlpha(bgField.text, dark ? 0.05 : 0.13);
+        CGFloat capsuleValue = MMPercentToAlpha(capsuleField.text, dark ? 0.10 : 0.24);
 
-        MMSaveAlphaValue(bgKey, bgValue);
-        MMSaveAlphaValue(capsuleKey, capsuleValue);
+        MMSaveFloat(bgKey, bgValue);
+        MMSaveFloat(capsuleKey, capsuleValue);
 
         kMMSettingsPresented = NO;
-        if (weakVC) MMUpdateFloatingBar(weakVC);
+        MMUpdateFloatingBar(vc);
     }]];
 
     [vc presentViewController:alert animated:YES completion:nil];
 }
 
+static void MMShowColorMenu(UIViewController *vc) {
+    if (!vc) return;
+
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:(MMIsDark(vc.traitCollection) ? @"颜色设置（深色模式）" : @"颜色设置（浅色模式）") message:@"调用系统取色盘" preferredStyle:UIAlertControllerStyleActionSheet];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"背景颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMPresentColorPicker(vc, @"mm_bg_color", MMBackgroundTintColor(vc.traitCollection), @"背景颜色");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"胶囊颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMPresentColorPicker(vc, @"mm_capsule_color", MMCapsuleTintColor(vc.traitCollection), @"胶囊颜色");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"选中图标文字颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMPresentColorPicker(vc, @"mm_selected_color", MMSelectedColor(vc.traitCollection), @"选中颜色");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"未选中图标文字颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMPresentColorPicker(vc, @"mm_normal_color", MMNormalColor(vc.traitCollection), @"未选中颜色");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"恢复当前模式默认颜色" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
+        MMRemoveColor(@"mm_bg_color", vc.traitCollection);
+        MMRemoveColor(@"mm_capsule_color", vc.traitCollection);
+        MMRemoveColor(@"mm_selected_color", vc.traitCollection);
+        MMRemoveColor(@"mm_normal_color", vc.traitCollection);
+        kMMSettingsPresented = NO;
+        MMUpdateFloatingBar(vc);
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"返回" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
+        kMMSettingsPresented = NO;
+    }]];
+
+    UIPopoverPresentationController *popover = menu.popoverPresentationController;
+    if (popover) {
+        popover.sourceView = vc.view;
+        popover.sourceRect = CGRectMake(CGRectGetMidX(vc.view.bounds), CGRectGetMaxY(vc.view.bounds) - 80.0, 1.0, 1.0);
+    }
+
+    [vc presentViewController:menu animated:YES completion:nil];
+}
+
+static void MMShowSettingsMenu(UIViewController *vc) {
+    if (!vc || kMMSettingsPresented) return;
+    kMMSettingsPresented = YES;
+
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"LiquidGlass 设置" message:@"当前模式单独保存" preferredStyle:UIAlertControllerStyleActionSheet];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改透明度" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowAlphaAlert(vc);
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"修改颜色" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        MMShowColorMenu(vc);
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
+        kMMSettingsPresented = NO;
+    }]];
+
+    UIPopoverPresentationController *popover = menu.popoverPresentationController;
+    if (popover) {
+        popover.sourceView = vc.view;
+        popover.sourceRect = CGRectMake(CGRectGetMidX(vc.view.bounds), CGRectGetMaxY(vc.view.bounds) - 80.0, 1.0, 1.0);
+    }
+
+    [vc presentViewController:menu animated:YES completion:nil];
+}
+
 @interface MMGestureProxy : NSObject
-- (void)handleLongPress:(UILongPressGestureRecognizer *)gesture;
 @end
 
 @implementation MMGestureProxy
@@ -222,7 +411,7 @@ static void MMShowSettingsAlert(UIViewController *vc) {
     while (r) {
         r = [r nextResponder];
         if ([r isKindOfClass:[UIViewController class]]) {
-            MMShowSettingsAlert((UIViewController *)r);
+            MMShowSettingsMenu((UIViewController *)r);
             break;
         }
     }
@@ -247,20 +436,10 @@ static UIView *MMHost(UIView *root) {
         host.userInteractionEnabled = YES;
         host.clipsToBounds = NO;
         [root addSubview:host];
-    }
 
-    BOOL hasLongPress = NO;
-    for (UIGestureRecognizer *g in host.gestureRecognizers) {
-        if ([g isKindOfClass:[UILongPressGestureRecognizer class]]) {
-            hasLongPress = YES;
-            break;
-        }
-    }
-    if (!hasLongPress) {
         UILongPressGestureRecognizer *press = [[UILongPressGestureRecognizer alloc] initWithTarget:MMSharedGestureProxy() action:@selector(handleLongPress:)];
         [host addGestureRecognizer:press];
     }
-
     return host;
 }
 
@@ -273,7 +452,12 @@ static UIVisualEffectView *MMBlur(UIView *host) {
         [host addSubview:blur];
     }
     blur.frame = host.bounds;
-    blur.backgroundColor = MMRGBA(255, 255, 255, MMBackgroundAlpha(host.traitCollection));
+
+    UIColor *tint = MMBackgroundTintColor(host.traitCollection);
+    CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
+    [tint getRed:&r green:&g blue:&b alpha:&a];
+    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:MMBackgroundAlpha(host.traitCollection)];
+
     MMSetRadius(blur, host.bounds.size.height * 0.5);
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
@@ -359,7 +543,12 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     UIView *capsule = MMCapsule(host);
     CGRect frame = MMCapsuleFrame(host, selectedIndex, count);
     capsule.frame = frame;
-    capsule.backgroundColor = MMRGBA(255,255,255,MMCapsuleAlpha(host.traitCollection));
+
+    UIColor *capsuleTint = MMCapsuleTintColor(host.traitCollection);
+    CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
+    [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
+    capsule.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:MMCapsuleAlpha(host.traitCollection)];
+
     MMSetRadius(capsule, frame.size.height * 0.5);
     capsule.clipsToBounds = YES;
     capsule.layer.masksToBounds = YES;
