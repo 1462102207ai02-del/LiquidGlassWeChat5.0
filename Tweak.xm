@@ -42,11 +42,7 @@ static UIColor *MMColorFromStored(NSString *prefix, UITraitCollection *trait, UI
 static void MMSaveColor(NSString *prefix, UITraitCollection *trait, UIColor *color);
 static void MMRemoveColor(NSString *prefix, UITraitCollection *trait);
 static CGFloat MMBackgroundAlpha(UITraitCollection *trait);
-static CGFloat MMCapsuleAlpha(UITraitCollection *trait);
-static CGFloat MMGlowTopAlpha(UITraitCollection *trait);
-static CGFloat MMGlowMidAlpha(UITraitCollection *trait);
 static CGFloat MMHostBorderAlpha(UITraitCollection *trait);
-static CGFloat MMCapsuleBorderAlpha(UITraitCollection *trait);
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait);
 static UIColor *MMCapsuleTintColor(UITraitCollection *trait);
 static UIColor *MMSelectedColor(UITraitCollection *trait);
@@ -285,24 +281,8 @@ static CGFloat MMBackgroundAlpha(UITraitCollection *trait) {
     return MMIsDark(trait) ? MMUserAlpha(@"mm_bg_alpha_dark", 0.05) : MMUserAlpha(@"mm_bg_alpha_light", 0.13);
 }
 
-static CGFloat MMCapsuleAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserAlpha(@"mm_capsule_alpha_dark", 0.10) : MMUserAlpha(@"mm_capsule_alpha_light", 0.24);
-}
-
-static CGFloat MMGlowTopAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserAlpha(@"mm_glow_top_alpha_dark", 0.10) : MMUserAlpha(@"mm_glow_top_alpha_light", 0.10);
-}
-
-static CGFloat MMGlowMidAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserAlpha(@"mm_glow_mid_alpha_dark", 0.03) : MMUserAlpha(@"mm_glow_mid_alpha_light", 0.03);
-}
-
 static CGFloat MMHostBorderAlpha(UITraitCollection *trait) {
     return MMIsDark(trait) ? MMUserAlpha(@"mm_host_border_alpha_dark", 0.12) : MMUserAlpha(@"mm_host_border_alpha_light", 0.22);
-}
-
-static CGFloat MMCapsuleBorderAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserAlpha(@"mm_capsule_border_alpha_dark", 0.12) : MMUserAlpha(@"mm_capsule_border_alpha_light", 0.24);
 }
 
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait) {
