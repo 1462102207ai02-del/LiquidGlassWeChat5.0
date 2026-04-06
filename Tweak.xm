@@ -971,20 +971,31 @@ static UIView *MMDockSearchHost(UIView *root) {
 static void MMTriggerSearchBar(UIView *searchBar) {
     if (!searchBar) return;
 
-    for (UIGestureRecognizer *gesture in searchBar.gestureRecognizers) {
-        if (![gesture isKindOfClass:[UITapGestureRecognizer class]]) continue;
+    if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
+        [searchBar becomeFirstResponder];
+    }
 
-        if ([gesture respondsToSelector:@selector(handleAction:)]) {
-            ((void (*)(id, SEL, id))objc_msgSend)(gesture, @selector(handleAction:), gesture);
-        }
+    UIView *textField = nil;
 
-        if ([gesture respondsToSelector:@selector(trackTapGestureAction:)]) {
-            ((void (*)(id, SEL, id))objc_msgSend)(gesture, @selector(trackTapGestureAction:), gesture);
+    for (UIView *sub in searchBar.subviews) {
+        for (UIView *sub2 in sub.subviews) {
+            if ([NSStringFromClass([sub2 class]) containsString:@"TextField"]) {
+                textField = sub2;
+                break;
+            }
         }
+    }
 
-        if ([gesture respondsToSelector:@selector(amb_trackTapGestureAction:)]) {
-            ((void (*)(id, SEL, id))objc_msgSend)(gesture, @selector(amb_trackTapGestureAction:), gesture);
-        }
+    if (textField && [textField respondsToSelector:@selector(becomeFirstResponder)]) {
+        [textField becomeFirstResponder];
+    }
+
+    if ([searchBar respondsToSelector:@selector(sendActionsForControlEvents:)]) {
+        ((void (*)(id, SEL, UIControlEvents))objc_msgSend)(
+            searchBar,
+            @selector(sendActionsForControlEvents:),
+            UIControlEventEditingDidBegin
+        );
     }
 }
 
