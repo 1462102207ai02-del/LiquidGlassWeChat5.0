@@ -211,6 +211,7 @@ static UIViewController *MMCurrentContentController(UIViewController *vc) {
 
 static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return YES;
+    if (kMMSettingsPresented) return NO;
 
     UIViewController *content = MMCurrentContentController(vc);
     NSString *name = NSStringFromClass([content class]);
@@ -224,12 +225,20 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     } @catch (__unused NSException *e) {
     }
 
+    UIViewController *presented = nil;
     if ([selected isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)selected;
         if (nav.viewControllers.count > 0 && nav.topViewController != nav.viewControllers.firstObject) return YES;
-        if (nav.presentedViewController) return YES;
+        presented = nav.presentedViewController;
     } else if ([content isKindOfClass:[UIViewController class]]) {
-        if (content.presentedViewController) return YES;
+        presented = content.presentedViewController;
+    }
+
+    if (presented) {
+        if ([presented isKindOfClass:[UIAlertController class]]) return NO;
+        NSString *presentedName = NSStringFromClass([presented class]);
+        if ([presentedName containsString:@"UIColorPickerViewController"]) return NO;
+        return YES;
     }
 
     return NO;
@@ -237,6 +246,12 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
 
 
 static void MMUpdateFloatingBar(UIViewController *vc);
+static void MMRequestFloatingBarRefresh(UIViewController *vc) {
+    if (!vc) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMRequestFloatingBarRefresh(vc);
+    });
+}
 
 @interface MMColorPickerProxy : NSObject <UIColorPickerViewControllerDelegate>
 @property (nonatomic, assign) UIViewController *vc;
@@ -247,13 +262,13 @@ static void MMUpdateFloatingBar(UIViewController *vc);
 - (void)colorPickerViewControllerDidSelectColor:(UIColorPickerViewController *)viewController {
     if (self.vc && self.prefix.length) {
         MMSaveColor(self.prefix, self.vc.traitCollection, viewController.selectedColor);
-        MMUpdateFloatingBar(self.vc);
+        MMRequestFloatingBarRefresh(self.vc);
     }
 }
 - (void)colorPickerViewControllerDidFinish:(UIColorPickerViewController *)viewController {
     if (self.vc && self.prefix.length) {
         MMSaveColor(self.prefix, self.vc.traitCollection, viewController.selectedColor);
-        MMUpdateFloatingBar(self.vc);
+        MMRequestFloatingBarRefresh(self.vc);
     }
     kMMSettingsPresented = NO;
 }
@@ -301,7 +316,7 @@ static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString 
     [alert addAction:[UIAlertAction actionWithTitle:@"恢复默认" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
         MMSaveFloat(key, fallback);
         kMMSettingsPresented = NO;
-        MMUpdateFloatingBar(vc);
+        MMRequestFloatingBarRefresh(vc);
     }]];
 
     [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
@@ -309,7 +324,7 @@ static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString 
         CGFloat value = MMPercentToAlpha(field.text, fallback);
         MMSaveFloat(key, value);
         kMMSettingsPresented = NO;
-        MMUpdateFloatingBar(vc);
+        MMRequestFloatingBarRefresh(vc);
     }]];
 
     [vc presentViewController:alert animated:YES completion:nil];
@@ -386,7 +401,7 @@ static void MMShowColorMenu(UIViewController *vc) {
         MMRemoveColor(@"mm_selected_color", vc.traitCollection);
         MMRemoveColor(@"mm_normal_color", vc.traitCollection);
         kMMSettingsPresented = NO;
-        MMUpdateFloatingBar(vc);
+        MMRequestFloatingBarRefresh(vc);
     }]];
 
     [menu addAction:[UIAlertAction actionWithTitle:@"返回" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
@@ -971,6 +986,8 @@ static void MMHideDockSearchHost(UIView *root) {
 
 static void MMUpdateDockSearchButton(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded) return;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
 
     UIView *root = vc.view;
     UIViewController *content = MMCurrentSelectedContentControllerFromMainTab(vc);
@@ -983,6 +1000,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     if (![contentName isEqualToString:@"NewMainFrameViewController"] || !searchBar) {
         MMHideDockSearchHost(root);
+        [CATransaction commit];
         return;
     }
 
@@ -1028,15 +1046,19 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
 
     [root bringSubviewToFront:host];
+    [CATransaction commit];
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
 
     UIView *root = vc.view;
     UITabBar *tabBar = MMFindTabBar(vc);
     if (!root || !tabBar) {
+        [CATransaction commit];
         kMMUpdatingLayout = NO;
         return;
     }
@@ -1047,6 +1069,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         host.hidden = YES;
         tabBar.hidden = YES;
         MMHideDockSearchHost(root);
+        [CATransaction commit];
         kMMUpdatingLayout = NO;
         return;
     }
@@ -1084,38 +1107,62 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     [root bringSubviewToFront:host];
     MMUpdateDockSearchButton(vc);
 
+    [CATransaction commit];
     kMMUpdatingLayout = NO;
+}
+
+
+@interface MMFloatingObserver : NSObject
+@end
+
+@implementation MMFloatingObserver
+- (void)appDidBecomeActive:(NSNotification *)note {
+    for (UIWindow *window in [UIApplication sharedApplication].windows) {
+        UIViewController *root = window.rootViewController;
+        if ([NSStringFromClass([root class]) isEqualToString:@"MainTabBarViewController"]) {
+            MMRequestFloatingBarRefresh(root);
+            break;
+        }
+    }
+}
+@end
+
+static MMFloatingObserver *MMSharedFloatingObserver(void) {
+    static MMFloatingObserver *observer = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        observer = [MMFloatingObserver new];
+        [[NSNotificationCenter defaultCenter] addObserver:observer selector:@selector(appDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
+    });
+    return observer;
 }
 
 %hook MainTabBarViewController
 
 - (void)viewDidLoad {
     %orig;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        MMUpdateFloatingBar((UIViewController *)self);
-    });
+    MMSharedFloatingObserver();
+    MMRequestFloatingBarRefresh((UIViewController *)self);
 }
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    MMUpdateFloatingBar((UIViewController *)self);
+    MMRequestFloatingBarRefresh((UIViewController *)self);
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     %orig(animated);
-    MMUpdateFloatingBar((UIViewController *)self);
+    MMRequestFloatingBarRefresh((UIViewController *)self);
 }
 
 - (void)viewSafeAreaInsetsDidChange {
     %orig;
-    MMUpdateFloatingBar((UIViewController *)self);
+    MMRequestFloatingBarRefresh((UIViewController *)self);
 }
 
 - (void)setSelectedIndex:(NSUInteger)index {
     %orig(index);
-    dispatch_async(dispatch_get_main_queue(), ^{
-        MMUpdateFloatingBar((UIViewController *)self);
-    });
+    MMRequestFloatingBarRefresh((UIViewController *)self);
 }
 
 %end
@@ -1131,7 +1178,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
             UIViewController *vc = (UIViewController *)r;
             if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    MMUpdateFloatingBar(vc);
+                    MMRequestFloatingBarRefresh(vc);
                 });
                 break;
             }
