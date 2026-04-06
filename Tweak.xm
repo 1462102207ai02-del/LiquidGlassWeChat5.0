@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <objc/message.h>
 
 static NSInteger const kMMFloatingHostTag = 990201;
 static NSInteger const kMMFloatingBlurTag = 990202;
@@ -7,6 +8,12 @@ static NSInteger const kMMFloatingCapsuleTag = 990203;
 static NSInteger const kMMFloatingCapsuleBorderTag = 990204;
 static NSInteger const kMMFloatingCapsuleGlowTag = 990205;
 static NSInteger const kMMFloatingButtonsTag = 990206;
+
+static NSInteger const kMMTopSearchHostTag = 991201;
+static NSInteger const kMMTopSearchBlurTag = 991202;
+static NSInteger const kMMTopSearchIconTag = 991203;
+static NSInteger const kMMTopSearchLabelTag = 991204;
+static NSInteger const kMMTopSearchHitButtonTag = 991205;
 
 static BOOL kMMUpdatingLayout = NO;
 static BOOL kMMSettingsPresented = NO;
@@ -555,17 +562,17 @@ static UIView *MMButtonsContainer(UIView *host) {
 
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, host.bounds.size.height * 0.5);
-    host.layer.borderWidth = 0.42;
+    host.layer.borderWidth = 0.36;
     host.layer.borderColor = MMRGBA(255,255,255,MMHostBorderAlpha(host.traitCollection)).CGColor;
-    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.24 : 0.12)].CGColor;
+    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.22 : 0.10)].CGColor;
     host.layer.shadowOpacity = 1.0;
-    host.layer.shadowRadius = 18.0;
-    host.layer.shadowOffset = CGSizeMake(0, 8);
+    host.layer.shadowRadius = 14.0;
+    host.layer.shadowOffset = CGSizeMake(0, 7);
 }
 
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
-    CGFloat side = 18.0;
-    CGFloat top = 7.0;
+    CGFloat side = 16.0;
+    CGFloat top = 6.0;
     CGFloat totalW = host.bounds.size.width - side * 2.0;
     CGFloat slotW = floor(totalW / MAX(count, 1));
     CGFloat slotH = host.bounds.size.height - top * 2.0;
@@ -575,7 +582,7 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 }
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
-    return CGRectInset(MMSlotFrame(host, index, count), 5.0, 1.0);
+    return CGRectInset(MMSlotFrame(host, index, count), 4.0, 2.0);
 }
 
 static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger count) {
@@ -596,7 +603,7 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
 
     UIView *border = [capsule viewWithTag:kMMFloatingCapsuleBorderTag];
     border.frame = capsule.bounds;
-    border.layer.borderWidth = 0.55;
+    border.layer.borderWidth = 0.48;
     border.layer.borderColor = MMRGBA(255,255,255,MMCapsuleBorderAlpha(host.traitCollection)).CGColor;
     MMSetRadius(border, border.bounds.size.height * 0.5);
     border.clipsToBounds = YES;
@@ -630,9 +637,9 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
 }
 
 @interface MMFloatingTabButton : UIControl
-@property (nonatomic, strong) UIImageView *mm_imageView;
-@property (nonatomic, strong) UILabel *mm_titleLabel;
-@property (nonatomic, strong) UILabel *mm_badgeLabel;
+@property (nonatomic, retain) UIImageView *mm_imageView;
+@property (nonatomic, retain) UILabel *mm_titleLabel;
+@property (nonatomic, retain) UILabel *mm_badgeLabel;
 @property (nonatomic, assign) NSInteger mm_index;
 @end
 
@@ -679,8 +686,8 @@ static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
     return button;
 }
 
-static NSArray<UIView *> *MMOriginalItemViews(UITabBar *tabBar) {
-    NSMutableArray<UIView *> *items = [NSMutableArray array];
+static NSArray *MMOriginalItemViews(UITabBar *tabBar) {
+    NSMutableArray *items = [NSMutableArray array];
     for (UIView *sub in tabBar.subviews) {
         NSString *name = NSStringFromClass([sub class]);
         if ([name containsString:@"MMTabBarItemView"]) {
@@ -709,7 +716,7 @@ static void MMSelectIndex(UIView *view, NSInteger index) {
                     @try { [(id)vc setSelectedIndex:index]; } @catch (__unused NSException *e) {}
                 }
                 if (tabBar && index >= 0 && index < (NSInteger)tabBar.items.count) {
-                    @try { tabBar.selectedItem = tabBar.items[index]; } @catch (__unused NSException *e) {}
+                    @try { tabBar.selectedItem = [tabBar.items objectAtIndex:index]; } @catch (__unused NSException *e) {}
                 }
                 break;
             }
@@ -719,9 +726,9 @@ static void MMSelectIndex(UIView *view, NSInteger index) {
 
 static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host) {
     UIView *container = MMButtonsContainer(host);
-    NSArray<UITabBarItem *> *items = tabBar.items;
-    NSArray<UIView *> *originalItemViews = MMOriginalItemViews(tabBar);
-    NSInteger count = items.count;
+    NSArray *items = tabBar.items;
+    NSArray *originalItemViews = MMOriginalItemViews(tabBar);
+    NSInteger count = [items count];
     if (count <= 0) return;
 
     NSInteger selectedIndex = 0;
@@ -734,7 +741,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
 
     NSMutableSet *validTags = [NSMutableSet set];
     for (NSInteger i = 0; i < count; i++) {
-        [validTags addObject:@(6000 + i)];
+        [validTags addObject:[NSNumber numberWithInteger:(6000 + i)]];
         MMFloatingTabButton *button = MMEnsureButton(container, i);
         button.mm_index = i;
         [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
@@ -747,8 +754,8 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         button.backgroundColor = [UIColor clearColor];
         button.layer.backgroundColor = [UIColor clearColor].CGColor;
 
-        UITabBarItem *item = items[i];
-        UIView *sourceItemView = (i < (NSInteger)originalItemViews.count) ? originalItemViews[i] : nil;
+        UITabBarItem *item = [items objectAtIndex:i];
+        UIView *sourceItemView = (i < (NSInteger)[originalItemViews count]) ? [originalItemViews objectAtIndex:i] : nil;
         UIImageView *sourceImageView = MMKVC(sourceItemView, @"_imageView");
         UIImage *img = nil;
         if ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.image) {
@@ -775,7 +782,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         button.mm_titleLabel.font = [UIFont systemFontOfSize:11 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
 
         NSString *badge = item.badgeValue;
-        if (badge.length > 0) {
+        if ([badge length] > 0) {
             button.mm_badgeLabel.hidden = NO;
             button.mm_badgeLabel.text = badge;
         } else {
@@ -799,15 +806,15 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
             button.mm_titleLabel.frame = CGRectMake(0.0, floor((bh - titleH) * 0.5), bw, titleH);
         }
 
-        CGFloat badgeW = MAX(18.0, MIN(28.0, 10.0 + badge.length * 8.0));
+        CGFloat badgeW = MAX(18.0, MIN(28.0, 10.0 + [badge length] * 8.0));
         if (!button.mm_imageView.hidden) {
             button.mm_badgeLabel.frame = CGRectMake(CGRectGetMaxX(button.mm_imageView.frame) - 2.0, CGRectGetMinY(button.mm_imageView.frame) - 4.0, badgeW, 18.0);
         }
         MMSetRadius(button.mm_badgeLabel, 9.0);
     }
 
-    for (UIView *sub in [container.subviews copy]) {
-        if (![validTags containsObject:@(sub.tag)]) {
+    for (UIView *sub in [[container subviews] copy]) {
+        if (![validTags containsObject:[NSNumber numberWithInteger:sub.tag]]) {
             [sub removeFromSuperview];
         }
     }
@@ -841,6 +848,213 @@ static void MMHideOriginalTabBarVisuals(UITabBar *tabBar) {
     }
 }
 
+static UIView *MMFindSearchBarInView(UIView *root) {
+    if (!root) return nil;
+    NSString *name = NSStringFromClass([root class]);
+    if ([name containsString:@"WCSearchBar"]) return root;
+    for (UIView *sub in root.subviews) {
+        UIView *found = MMFindSearchBarInView(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UILabel *MMFindFirstLabel(UIView *root) {
+    if (!root) return nil;
+    if ([root isKindOfClass:[UILabel class]]) return (UILabel *)root;
+    for (UIView *sub in root.subviews) {
+        UILabel *found = MMFindFirstLabel(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UIImageView *MMFindFirstImageView(UIView *root) {
+    if (!root) return nil;
+    if ([root isKindOfClass:[UIImageView class]]) return (UIImageView *)root;
+    for (UIView *sub in root.subviews) {
+        UIImageView *found = MMFindFirstImageView(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
+    NSArray *targets = nil;
+    @try {
+        targets = [gesture valueForKey:@"_targets"];
+    } @catch (__unused NSException *e) {
+        targets = nil;
+    }
+    for (id targetObj in targets) {
+        id target = nil;
+        SEL action = NULL;
+        @try {
+            target = [targetObj valueForKey:@"target"];
+        } @catch (__unused NSException *e) {}
+        @try {
+            action = NSSelectorFromString([targetObj valueForKey:@"action"]);
+        } @catch (__unused NSException *e) {}
+        if (target && action && [target respondsToSelector:action]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(target, action, gesture);
+        }
+    }
+}
+
+static void MMTriggerSearchBar(UIView *searchBar) {
+    if (!searchBar) return;
+
+    if ([searchBar isKindOfClass:[UIControl class]]) {
+        UIControl *control = (UIControl *)searchBar;
+        [control sendActionsForControlEvents:UIControlEventTouchUpInside];
+        [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
+    }
+
+    for (UIGestureRecognizer *gesture in searchBar.gestureRecognizers) {
+        MMTriggerGestureTargets(gesture);
+    }
+
+    for (UIView *sub in searchBar.subviews) {
+        if ([sub isKindOfClass:[UIControl class]]) {
+            UIControl *control = (UIControl *)sub;
+            [control sendActionsForControlEvents:UIControlEventTouchUpInside];
+            [control sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
+        }
+        for (UIGestureRecognizer *gesture in sub.gestureRecognizers) {
+            MMTriggerGestureTargets(gesture);
+        }
+    }
+
+    if ([searchBar respondsToSelector:@selector(becomeFirstResponder)]) {
+        [searchBar becomeFirstResponder];
+    }
+}
+
+@interface MMSearchTapProxy : NSObject
+@property (nonatomic, assign) UIView *searchBar;
+@end
+
+@implementation MMSearchTapProxy
+- (void)handleTap:(__unused UITapGestureRecognizer *)gesture {
+    MMTriggerSearchBar(self.searchBar);
+}
+@end
+
+static MMSearchTapProxy *MMSharedSearchTapProxy(void) {
+    static MMSearchTapProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMSearchTapProxy new];
+    });
+    return proxy;
+}
+
+static UIView *MMTopSearchHost(UIView *root) {
+    UIView *host = [root viewWithTag:kMMTopSearchHostTag];
+    if (!host) {
+        host = [UIView new];
+        host.tag = kMMTopSearchHostTag;
+        host.backgroundColor = [UIColor clearColor];
+        host.userInteractionEnabled = YES;
+        host.clipsToBounds = NO;
+        [root addSubview:host];
+
+        UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleLight]];
+        blur.tag = kMMTopSearchBlurTag;
+        blur.userInteractionEnabled = NO;
+        [host addSubview:blur];
+
+        UIImageView *icon = [UIImageView new];
+        icon.tag = kMMTopSearchIconTag;
+        icon.contentMode = UIViewContentModeScaleAspectFit;
+        [host addSubview:icon];
+
+        UILabel *label = [UILabel new];
+        label.tag = kMMTopSearchLabelTag;
+        label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+        label.textAlignment = NSTextAlignmentLeft;
+        [host addSubview:label];
+
+        UIButton *hit = [UIButton buttonWithType:UIButtonTypeCustom];
+        hit.tag = kMMTopSearchHitButtonTag;
+        hit.backgroundColor = [UIColor clearColor];
+        [host addSubview:hit];
+    }
+    return host;
+}
+
+static void MMUpdateTopSearchCapsule(UIViewController *vc) {
+    if (!vc || !vc.isViewLoaded) return;
+    if (![NSStringFromClass([vc class]) isEqualToString:@"NewMainFrameViewController"]) return;
+
+    UIView *root = vc.view;
+    UIView *searchBar = MMFindSearchBarInView(root);
+    if (!searchBar) return;
+
+    searchBar.hidden = YES;
+    searchBar.alpha = 0.0;
+    searchBar.userInteractionEnabled = NO;
+
+    UIView *host = MMTopSearchHost(root);
+
+    CGFloat topInset = 0.0;
+    if ([root respondsToSelector:@selector(safeAreaInsets)]) {
+        topInset = root.safeAreaInsets.top;
+    }
+
+    CGFloat x = 16.0;
+    CGFloat y = topInset + 8.0;
+    CGFloat w = CGRectGetWidth(root.bounds) - 32.0;
+    CGFloat h = 52.0;
+
+    host.frame = CGRectMake(x, y, w, h);
+    MMSetRadius(host, h * 0.5);
+    host.layer.borderWidth = 0.36;
+    host.layer.borderColor = MMRGBA(255,255,255,MMHostBorderAlpha(host.traitCollection)).CGColor;
+    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.18 : 0.08)].CGColor;
+    host.layer.shadowOpacity = 1.0;
+    host.layer.shadowRadius = 12.0;
+    host.layer.shadowOffset = CGSizeMake(0, 6);
+
+    UIVisualEffectView *blur = (UIVisualEffectView *)[host viewWithTag:kMMTopSearchBlurTag];
+    blur.frame = host.bounds;
+    UIColor *tint = MMBackgroundTintColor(host.traitCollection);
+    CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
+    [tint getRed:&r green:&g blue:&b alpha:&a];
+    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:MMBackgroundAlpha(host.traitCollection)];
+    MMSetRadius(blur, h * 0.5);
+    blur.layer.masksToBounds = YES;
+
+    UIImageView *originIcon = MMFindFirstImageView(searchBar);
+    UILabel *originLabel = MMFindFirstLabel(searchBar);
+
+    UIImageView *icon = (UIImageView *)[host viewWithTag:kMMTopSearchIconTag];
+    icon.frame = CGRectMake(18.0, floor((h - 20.0) * 0.5), 20.0, 20.0);
+    icon.tintColor = MMNormalColor(host.traitCollection);
+    if (originIcon.image) {
+        icon.image = [originIcon.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    } else if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
+        icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    } else {
+        icon.image = nil;
+    }
+
+    UILabel *label = (UILabel *)[host viewWithTag:kMMTopSearchLabelTag];
+    label.frame = CGRectMake(46.0, 0.0, w - 92.0, h);
+    label.textColor = MMNormalColor(host.traitCollection);
+    label.text = originLabel.text.length ? originLabel.text : @"搜索";
+    label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+
+    UIButton *hit = (UIButton *)[host viewWithTag:kMMTopSearchHitButtonTag];
+    hit.frame = host.bounds;
+    [hit removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
+    MMSearchTapProxy *proxy = MMSharedSearchTapProxy();
+    proxy.searchBar = searchBar;
+    [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
+
+    [root bringSubviewToFront:host];
+}
+
 static void MMUpdateFloatingBar(UIViewController *vc) {
     if (kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
@@ -866,7 +1080,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat height = 87.0;
+    CGFloat height = 84.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 10.0;
     CGRect frame = CGRectMake(margin, y, CGRectGetWidth(root.bounds) - margin * 2.0, height);
 
@@ -880,9 +1094,42 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     MMUpdateButtons(vc, tabBar, host);
 
     [root bringSubviewToFront:host];
+    MMUpdateTopSearchCapsule(vc);
 
     kMMUpdatingLayout = NO;
 }
+
+%hook NewMainFrameViewController
+
+- (void)viewDidLoad {
+    %orig;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMUpdateTopSearchCapsule((UIViewController *)self);
+    });
+}
+
+- (void)viewDidLayoutSubviews {
+    %orig;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMUpdateTopSearchCapsule((UIViewController *)self);
+    });
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig(animated);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMUpdateTopSearchCapsule((UIViewController *)self);
+    });
+}
+
+- (void)viewSafeAreaInsetsDidChange {
+    %orig;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMUpdateTopSearchCapsule((UIViewController *)self);
+    });
+}
+
+%end
 
 %hook MainTabBarViewController
 
