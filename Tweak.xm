@@ -983,18 +983,6 @@ static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
     }
 }
 
-static BOOL MMTriggerGestureTargetsInViewTree(UIView *view) {
-    BOOL triggered = NO;
-    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
-        MMTriggerGestureTargets(gesture);
-        triggered = YES;
-    }
-    for (UIView *sub in view.subviews) {
-        if (MMTriggerGestureTargetsInViewTree(sub)) triggered = YES;
-    }
-    return triggered;
-}
-
 static UIView *MMFindTextField(UIView *view) {
     if (!view) return nil;
 
