@@ -59,24 +59,7 @@ static void MMSelectIndex(UIView *view, NSInteger index);
 static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host);
 static void MMHideOriginalTabBarVisuals(UITabBar *tabBar);
 static UIView *MMFindSearchBarInView(UIView *root);
-static UIViewController *MMCurrentSelectedContentControllerFromMainTab(UIViewController *vc);
-static UIView *MMDockSearchHost(UIView *root);
-static void MMHideDockSearchHost(UIView *root);
-static void MMTriggerGestureTargets(UIGestureRecognizer *gesture);
-static void MMTriggerSearchBar(UIView *searchBar);
-static void MMUpdateDockSearchButton(UIViewController *vc);
-static void MMUpdateFloatingBar(UIViewController *vc);
-static void MMRequestFloatingBarRefresh(UIViewController *vc);
-static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible);
-static BOOL MMTriggerGestureTargetsInViewTree(UIView *view);
-static void MMShowNamedAlphaAlert(UIViewController *vc, NSString *key, NSString *title, NSString *placeholder, CGFloat fallback);
-static void MMShowSingleAlphaAlert(UIViewController *vc, NSString *type);
-static void MMShowColorMenu(UIViewController *vc);
-static void MMShowSettingsMenu(UIViewController *vc);
 
-static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
-    return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a];
-}
 
 static BOOL MMIsDark(UITraitCollection *trait) {
     if (trait && [trait respondsToSelector:@selector(userInterfaceStyle)]) {
@@ -973,10 +956,7 @@ static UIView *MMDockSearchHost(UIView *root) {
     return host;
 }
 
-static void MMHideDockSearchHost(UIView *root) {
-    UIView *host = [root viewWithTag:kMMDockSearchHostTag];
-    if (host) host.hidden = YES;
-}
+
 
 static void MMTriggerGestureTargets(UIGestureRecognizer *gesture) {
     NSArray *targets = nil;
