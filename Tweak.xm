@@ -910,7 +910,6 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat gap = 12.0;
     CGFloat dockSize = 84.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 10.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
