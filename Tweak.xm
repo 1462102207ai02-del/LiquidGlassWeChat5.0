@@ -50,7 +50,6 @@ static CGFloat MMBottomInset(UIView *view);
 static void MMSetRadius(UIView *view, CGFloat radius);
 static id MMKVC(id obj, NSString *key);
 static UITabBar *MMFindTabBar(UIViewController *vc);
-static UIViewController *MMCurrentContentController(UIViewController *vc);
 static BOOL MMShouldHideFloatingBar(UIViewController *vc);
 static UIView *MMHost(UIView *root);
 static UIVisualEffectView *MMBlur(UIView *host);
@@ -351,24 +350,6 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
         if ([name containsString:@"MMTabBar"]) return (UITabBar *)sub;
     }
     return nil;
-}
-
-static UIViewController *MMCurrentContentController(UIViewController *vc) {
-    id selected = nil;
-    @try {
-        if ([vc respondsToSelector:@selector(selectedViewController)]) {
-            selected = [vc valueForKey:@"selectedViewController"];
-        }
-    } @catch (__unused NSException *e) {
-    }
-
-    UIViewController *content = [selected isKindOfClass:[UIViewController class]] ? (UIViewController *)selected : vc;
-    if ([content isKindOfClass:[UINavigationController class]]) {
-        UINavigationController *nav = (UINavigationController *)content;
-        UIViewController *top = nav.topViewController ?: nav.visibleViewController ?: [nav.viewControllers firstObject];
-        return top ?: content;
-    }
-    return content;
 }
 
 static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
