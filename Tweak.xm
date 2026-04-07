@@ -11,6 +11,7 @@ static NSInteger const kMMFloatingButtonsTag = 990206;
 static NSInteger const kMMFloatingSpecularTag = 990207;
 static NSInteger const kMMFloatingInnerShadowTag = 990208;
 static NSInteger const kMMFloatingGlassTintTag = 990209;
+static NSInteger const kMMFloatingCoreTag = 990210;
 
 static NSInteger const kMMDockSearchHostTag = 991201;
 static NSInteger const kMMDockSearchBlurTag = 991202;
@@ -69,6 +70,7 @@ static UIView *MMFindSearchBarInView(UIView *root);
 static CAGradientLayer *MMEnsureGradientLayer(UIView *view, NSInteger tag);
 static void MMApplyLiquidGlassToHost(UIView *host);
 static void MMApplyLiquidGlassToCapsule(UIView *capsule);
+static void MMApplyLiquidGlassToDock(UIView *host);
 
 
 
@@ -87,20 +89,30 @@ static CAGradientLayer *MMEnsureGradientLayer(UIView *view, NSInteger tag) {
 static void MMApplyLiquidGlassToHost(UIView *host) {
     if (!host) return;
 
+    UIView *core = [host viewWithTag:kMMFloatingCoreTag];
+    if (!core) {
+        core = [UIView new];
+        core.tag = kMMFloatingCoreTag;
+        core.userInteractionEnabled = NO;
+        [host insertSubview:core aboveSubview:MMBlur(host)];
+    }
+    core.frame = CGRectInset(host.bounds, 1.2, 1.2);
+    MMSetRadius(core, core.bounds.size.height * 0.5);
+    core.clipsToBounds = YES;
+    core.backgroundColor = [UIColor colorWithWhite:(MMIsDark(host.traitCollection) ? 0.10 : 0.22)
+                                             alpha:(MMIsDark(host.traitCollection) ? 0.18 : 0.14)];
+
     UIView *tintView = [host viewWithTag:kMMFloatingGlassTintTag];
     if (!tintView) {
         tintView = [UIView new];
         tintView.tag = kMMFloatingGlassTintTag;
         tintView.userInteractionEnabled = NO;
-        [host insertSubview:tintView aboveSubview:MMBlur(host)];
+        [host insertSubview:tintView aboveSubview:core];
     }
     tintView.frame = host.bounds;
     MMSetRadius(tintView, host.bounds.size.height * 0.5);
     tintView.clipsToBounds = YES;
-    UIColor *tint = MMBackgroundTintColor(host.traitCollection);
-    CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
-    [tint getRed:&r green:&g blue:&b alpha:&a];
-    tintView.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.05 : 0.08)];
+    tintView.backgroundColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.025 : 0.045)];
 
     UIView *specular = [host viewWithTag:kMMFloatingSpecularTag];
     if (!specular) {
@@ -109,21 +121,21 @@ static void MMApplyLiquidGlassToHost(UIView *host) {
         specular.userInteractionEnabled = NO;
         [host addSubview:specular];
     }
-    specular.frame = CGRectInset(host.bounds, 1.0, 1.0);
+    specular.frame = CGRectInset(host.bounds, 0.8, 0.8);
     MMSetRadius(specular, specular.bounds.size.height * 0.5);
     specular.backgroundColor = [UIColor clearColor];
     specular.clipsToBounds = YES;
 
     CAGradientLayer *spec = MMEnsureGradientLayer(specular, kMMFloatingSpecularTag);
     spec.frame = specular.bounds;
-    spec.startPoint = CGPointMake(0.15, 0.0);
-    spec.endPoint = CGPointMake(0.85, 1.0);
+    spec.startPoint = CGPointMake(0.08, 0.0);
+    spec.endPoint = CGPointMake(0.92, 1.0);
     spec.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.24 : 0.34)].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.08 : 0.12)].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.01].CGColor
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.42 : 0.55)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.14 : 0.18)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor
     ];
-    spec.locations = @[@0.0, @0.22, @1.0];
+    spec.locations = @[@0.0, @0.18, @1.0];
 
     UIView *innerShadow = [host viewWithTag:kMMFloatingInnerShadowTag];
     if (!innerShadow) {
@@ -142,10 +154,17 @@ static void MMApplyLiquidGlassToHost(UIView *host) {
     shade.startPoint = CGPointMake(0.5, 0.0);
     shade.endPoint = CGPointMake(0.5, 1.0);
     shade.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.03].CGColor,
-        (__bridge id)[UIColor colorWithWhite:0.0 alpha:(MMIsDark(host.traitCollection) ? 0.14 : 0.08)].CGColor
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor,
+        (__bridge id)[UIColor colorWithWhite:0.0 alpha:(MMIsDark(host.traitCollection) ? 0.26 : 0.18)].CGColor
     ];
     shade.locations = @[@0.0, @1.0];
+
+    host.layer.borderWidth = 0.78;
+    host.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.20 : 0.26)].CGColor;
+    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.34 : 0.18)].CGColor;
+    host.layer.shadowOpacity = 1.0;
+    host.layer.shadowRadius = 20.0;
+    host.layer.shadowOffset = CGSizeMake(0, 10.0);
 }
 
 static void MMApplyLiquidGlassToCapsule(UIView *capsule) {
@@ -154,14 +173,16 @@ static void MMApplyLiquidGlassToCapsule(UIView *capsule) {
     UIView *glow = [capsule viewWithTag:kMMFloatingCapsuleGlowTag];
     if (!glow) return;
 
-    UIColor *tint = MMCapsuleTintColor(capsule.traitCollection);
-    CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
-    [tint getRed:&r green:&g blue:&b alpha:&a];
-    capsule.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(capsule.traitCollection) ? 0.14 : 0.20)];
-    capsule.layer.shadowColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(capsule.traitCollection) ? 0.18 : 0.26)].CGColor;
+    capsule.backgroundColor = [UIColor colorWithWhite:(MMIsDark(capsule.traitCollection) ? 0.14 : 0.20)
+                                                alpha:(MMIsDark(capsule.traitCollection) ? 0.38 : 0.30)];
+    capsule.layer.shadowColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(capsule.traitCollection) ? 0.16 : 0.20)].CGColor;
     capsule.layer.shadowOpacity = 1.0;
-    capsule.layer.shadowRadius = 10.0;
-    capsule.layer.shadowOffset = CGSizeMake(0, 1.5);
+    capsule.layer.shadowRadius = 12.0;
+    capsule.layer.shadowOffset = CGSizeMake(0, 1.0);
+
+    UIView *border = [capsule viewWithTag:kMMFloatingCapsuleBorderTag];
+    border.layer.borderWidth = 0.88;
+    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(capsule.traitCollection) ? 0.28 : 0.34)].CGColor;
 
     CAGradientLayer *glowLayer = nil;
     for (CALayer *layer in glow.layer.sublayers) {
@@ -175,14 +196,14 @@ static void MMApplyLiquidGlassToCapsule(UIView *capsule) {
         [glow.layer addSublayer:glowLayer];
     }
     glowLayer.frame = glow.bounds;
-    glowLayer.startPoint = CGPointMake(0.15, 0.0);
-    glowLayer.endPoint = CGPointMake(0.85, 1.0);
+    glowLayer.startPoint = CGPointMake(0.06, 0.0);
+    glowLayer.endPoint = CGPointMake(0.94, 1.0);
     glowLayer.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(capsule.traitCollection) ? 0.28 : 0.36)].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(capsule.traitCollection) ? 0.14 : 0.18)].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(capsule.traitCollection) ? 0.52 : 0.64)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(capsule.traitCollection) ? 0.22 : 0.24)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.03].CGColor
     ];
-    glowLayer.locations = @[@0.0, @0.28, @1.0];
+    glowLayer.locations = @[@0.0, @0.24, @1.0];
 }
 
 static BOOL MMIsDark(UITraitCollection *trait) {
@@ -666,7 +687,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
     UIColor *tint = MMBackgroundTintColor(host.traitCollection);
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
-    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMBackgroundAlpha(host.traitCollection) * (MMIsDark(host.traitCollection) ? 1.15 : 0.92))];
+    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.035 : 0.045)];
 
     MMSetRadius(blur, host.bounds.size.height * 0.5);
     blur.layer.masksToBounds = YES;
@@ -724,12 +745,7 @@ static UIView *MMButtonsContainer(UIView *host) {
 
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, host.bounds.size.height * 0.5);
-    host.layer.borderWidth = 0.62;
-    host.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.16 : 0.24)].CGColor;
-    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.28 : 0.12)].CGColor;
-    host.layer.shadowOpacity = 1.0;
-    host.layer.shadowRadius = 18.0;
-    host.layer.shadowOffset = CGSizeMake(0, 8.0);
+    host.backgroundColor = [UIColor clearColor];
     MMApplyLiquidGlassToHost(host);
 }
 
@@ -1091,6 +1107,45 @@ static void MMSetFloatingVisible(UIView *host, UIView *dockHost, BOOL visible) {
     }
 }
 
+static void MMApplyLiquidGlassToDock(UIView *host) {
+    if (!host) return;
+    host.layer.borderWidth = 0.78;
+    host.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.20 : 0.26)].CGColor;
+    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.34 : 0.18)].CGColor;
+    host.layer.shadowOpacity = 1.0;
+    host.layer.shadowRadius = 18.0;
+    host.layer.shadowOffset = CGSizeMake(0, 10.0);
+
+    UIVisualEffectView *blur = (UIVisualEffectView *)[host viewWithTag:kMMDockSearchBlurTag];
+    if (!blur) return;
+    blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
+    blur.backgroundColor = [UIColor colorWithWhite:(MMIsDark(host.traitCollection) ? 0.12 : 0.22)
+                                             alpha:(MMIsDark(host.traitCollection) ? 0.16 : 0.12)];
+
+    CAGradientLayer *spec = nil;
+    for (CALayer *layer in host.layer.sublayers) {
+        if ([layer isKindOfClass:[CAGradientLayer class]] && [layer.name isEqualToString:@"dock_spec"]) {
+            spec = (CAGradientLayer *)layer;
+            break;
+        }
+    }
+    if (!spec) {
+        spec = [CAGradientLayer layer];
+        spec.name = @"dock_spec";
+        [host.layer addSublayer:spec];
+    }
+    spec.frame = CGRectInset(host.bounds, 0.8, 0.8);
+    spec.cornerRadius = spec.bounds.size.height * 0.5;
+    spec.startPoint = CGPointMake(0.08, 0.0);
+    spec.endPoint = CGPointMake(0.92, 1.0);
+    spec.colors = @[
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.42 : 0.52)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.12 : 0.16)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor
+    ];
+    spec.locations = @[@0.0, @0.22, @1.0];
+}
+
 static void MMUpdateDockSearchButton(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded) return;
 
@@ -1106,7 +1161,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat dockSize = 74.0;
+    CGFloat dockSize = 76.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 12.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
@@ -1115,19 +1170,14 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     host.alpha = 1.0;
     host.userInteractionEnabled = YES;
     MMSetRadius(host, dockSize * 0.5);
-    host.layer.borderWidth = 0.36;
-    host.layer.borderColor = MMRGBA(255,255,255,MMHostBorderAlpha(host.traitCollection)).CGColor;
-    host.layer.shadowColor = [UIColor colorWithWhite:0 alpha:(MMIsDark(host.traitCollection) ? 0.22 : 0.10)].CGColor;
-    host.layer.shadowOpacity = 1.0;
-    host.layer.shadowRadius = 14.0;
-    host.layer.shadowOffset = CGSizeMake(0, 7);
+    MMApplyLiquidGlassToDock(host);
 
     UIVisualEffectView *blur = (UIVisualEffectView *)[host viewWithTag:kMMDockSearchBlurTag];
     blur.frame = host.bounds;
     UIColor *tint = MMBackgroundTintColor(host.traitCollection);
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
-    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMBackgroundAlpha(host.traitCollection) * (MMIsDark(host.traitCollection) ? 1.15 : 0.92))];
+    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.035 : 0.045)];
     MMSetRadius(blur, dockSize * 0.5);
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
@@ -1177,8 +1227,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat gap = 12.0;
-    CGFloat dockSize = 74.0;
-    CGFloat height = 76.0;
+    CGFloat dockSize = 76.0;
+    CGFloat height = 78.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 11.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
