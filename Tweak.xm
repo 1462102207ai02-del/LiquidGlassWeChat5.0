@@ -12,7 +12,6 @@ static NSInteger const kMMFloatingCoreTag = 990207;
 static NSInteger const kMMFloatingShineTag = 990208;
 static NSInteger const kMMFloatingEdgeTag = 990209;
 static NSInteger const kMMFloatingInnerEdgeTag = 990210;
-static NSInteger const kMMFloatingOuterGlowTag = 990211;
 
 static NSInteger const kMMDockSearchHostTag = 991201;
 static NSInteger const kMMDockSearchBlurTag = 991202;
