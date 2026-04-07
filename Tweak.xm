@@ -743,9 +743,12 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat insetX = 3.0;
-    CGFloat insetY = 0.0;
-    return CGRectInset(slot, insetX, insetY);
+    CGFloat insetX = 2.0;
+    CGFloat insetY = -0.5;
+    CGRect frame = CGRectInset(slot, insetX, insetY);
+    frame.origin.y = 0.0;
+    frame.size.height = host.bounds.size.height;
+    return frame;
 }
 
 static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger count) {
