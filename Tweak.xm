@@ -42,8 +42,6 @@ static void MMSaveFloat(NSString *key, CGFloat value);
 static UIColor *MMColorFromStored(NSString *prefix, UITraitCollection *trait, UIColor *fallback);
 static void MMSaveColor(NSString *prefix, UITraitCollection *trait, UIColor *color);
 static void MMRemoveColor(NSString *prefix, UITraitCollection *trait);
-static CGFloat MMBackgroundAlpha(UITraitCollection *trait);
-static CGFloat MMHostBorderAlpha(UITraitCollection *trait);
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait);
 static UIColor *MMCapsuleTintColor(UITraitCollection *trait);
 static UIColor *MMSelectedColor(UITraitCollection *trait);
@@ -296,14 +294,6 @@ static void MMRemoveColor(NSString *prefix, UITraitCollection *trait) {
     [defaults removeObjectForKey:MMKey(prefix, trait, @"g")];
     [defaults removeObjectForKey:MMKey(prefix, trait, @"b")];
     [defaults synchronize];
-}
-
-static CGFloat MMBackgroundAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserAlpha(@"mm_bg_alpha_dark", 0.05) : MMUserAlpha(@"mm_bg_alpha_light", 0.13);
-}
-
-static CGFloat MMHostBorderAlpha(UITraitCollection *trait) {
-    return MMIsDark(trait) ? MMUserAlpha(@"mm_host_border_alpha_dark", 0.12) : MMUserAlpha(@"mm_host_border_alpha_light", 0.22);
 }
 
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait) {
