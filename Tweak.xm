@@ -743,8 +743,8 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat insetX = 3.2;
-    CGFloat insetY = 0.8;
+    CGFloat insetX = 3.0;
+    CGFloat insetY = 0.0;
     return CGRectInset(slot, insetX, insetY);
 }
 
@@ -755,7 +755,6 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     CGRect frame = MMCapsuleFrame(host, selectedIndex, count);
     capsule.frame = frame;
     MMSetRadius(capsule, frame.size.height * 0.5);
-    if (@available(iOS 13.0, *)) capsule.layer.cornerCurve = kCACornerCurveContinuous;
     capsule.clipsToBounds = NO;
     capsule.layer.masksToBounds = NO;
 
@@ -763,16 +762,12 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     border.frame = capsule.bounds;
     border.backgroundColor = [UIColor clearColor];
     border.layer.borderWidth = 0.0;
-    MMSetRadius(border, border.bounds.size.height * 0.5);
-    if (@available(iOS 13.0, *)) border.layer.cornerCurve = kCACornerCurveContinuous;
 
     UIView *glow = [capsule viewWithTag:kMMFloatingCapsuleGlowTag];
-    glow.frame = CGRectInset(capsule.bounds, 0.6, 0.6);
+    glow.frame = CGRectInset(capsule.bounds, 1.0, 1.0);
     MMSetRadius(glow, glow.bounds.size.height * 0.5);
-    if (@available(iOS 13.0, *)) glow.layer.cornerCurve = kCACornerCurveContinuous;
     glow.backgroundColor = [UIColor clearColor];
     glow.clipsToBounds = YES;
-    glow.layer.masksToBounds = YES;
 
     MMApplyLiquidGlass(capsule, YES);
 }
@@ -1105,9 +1100,8 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat height = 80.0;
-    CGFloat dockSize = height;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 11.0;
+    CGFloat dockSize = 80.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 11.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
     host.frame = CGRectMake(x, y, dockSize, dockSize);
