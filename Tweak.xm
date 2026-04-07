@@ -106,7 +106,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         core.userInteractionEnabled = NO;
         [view insertSubview:core atIndex:0];
     }
-    core.frame = CGRectInset(view.bounds, capsuleStyle ? 1.0 : 1.4, capsuleStyle ? 1.0 : 1.4);
+    core.frame = CGRectInset(view.bounds, capsuleStyle ? 0.8 : 1.2, capsuleStyle ? 0.8 : 1.2);
     MMSetRadius(core, core.bounds.size.height * 0.5);
     if (@available(iOS 13.0, *)) core.layer.cornerCurve = kCACornerCurveContinuous;
     core.clipsToBounds = YES;
@@ -118,12 +118,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.22 : 0.26)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.18 : 0.22)];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.12 : 0.14)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.10 : 0.11)];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -133,7 +133,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         shine.userInteractionEnabled = NO;
         [view addSubview:shine];
     }
-    shine.frame = CGRectInset(view.bounds, 0.8, 0.8);
+    shine.frame = CGRectInset(view.bounds, 0.6, 0.6);
     MMSetRadius(shine, shine.bounds.size.height * 0.5);
     if (@available(iOS 13.0, *)) shine.layer.cornerCurve = kCACornerCurveContinuous;
     shine.backgroundColor = [UIColor clearColor];
@@ -146,7 +146,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     moving.endPoint = CGPointMake(1.0, 1.0);
     moving.colors = @[
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.20 : 0.22) : (dark ? 0.12 : 0.14))].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.16 : 0.18) : (dark ? 0.12 : 0.15))].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
     ];
     moving.locations = @[@(-0.35), @(-0.08), @(0.18)];
@@ -159,11 +159,11 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     topLine.startPoint = CGPointMake(0.5, 0.0);
     topLine.endPoint = CGPointMake(0.5, 1.0);
     topLine.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.34 : 0.42) : (dark ? 0.22 : 0.30))].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.08 : 0.10) : (dark ? 0.04 : 0.05))].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.30 : 0.38) : (dark ? 0.24 : 0.34))].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.06 : 0.08) : (dark ? 0.04 : 0.05))].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
     ];
-    topLine.locations = @[@0.0, @0.14, @0.38];
+    topLine.locations = @[@0.0, @0.12, @0.34];
     topLine.cornerRadius = shine.bounds.size.height * 0.5;
     topLine.masksToBounds = YES;
 
@@ -177,8 +177,8 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     edge.frame = view.bounds;
     MMSetRadius(edge, edge.bounds.size.height * 0.5);
     if (@available(iOS 13.0, *)) edge.layer.cornerCurve = kCACornerCurveContinuous;
-    edge.layer.borderWidth = capsuleStyle ? 0.92 : 0.88;
-    edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.20 : 0.28) : (dark ? 0.14 : 0.22))].CGColor;
+    edge.layer.borderWidth = capsuleStyle ? 0.86 : 0.80;
+    edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.18 : 0.24) : (dark ? 0.16 : 0.24))].CGColor;
     edge.backgroundColor = [UIColor clearColor];
     edge.clipsToBounds = YES;
     edge.layer.masksToBounds = YES;
@@ -190,19 +190,19 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         innerEdge.userInteractionEnabled = NO;
         [view addSubview:innerEdge];
     }
-    innerEdge.frame = CGRectInset(view.bounds, 1.3, 1.3);
+    innerEdge.frame = CGRectInset(view.bounds, 1.15, 1.15);
     MMSetRadius(innerEdge, innerEdge.bounds.size.height * 0.5);
     if (@available(iOS 13.0, *)) innerEdge.layer.cornerCurve = kCACornerCurveContinuous;
-    innerEdge.layer.borderWidth = capsuleStyle ? 0.52 : 0.48;
-    innerEdge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.24 : 0.34) : (dark ? 0.18 : 0.26))].CGColor;
+    innerEdge.layer.borderWidth = capsuleStyle ? 0.44 : 0.40;
+    innerEdge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.22 : 0.28) : (dark ? 0.18 : 0.26))].CGColor;
     innerEdge.backgroundColor = [UIColor clearColor];
     innerEdge.clipsToBounds = YES;
     innerEdge.layer.masksToBounds = YES;
 
-    view.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(capsuleStyle ? (dark ? 0.12 : 0.08) : (dark ? 0.16 : 0.10))].CGColor;
+    view.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(capsuleStyle ? (dark ? 0.10 : 0.06) : (dark ? 0.14 : 0.08))].CGColor;
     view.layer.shadowOpacity = 1.0;
-    view.layer.shadowRadius = capsuleStyle ? 8.0 : 12.0;
-    view.layer.shadowOffset = CGSizeMake(0, capsuleStyle ? 1.0 : 6.0);
+    view.layer.shadowRadius = capsuleStyle ? 7.0 : 10.0;
+    view.layer.shadowOffset = CGSizeMake(0, capsuleStyle ? 1.0 : 5.0);
     view.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:view.bounds cornerRadius:view.bounds.size.height * 0.5].CGPath;
 }
 
@@ -299,11 +299,11 @@ static void MMRemoveColor(NSString *prefix, UITraitCollection *trait) {
 }
 
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(28, 28, 30, 1.0) : MMRGBA(239, 239, 239, 1.0));
+    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(28, 28, 30, 1.0) : MMRGBA(250, 250, 252, 1.0));
 }
 
 static UIColor *MMCapsuleTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(36, 36, 40, 1.0) : MMRGBA(228, 228, 232, 1.0));
+    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(36, 36, 40, 1.0) : MMRGBA(245, 245, 247, 1.0));
 }
 
 static UIColor *MMSelectedColor(UITraitCollection *trait) {
@@ -756,7 +756,9 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    return CGRectInset(slot, 6.5, 0.5);
+    CGFloat insetX = 7.0;
+    CGFloat insetY = 0.6;
+    return CGRectInset(slot, insetX, insetY);
 }
 
 static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger count) {
@@ -1112,7 +1114,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat dockSize = 72.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 12.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - 80.0 - 11.0 + (80.0 - dockSize) * 0.5;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
     host.frame = CGRectMake(x, y, dockSize, dockSize);
@@ -1120,6 +1122,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     host.alpha = 1.0;
     host.userInteractionEnabled = YES;
     MMSetRadius(host, dockSize * 0.5);
+    if (@available(iOS 13.0, *)) host.layer.cornerCurve = kCACornerCurveContinuous;
     host.layer.borderWidth = 0.0;
     MMApplyLiquidGlass(host, NO);
 
@@ -1130,6 +1133,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     [tint getRed:&r green:&g blue:&b alpha:&a];
     blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.022 : 0.030)];
     MMSetRadius(blur, dockSize * 0.5);
+    if (@available(iOS 13.0, *)) blur.layer.cornerCurve = kCACornerCurveContinuous;
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
     blur.layer.cornerRadius = host.bounds.size.height * 0.5;
