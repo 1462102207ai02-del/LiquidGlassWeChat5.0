@@ -1101,14 +1101,14 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat dockSize = 80.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 11.0;
-    CGFloat x = CGRectGetWidth(root.bounds) - margin - height;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 11.0;
+    CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
-    host.frame = CGRectMake(x, y, height, height);
+    host.frame = CGRectMake(x, y, dockSize, dockSize);
     host.hidden = NO;
     host.alpha = 1.0;
     host.userInteractionEnabled = YES;
-    MMSetRadius(host, height * 0.5);
+    MMSetRadius(host, dockSize * 0.5);
     if (@available(iOS 13.0, *)) host.layer.cornerCurve = kCACornerCurveContinuous;
     host.layer.borderWidth = 0.0;
     MMApplyLiquidGlass(host, NO);
@@ -1119,14 +1119,14 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
     blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.022 : 0.030)];
-    MMSetRadius(blur, height * 0.5);
+    MMSetRadius(blur, dockSize * 0.5);
     if (@available(iOS 13.0, *)) blur.layer.cornerCurve = kCACornerCurveContinuous;
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
     blur.layer.cornerRadius = host.bounds.size.height * 0.5;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
-    icon.frame = CGRectMake(floor((height - 30.0) * 0.5), floor((height - 30.0) * 0.5), 30.0, 30.0);
+    icon.frame = CGRectMake(floor((dockSize - 30.0) * 0.5), floor((dockSize - 30.0) * 0.5), 30.0, 30.0);
     icon.tintColor = MMNormalColor(host.traitCollection);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
