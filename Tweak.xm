@@ -362,6 +362,26 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
 static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return YES;
     if (kMMSettingsPresented) return NO;
+
+    id selected = nil;
+    @try {
+        if ([vc respondsToSelector:@selector(selectedViewController)]) {
+            selected = [vc valueForKey:@"selectedViewController"];
+        }
+    } @catch (__unused NSException *e) {
+    }
+
+    if ([selected isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)selected;
+        UIViewController *root = nav.viewControllers.count > 0 ? nav.viewControllers.firstObject : nil;
+        UIViewController *top = nav.topViewController ?: nav.visibleViewController;
+        if (root && top && top != root) return YES;
+        if (nav.presentedViewController && !kMMSettingsPresented) return YES;
+    } else if ([selected isKindOfClass:[UIViewController class]]) {
+        UIViewController *child = (UIViewController *)selected;
+        if (child.presentedViewController && !kMMSettingsPresented) return YES;
+    }
+
     return NO;
 }
 
@@ -712,7 +732,7 @@ static void MMStyleHost(UIView *host) {
 
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat side = 18.0;
-    CGFloat top = 8.0;
+    CGFloat top = 7.0;
     CGFloat totalW = host.bounds.size.width - side * 2.0;
     CGFloat slotW = floor(totalW / MAX(count, 1));
     CGFloat slotH = host.bounds.size.height - top * 2.0;
@@ -723,8 +743,8 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat insetX = 4.6;
-    CGFloat insetY = 0.1;
+    CGFloat insetX = 5.2;
+    CGFloat insetY = 0.0;
     return CGRectInset(slot, insetX, insetY);
 }
 
@@ -1081,14 +1101,14 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat dockSize = 80.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 11.0;
-    CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 11.0;
+    CGFloat x = CGRectGetWidth(root.bounds) - margin - height;
 
-    host.frame = CGRectMake(x, y, dockSize, dockSize);
+    host.frame = CGRectMake(x, y, height, height);
     host.hidden = NO;
     host.alpha = 1.0;
     host.userInteractionEnabled = YES;
-    MMSetRadius(host, dockSize * 0.5);
+    MMSetRadius(host, height * 0.5);
     if (@available(iOS 13.0, *)) host.layer.cornerCurve = kCACornerCurveContinuous;
     host.layer.borderWidth = 0.0;
     MMApplyLiquidGlass(host, NO);
@@ -1099,14 +1119,14 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
     blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.022 : 0.030)];
-    MMSetRadius(blur, dockSize * 0.5);
+    MMSetRadius(blur, height * 0.5);
     if (@available(iOS 13.0, *)) blur.layer.cornerCurve = kCACornerCurveContinuous;
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
     blur.layer.cornerRadius = host.bounds.size.height * 0.5;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
-    icon.frame = CGRectMake(floor((dockSize - 30.0) * 0.5), floor((dockSize - 30.0) * 0.5), 30.0, 30.0);
+    icon.frame = CGRectMake(floor((height - 30.0) * 0.5), floor((height - 30.0) * 0.5), 30.0, 30.0);
     icon.tintColor = MMNormalColor(host.traitCollection);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
