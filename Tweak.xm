@@ -743,7 +743,7 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat insetX = 2.0;
+    CGFloat insetX = 0.5;
     CGFloat insetY = -0.5;
     CGRect frame = CGRectInset(slot, insetX, insetY);
     frame.origin.y = 0.0;
