@@ -780,12 +780,15 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat sideInset = 0.8;
-    CGFloat verticalInset = 1.0;
-    return CGRectMake(CGRectGetMinX(slot) + sideInset,
-                      verticalInset,
-                      CGRectGetWidth(slot) - sideInset * 2.0,
-                      CGRectGetHeight(host.bounds) - verticalInset * 2.0);
+    CGFloat verticalInset = 1.2;
+    CGFloat targetHeight = CGRectGetHeight(host.bounds) - verticalInset * 2.0;
+    CGFloat targetWidth = MAX(CGRectGetWidth(slot) - 2.0, targetHeight * 1.42);
+    CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
+    CGFloat minX = 1.0;
+    CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - 1.0;
+    if (x < minX) x = minX;
+    if (x > maxX) x = maxX;
+    return CGRectMake(x, verticalInset, targetWidth, targetHeight);
 }
 
 static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger count) {
