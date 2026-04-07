@@ -100,8 +100,6 @@ static void MMEnsureLiquidAnimation(CAGradientLayer *layer, NSString *key) {
 static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     if (!view) return;
 
-    BOOL dark = MMIsDark(view.traitCollection);
-
     UIView *core = [view viewWithTag:kMMFloatingCoreTag];
     if (!core) {
         core = [UIView new];
@@ -111,42 +109,23 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     }
     core.frame = CGRectInset(view.bounds, capsuleStyle ? 1.0 : 1.4, capsuleStyle ? 1.0 : 1.4);
     MMSetRadius(core, core.bounds.size.height * 0.5);
+    if (@available(iOS 13.0, *)) core.layer.cornerCurve = kCACornerCurveContinuous;
     core.clipsToBounds = YES;
+    core.layer.masksToBounds = YES;
+
+    BOOL dark = MMIsDark(view.traitCollection);
+
     if (capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.18 : 0.20)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.22 : 0.26)];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.08 : 0.10)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.12 : 0.14)];
     }
-
-    UIView *outerGlow = [view viewWithTag:kMMFloatingOuterGlowTag];
-    if (!outerGlow) {
-        outerGlow = [UIView new];
-        outerGlow.tag = kMMFloatingOuterGlowTag;
-        outerGlow.userInteractionEnabled = NO;
-        [view insertSubview:outerGlow aboveSubview:core];
-    }
-    outerGlow.frame = view.bounds;
-    MMSetRadius(outerGlow, outerGlow.bounds.size.height * 0.5);
-    outerGlow.backgroundColor = [UIColor clearColor];
-    outerGlow.clipsToBounds = NO;
-
-    CAGradientLayer *specBand = MMEnsureGradient(outerGlow, capsuleStyle ? @"capsule_spec_band" : @"host_spec_band");
-    specBand.frame = CGRectInset(outerGlow.bounds, -outerGlow.bounds.size.width * 0.28, 0.0);
-    specBand.startPoint = CGPointMake(0.0, 0.2);
-    specBand.endPoint = CGPointMake(1.0, 0.8);
-    specBand.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.14 : 0.18) : (dark ? 0.10 : 0.12))].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
-    ];
-    specBand.locations = @[@(-0.35), @(-0.08), @(0.18)];
-    MMEnsureLiquidAnimation(specBand, capsuleStyle ? @"capsule_spec_band_anim" : @"host_spec_band_anim");
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
     if (!shine) {
@@ -157,39 +136,37 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     }
     shine.frame = CGRectInset(view.bounds, 0.8, 0.8);
     MMSetRadius(shine, shine.bounds.size.height * 0.5);
+    if (@available(iOS 13.0, *)) shine.layer.cornerCurve = kCACornerCurveContinuous;
     shine.backgroundColor = [UIColor clearColor];
     shine.clipsToBounds = YES;
+    shine.layer.masksToBounds = YES;
+
+    CAGradientLayer *moving = MMEnsureGradient(shine, capsuleStyle ? @"capsule_move" : @"host_move");
+    moving.frame = CGRectInset(shine.bounds, -shine.bounds.size.width * 0.35, 0.0);
+    moving.startPoint = CGPointMake(0.0, 0.0);
+    moving.endPoint = CGPointMake(1.0, 1.0);
+    moving.colors = @[
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.20 : 0.22) : (dark ? 0.12 : 0.14))].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
+    ];
+    moving.locations = @[@(-0.35), @(-0.08), @(0.18)];
+    moving.cornerRadius = shine.bounds.size.height * 0.5;
+    moving.masksToBounds = YES;
+    MMEnsureLiquidAnimation(moving, capsuleStyle ? @"capsule_move_anim" : @"host_move_anim");
 
     CAGradientLayer *topLine = MMEnsureGradient(shine, capsuleStyle ? @"capsule_top" : @"host_top");
     topLine.frame = shine.bounds;
     topLine.startPoint = CGPointMake(0.5, 0.0);
     topLine.endPoint = CGPointMake(0.5, 1.0);
     topLine.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.30 : 0.38) : (dark ? 0.18 : 0.24))].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.34 : 0.42) : (dark ? 0.22 : 0.30))].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.08 : 0.10) : (dark ? 0.04 : 0.05))].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
     ];
-    topLine.locations = @[@0.0, @0.12, @0.34];
-
-    CAGradientLayer *diagA = MMEnsureGradient(shine, capsuleStyle ? @"capsule_diag_a" : @"host_diag_a");
-    diagA.frame = shine.bounds;
-    diagA.startPoint = CGPointMake(0.0, 0.0);
-    diagA.endPoint = CGPointMake(1.0, 1.0);
-    diagA.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? 0.22 : 0.16)].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
-    ];
-    diagA.locations = @[@0.0, @0.34];
-
-    CAGradientLayer *diagB = MMEnsureGradient(shine, capsuleStyle ? @"capsule_diag_b" : @"host_diag_b");
-    diagB.frame = shine.bounds;
-    diagB.startPoint = CGPointMake(1.0, 0.0);
-    diagB.endPoint = CGPointMake(0.0, 1.0);
-    diagB.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? 0.12 : 0.08)].CGColor
-    ];
-    diagB.locations = @[@0.62, @1.0];
+    topLine.locations = @[@0.0, @0.14, @0.38];
+    topLine.cornerRadius = shine.bounds.size.height * 0.5;
+    topLine.masksToBounds = YES;
 
     UIView *edge = [view viewWithTag:kMMFloatingEdgeTag];
     if (!edge) {
@@ -200,9 +177,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     }
     edge.frame = view.bounds;
     MMSetRadius(edge, edge.bounds.size.height * 0.5);
-    edge.layer.borderWidth = capsuleStyle ? 0.90 : 0.82;
-    edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.18 : 0.24) : (dark ? 0.12 : 0.18))].CGColor;
+    if (@available(iOS 13.0, *)) edge.layer.cornerCurve = kCACornerCurveContinuous;
+    edge.layer.borderWidth = capsuleStyle ? 0.92 : 0.88;
+    edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.20 : 0.28) : (dark ? 0.14 : 0.22))].CGColor;
     edge.backgroundColor = [UIColor clearColor];
+    edge.clipsToBounds = YES;
+    edge.layer.masksToBounds = YES;
 
     UIView *innerEdge = [view viewWithTag:kMMFloatingInnerEdgeTag];
     if (!innerEdge) {
@@ -211,16 +191,20 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         innerEdge.userInteractionEnabled = NO;
         [view addSubview:innerEdge];
     }
-    innerEdge.frame = CGRectInset(view.bounds, 1.35, 1.35);
+    innerEdge.frame = CGRectInset(view.bounds, 1.3, 1.3);
     MMSetRadius(innerEdge, innerEdge.bounds.size.height * 0.5);
-    innerEdge.layer.borderWidth = capsuleStyle ? 0.46 : 0.42;
-    innerEdge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.28 : 0.34) : (dark ? 0.16 : 0.22))].CGColor;
+    if (@available(iOS 13.0, *)) innerEdge.layer.cornerCurve = kCACornerCurveContinuous;
+    innerEdge.layer.borderWidth = capsuleStyle ? 0.52 : 0.48;
+    innerEdge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(capsuleStyle ? (dark ? 0.24 : 0.34) : (dark ? 0.18 : 0.26))].CGColor;
     innerEdge.backgroundColor = [UIColor clearColor];
+    innerEdge.clipsToBounds = YES;
+    innerEdge.layer.masksToBounds = YES;
 
-    view.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(capsuleStyle ? (dark ? 0.08 : 0.06) : (dark ? 0.10 : 0.08))].CGColor;
+    view.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(capsuleStyle ? (dark ? 0.12 : 0.08) : (dark ? 0.16 : 0.10))].CGColor;
     view.layer.shadowOpacity = 1.0;
-    view.layer.shadowRadius = capsuleStyle ? 6.0 : 10.0;
-    view.layer.shadowOffset = CGSizeMake(0, capsuleStyle ? 1.0 : 5.0);
+    view.layer.shadowRadius = capsuleStyle ? 8.0 : 12.0;
+    view.layer.shadowOffset = CGSizeMake(0, capsuleStyle ? 1.0 : 6.0);
+    view.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:view.bounds cornerRadius:view.bounds.size.height * 0.5].CGPath;
 }
 
 static BOOL MMIsDark(UITraitCollection *trait) {
@@ -701,6 +685,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
     MMSetRadius(blur, host.bounds.size.height * 0.5);
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
+    blur.layer.cornerRadius = host.bounds.size.height * 0.5;
     return blur;
 }
 
@@ -1148,6 +1133,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     MMSetRadius(blur, dockSize * 0.5);
     blur.layer.masksToBounds = YES;
     blur.clipsToBounds = YES;
+    blur.layer.cornerRadius = host.bounds.size.height * 0.5;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
     icon.frame = CGRectMake(floor((dockSize - 28.0) * 0.5), floor((dockSize - 28.0) * 0.5), 28.0, 28.0);
