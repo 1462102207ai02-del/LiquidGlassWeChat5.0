@@ -374,27 +374,6 @@ static UIViewController *MMCurrentContentController(UIViewController *vc) {
 static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return YES;
     if (kMMSettingsPresented) return NO;
-
-    UIViewController *content = MMCurrentContentController(vc);
-    NSString *name = NSStringFromClass([content class]);
-    if ([name isEqualToString:@"MinimizeViewController"]) return YES;
-
-    id selected = nil;
-    @try {
-        if ([vc respondsToSelector:@selector(selectedViewController)]) {
-            selected = [vc valueForKey:@"selectedViewController"];
-        }
-    } @catch (__unused NSException *e) {
-    }
-
-    if ([selected isKindOfClass:[UINavigationController class]]) {
-        UINavigationController *nav = (UINavigationController *)selected;
-        if ([nav.viewControllers count] > 0 && nav.topViewController != [nav.viewControllers firstObject]) return YES;
-        if (nav.presentedViewController && !kMMSettingsPresented) return YES;
-    } else if ([content isKindOfClass:[UIViewController class]]) {
-        if (content.presentedViewController && !kMMSettingsPresented) return YES;
-    }
-
     return NO;
 }
 
@@ -756,8 +735,8 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat insetX = 7.0;
-    CGFloat insetY = 0.6;
+    CGFloat insetX = 6.5;
+    CGFloat insetY = 0.2;
     return CGRectInset(slot, insetX, insetY);
 }
 
@@ -884,7 +863,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
             MMSelectIndex(button, button.mm_index);
         }] forControlEvents:UIControlEventTouchUpInside];
 
-        CGRect frame = (i == selectedIndex) ? MMCapsuleFrame(host, i, count) : MMSlotFrame(host, i, count);
+        CGRect frame = MMSlotFrame(host, i, count);
         button.frame = frame;
         button.backgroundColor = [UIColor clearColor];
 
@@ -1113,8 +1092,8 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat dockSize = 72.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - 80.0 - 11.0 + (80.0 - dockSize) * 0.5;
+    CGFloat dockSize = 80.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 11.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
     host.frame = CGRectMake(x, y, dockSize, dockSize);
@@ -1139,7 +1118,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     blur.layer.cornerRadius = host.bounds.size.height * 0.5;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
-    icon.frame = CGRectMake(floor((dockSize - 28.0) * 0.5), floor((dockSize - 28.0) * 0.5), 28.0, 28.0);
+    icon.frame = CGRectMake(floor((dockSize - 30.0) * 0.5), floor((dockSize - 30.0) * 0.5), 30.0, 30.0);
     icon.tintColor = MMNormalColor(host.traitCollection);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -1183,7 +1162,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat gap = 12.0;
-    CGFloat dockSize = 72.0;
+    CGFloat dockSize = 80.0;
     CGFloat height = 78.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 11.0;
 
@@ -1205,8 +1184,16 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     MMUpdateButtons(vc, tabBar, host);
 
     MMSetFloatingVisible(host, nil, YES);
+    host.hidden = NO;
+    host.alpha = 1.0;
     [root bringSubviewToFront:host];
     MMUpdateDockSearchButton(vc);
+    UIView *dockHostNow = [root viewWithTag:kMMDockSearchHostTag];
+    if (dockHostNow) {
+        dockHostNow.hidden = NO;
+        dockHostNow.alpha = 1.0;
+        [root bringSubviewToFront:dockHostNow];
+    }
 
     kMMUpdatingLayout = NO;
 }
@@ -1261,6 +1248,41 @@ static void MMRequestFloatingBarRefresh(UIViewController *vc) {
                 break;
             }
         }
+    }
+}
+
+%end
+
+
+%hook UIViewController
+
+- (void)viewWillAppear:(BOOL)animated {
+    %orig(animated);
+    UIResponder *r = self;
+    while (r) {
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                MMRequestFloatingBarRefresh(vc);
+                break;
+            }
+        }
+        r = [r nextResponder];
+    }
+}
+
+- (void)viewDidDisappear:(BOOL)animated {
+    %orig(animated);
+    UIResponder *r = self;
+    while (r) {
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                MMRequestFloatingBarRefresh(vc);
+                break;
+            }
+        }
+        r = [r nextResponder];
     }
 }
 
