@@ -148,11 +148,11 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         moving.startPoint = CGPointMake(0.5, 0.0);
         moving.endPoint = CGPointMake(0.5, 1.0);
         moving.colors = @[
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.10 : 0.12)].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.04 : 0.05)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.08 : 0.10)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.03 : 0.04)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
-        moving.locations = @[@0.0, @0.18, @0.48];
+        moving.locations = @[@0.0, @0.16, @0.42];
         moving.cornerRadius = shine.bounds.size.height * 0.5;
         moving.masksToBounds = YES;
         [moving removeAnimationForKey:@"capsule_move_anim"];
@@ -162,7 +162,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.endPoint = CGPointMake(1.0, 0.0);
         topLine.colors = @[
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.22 : 0.26)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.16 : 0.20)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
         topLine.locations = @[@0.0, @0.5, @1.0];
@@ -200,10 +200,10 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     CGFloat outerWidth = 1.02;
     CGFloat innerWidth = 0.54;
     if (capsuleStyle) {
-        outerAlpha = dark ? 0.13 : 0.16;
-        innerAlpha = dark ? 0.16 : 0.20;
-        outerWidth = 0.80;
-        innerWidth = 0.38;
+        outerAlpha = dark ? 0.11 : 0.14;
+        innerAlpha = dark ? 0.14 : 0.18;
+        outerWidth = 0.74;
+        innerWidth = 0.34;
     }
 
     UIView *edge = [view viewWithTag:kMMFloatingEdgeTag];
@@ -764,7 +764,7 @@ static void MMStyleHost(UIView *host) {
 }
 
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
-    CGFloat side = 28.0;
+    CGFloat side = 34.0;
     CGFloat top = 4.5;
     CGFloat totalW = host.bounds.size.width - side * 2.0;
     CGFloat slotW = floor(totalW / MAX(count, 1));
@@ -776,10 +776,14 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat verticalInset = 0.4;
+    CGFloat verticalInset = 0.6;
     CGFloat targetHeight = CGRectGetHeight(host.bounds) - verticalInset * 2.0;
-    CGFloat targetWidth = CGRectGetWidth(slot) - 8.0;
+    CGFloat targetWidth = CGRectGetWidth(slot) - 10.0;
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
+    CGFloat minX = 4.0;
+    CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - 4.0;
+    if (x < minX) x = minX;
+    if (x > maxX) x = maxX;
     return CGRectMake(x, verticalInset, targetWidth, targetHeight);
 }
 
