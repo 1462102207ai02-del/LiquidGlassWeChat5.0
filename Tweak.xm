@@ -123,12 +123,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.075 : 0.085)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.055 : 0.060)];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.038 : 0.034)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.026 : 0.022)];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -167,7 +167,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.endPoint = CGPointMake(1.0, 0.0);
         topLine.colors = @[
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.15 : 0.18)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.20 : 0.24)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
         topLine.locations = @[@0.0, @0.5, @1.0];
@@ -200,10 +200,10 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.masksToBounds = YES;
     }
 
-    CGFloat outerAlpha = dark ? 0.20 : 0.28;
-    CGFloat innerAlpha = dark ? 0.24 : 0.34;
-    CGFloat outerWidth = 1.02;
-    CGFloat innerWidth = 0.54;
+    CGFloat outerAlpha = dark ? 0.28 : 0.34;
+    CGFloat innerAlpha = dark ? 0.34 : 0.42;
+    CGFloat outerWidth = 1.20;
+    CGFloat innerWidth = 0.70;
     if (capsuleStyle) {
         outerAlpha = dark ? 0.11 : 0.14;
         innerAlpha = dark ? 0.14 : 0.18;
@@ -343,11 +343,11 @@ static void MMRemoveColor(NSString *prefix, UITraitCollection *trait) {
 }
 
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(28, 28, 30, 1.0) : MMRGBA(250, 250, 252, 1.0));
+    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(52, 58, 68, 1.0) : MMRGBA(252, 254, 255, 1.0));
 }
 
 static UIColor *MMCapsuleTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(36, 36, 40, 1.0) : MMRGBA(245, 245, 247, 1.0));
+    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(78, 86, 98, 1.0) : MMRGBA(255, 255, 255, 1.0));
 }
 
 static UIColor *MMSelectedColor(UITraitCollection *trait) {
@@ -492,19 +492,24 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
 
         if (nearest != self.currentIndex) {
             self.currentIndex = nearest;
-            [UIView performWithoutAnimation:^{
-                MMSelectIndex(host, nearest);
-            }];
         }
     } else if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled || gesture.state == UIGestureRecognizerStateFailed) {
         self.currentIndex = nearest;
-        [UIView animateWithDuration:0.16 delay:0 options:UIViewAnimationOptionCurveEaseOut|UIViewAnimationOptionBeginFromCurrentState animations:^{
+        [UIView animateWithDuration:0.34
+                              delay:0
+             usingSpringWithDamping:0.82
+              initialSpringVelocity:0.15
+                            options:UIViewAnimationOptionCurveEaseOut|UIViewAnimationOptionBeginFromCurrentState|UIViewAnimationOptionAllowUserInteraction
+                         animations:^{
             UIView *capsule = MMCapsule(host);
             capsule.frame = MMCapsuleFrame(host, nearest, count);
             MMSetRadius(capsule, CGRectGetHeight(capsule.frame) * 0.5);
+            MMApplyLiquidGlass(capsule, YES);
         } completion:^(__unused BOOL finished) {
             MMSelectIndex(host, nearest);
-            MMRequestFloatingBarRefresh(vc);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.03 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                MMRequestFloatingBarRefresh(vc);
+            });
         }];
     }
 }
