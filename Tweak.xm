@@ -768,37 +768,31 @@ static void MMStyleHost(UIView *host) {
 }
 
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
+    CGFloat hostW = CGRectGetWidth(host.bounds);
     CGFloat hostH = CGRectGetHeight(host.bounds);
     CGFloat top = round(hostH * 0.075);
-    CGFloat side = round(hostH * 0.42);
-    CGFloat usableW = CGRectGetWidth(host.bounds) - side * 2.0;
-    CGFloat slotW = floor(usableW / MAX(count, 1));
     CGFloat slotH = hostH - top * 2.0;
-    CGFloat x = side + slotW * index;
-    CGFloat w = (index == count - 1) ? (CGRectGetWidth(host.bounds) - side - x) : slotW;
-    return CGRectMake(x, top, w, slotH);
+
+    CGFloat sideInset = 26.0;
+    CGFloat interGap = 18.0;
+    CGFloat usableW = hostW - sideInset * 2.0 - interGap * (MAX(count, 1) - 1);
+    CGFloat slotW = floor(usableW / MAX(count, 1));
+
+    CGFloat x = sideInset + index * (slotW + interGap);
+    if (index == count - 1) {
+        slotW = hostW - sideInset - x;
+    }
+    return CGRectMake(x, top, slotW, slotH);
 }
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat verticalInset = round(hostH * 0.02);
+    CGFloat verticalInset = 0.8;
     CGFloat targetHeight = hostH - verticalInset * 2.0;
-    CGFloat horizontalInset = round(hostH * 0.18);
-    CGFloat targetWidth = MAX(CGRectGetWidth(slot) - horizontalInset * 2.0, targetHeight * 1.06);
-
-    CGFloat centeredX = CGRectGetMidX(slot) - targetWidth * 0.5;
-    CGFloat x = centeredX;
-    CGFloat edgePad = 1.2;
-
-    if (index == 0) {
-        CGFloat minX = edgePad;
-        x = centeredX - (centeredX - minX) * 0.38;
-    } else if (index == count - 1) {
-        CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - edgePad;
-        x = centeredX + (maxX - centeredX) * 0.38;
-    }
-
+    CGFloat horizontalInset = 4.0;
+    CGFloat targetWidth = CGRectGetWidth(slot) - horizontalInset * 2.0;
+    CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
     return CGRectMake(x, verticalInset, targetWidth, targetHeight);
 }
 
