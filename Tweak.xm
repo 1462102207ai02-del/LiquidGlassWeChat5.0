@@ -1049,6 +1049,7 @@ static void MMApplyButtonSelectionLayout(UIView *container, UIView *host, UITabB
 static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host) {
     UIView *container = MMButtonsContainer(host);
     NSArray *items = tabBar.items;
+    NSArray *originalItemViews = MMOriginalItemViews(tabBar);
     NSInteger count = [items count];
     if (count <= 0) return;
 
