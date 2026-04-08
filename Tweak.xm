@@ -925,7 +925,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
             MMSelectIndex(button, button.mm_index);
         }] forControlEvents:UIControlEventTouchUpInside];
 
-        CGRect frame = MMSlotFrame(host, i, count);
+        CGRect frame = (i == selectedIndex) ? MMCapsuleFrame(host, i, count) : MMSlotFrame(host, i, count);
         button.frame = frame;
         button.backgroundColor = [UIColor clearColor];
 
