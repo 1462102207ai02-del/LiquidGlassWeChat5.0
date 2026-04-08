@@ -123,12 +123,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.10 : 0.11)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.075 : 0.085)];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.055 : 0.05)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.038 : 0.034)];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -200,8 +200,8 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.masksToBounds = YES;
     }
 
-    CGFloat outerAlpha = dark ? 0.16 : 0.22;
-    CGFloat innerAlpha = dark ? 0.20 : 0.28;
+    CGFloat outerAlpha = dark ? 0.20 : 0.28;
+    CGFloat innerAlpha = dark ? 0.24 : 0.34;
     CGFloat outerWidth = 1.02;
     CGFloat innerWidth = 0.54;
     if (capsuleStyle) {
@@ -246,7 +246,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     view.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(capsuleStyle ? (dark ? 0.08 : 0.04) : (dark ? 0.14 : 0.09))].CGColor;
     view.layer.shadowOpacity = 1.0;
     view.layer.shadowRadius = capsuleStyle ? 5.5 : 11.0;
-    view.layer.shadowOffset = CGSizeMake(0, capsuleStyle ? 1.0 : 5.0);
+    view.layer.shadowOffset = CGSizeMake(0, capsuleStyle ? 1.5 : 6.0);
     view.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:view.bounds cornerRadius:view.bounds.size.height * 0.5].CGPath;
 }
 
@@ -477,6 +477,10 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     if (x > maxX) x = maxX;
     CGRect activeFrame = CGRectMake(x, CGRectGetMinY(baseCapsule), CGRectGetWidth(baseCapsule), CGRectGetHeight(baseCapsule));
 
+    if (gesture.state == UIGestureRecognizerStateBegan) {
+        self.currentIndex = nearest;
+    }
+
     if (gesture.state == UIGestureRecognizerStateBegan || gesture.state == UIGestureRecognizerStateChanged) {
         UIView *capsule = MMCapsule(host);
         [CATransaction begin];
@@ -485,9 +489,16 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
         MMSetRadius(capsule, CGRectGetHeight(activeFrame) * 0.5);
         MMApplyLiquidGlass(capsule, YES);
         [CATransaction commit];
+
+        if (nearest != self.currentIndex) {
+            self.currentIndex = nearest;
+            [UIView performWithoutAnimation:^{
+                MMSelectIndex(host, nearest);
+            }];
+        }
     } else if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled || gesture.state == UIGestureRecognizerStateFailed) {
         self.currentIndex = nearest;
-        [UIView animateWithDuration:0.18 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        [UIView animateWithDuration:0.16 delay:0 options:UIViewAnimationOptionCurveEaseOut|UIViewAnimationOptionBeginFromCurrentState animations:^{
             UIView *capsule = MMCapsule(host);
             capsule.frame = MMCapsuleFrame(host, nearest, count);
             MMSetRadius(capsule, CGRectGetHeight(capsule.frame) * 0.5);
