@@ -200,10 +200,10 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.masksToBounds = YES;
     }
 
-    CGFloat outerAlpha = dark ? 0.28 : 0.34;
-    CGFloat innerAlpha = dark ? 0.34 : 0.42;
-    CGFloat outerWidth = 1.20;
-    CGFloat innerWidth = 0.70;
+    CGFloat outerAlpha = dark ? 0.42 : 0.48;
+    CGFloat innerAlpha = dark ? 0.52 : 0.60;
+    CGFloat outerWidth = 1.55;
+    CGFloat innerWidth = 0.92;
     if (capsuleStyle) {
         outerAlpha = dark ? 0.11 : 0.14;
         innerAlpha = dark ? 0.14 : 0.18;
@@ -857,7 +857,12 @@ static UIView *MMButtonsContainer(UIView *host) {
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, host.bounds.size.height * 0.5);
     host.backgroundColor = [UIColor clearColor];
-    host.layer.borderWidth = 0.0;
+    host.layer.borderWidth = 1.05;
+    host.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.26 : 0.34)].CGColor;
+    host.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(MMIsDark(host.traitCollection) ? 0.30 : 0.18)].CGColor;
+    host.layer.shadowOpacity = 1.0;
+    host.layer.shadowRadius = 24.0;
+    host.layer.shadowOffset = CGSizeMake(0, 10.0);
     MMApplyLiquidGlass(host, NO);
 }
 
