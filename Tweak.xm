@@ -152,11 +152,11 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         moving.startPoint = CGPointMake(0.5, 0.0);
         moving.endPoint = CGPointMake(0.5, 1.0);
         moving.colors = @[
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.10 : 0.12)].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.04 : 0.05)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.08 : 0.10)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.03 : 0.04)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
-        moving.locations = @[@0.0, @0.18, @0.48];
+        moving.locations = @[@0.0, @0.14, @0.38];
         moving.cornerRadius = shine.bounds.size.height * 0.5;
         moving.masksToBounds = YES;
         [moving removeAnimationForKey:@"capsule_move_anim"];
@@ -166,7 +166,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.endPoint = CGPointMake(1.0, 0.0);
         topLine.colors = @[
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.22 : 0.26)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.15 : 0.18)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
         topLine.locations = @[@0.0, @0.5, @1.0];
@@ -770,11 +770,11 @@ static void MMStyleHost(UIView *host) {
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat hostW = CGRectGetWidth(host.bounds);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat top = round(hostH * 0.075);
+    CGFloat top = 5.0;
     CGFloat slotH = hostH - top * 2.0;
 
-    CGFloat sideInset = 26.0;
-    CGFloat interGap = 18.0;
+    CGFloat sideInset = 24.0;
+    CGFloat interGap = 16.0;
     CGFloat usableW = hostW - sideInset * 2.0 - interGap * (MAX(count, 1) - 1);
     CGFloat slotW = floor(usableW / MAX(count, 1));
 
@@ -790,9 +790,15 @@ static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat hostH = CGRectGetHeight(host.bounds);
     CGFloat verticalInset = 0.8;
     CGFloat targetHeight = hostH - verticalInset * 2.0;
-    CGFloat horizontalInset = 4.0;
-    CGFloat targetWidth = CGRectGetWidth(slot) - horizontalInset * 2.0;
+    CGFloat targetWidth = MAX(CGRectGetWidth(slot) - 6.0, targetHeight * 1.18);
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
+
+    if (index == 0) {
+        x = MAX(2.0, x - 2.0);
+    } else if (index == count - 1) {
+        x = MIN(CGRectGetWidth(host.bounds) - targetWidth - 2.0, x + 2.0);
+    }
+
     return CGRectMake(x, verticalInset, targetWidth, targetHeight);
 }
 
@@ -1147,7 +1153,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     }
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat margin = 10.0;
+    CGFloat margin = 8.0;
     CGFloat dockSize = 80.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 11.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
@@ -1216,8 +1222,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     }
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat margin = 10.0;
-    CGFloat gap = 12.0;
+    CGFloat margin = 8.0;
+    CGFloat gap = 10.0;
     CGFloat dockSize = 80.0;
     CGFloat height = 78.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 11.0;
