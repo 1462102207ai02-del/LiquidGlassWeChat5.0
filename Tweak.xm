@@ -123,12 +123,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.14 : 0.16)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.10 : 0.11)];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.08 : 0.075)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.055 : 0.05)];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -200,8 +200,8 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.masksToBounds = YES;
     }
 
-    CGFloat outerAlpha = dark ? 0.20 : 0.28;
-    CGFloat innerAlpha = dark ? 0.24 : 0.34;
+    CGFloat outerAlpha = dark ? 0.16 : 0.22;
+    CGFloat innerAlpha = dark ? 0.20 : 0.28;
     CGFloat outerWidth = 1.02;
     CGFloat innerWidth = 0.54;
     if (capsuleStyle) {
@@ -479,17 +479,23 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
     CGRect activeFrame = CGRectMake(x, CGRectGetMinY(baseCapsule), CGRectGetWidth(baseCapsule), CGRectGetHeight(baseCapsule));
 
     if (gesture.state == UIGestureRecognizerStateBegan || gesture.state == UIGestureRecognizerStateChanged) {
-        self.currentIndex = nearest;
         UIView *capsule = MMCapsule(host);
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
         capsule.frame = activeFrame;
         MMSetRadius(capsule, CGRectGetHeight(activeFrame) * 0.5);
         MMApplyLiquidGlass(capsule, YES);
-        UIView *container = MMButtonsContainer(host);
-        MMApplyButtonSelectionLayout(container, host, tabBar, originalItemViews, nearest, activeFrame, YES);
+        [CATransaction commit];
     } else if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled || gesture.state == UIGestureRecognizerStateFailed) {
         self.currentIndex = nearest;
-        MMSelectIndex(host, nearest);
-        MMRequestFloatingBarRefresh(vc);
+        [UIView animateWithDuration:0.18 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+            UIView *capsule = MMCapsule(host);
+            capsule.frame = MMCapsuleFrame(host, nearest, count);
+            MMSetRadius(capsule, CGRectGetHeight(capsule.frame) * 0.5);
+        } completion:^(__unused BOOL finished) {
+            MMSelectIndex(host, nearest);
+            MMRequestFloatingBarRefresh(vc);
+        }];
     }
 }
 
