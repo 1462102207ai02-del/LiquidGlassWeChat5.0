@@ -768,27 +768,25 @@ static void MMStyleHost(UIView *host) {
 }
 
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
-    CGFloat side = 22.0;
-    CGFloat top = 5.5;
-    CGFloat totalW = host.bounds.size.width - side * 2.0;
-    CGFloat slotW = floor(totalW / MAX(count, 1));
-    CGFloat slotH = host.bounds.size.height - top * 2.0;
+    CGFloat hostH = CGRectGetHeight(host.bounds);
+    CGFloat top = round(hostH * 0.075);
+    CGFloat side = round(hostH * 0.34);
+    CGFloat usableW = CGRectGetWidth(host.bounds) - side * 2.0;
+    CGFloat slotW = floor(usableW / MAX(count, 1));
+    CGFloat slotH = hostH - top * 2.0;
     CGFloat x = side + slotW * index;
-    CGFloat w = (index == count - 1) ? (host.bounds.size.width - side - x) : slotW;
+    CGFloat w = (index == count - 1) ? (CGRectGetWidth(host.bounds) - side - x) : slotW;
     return CGRectMake(x, top, w, slotH);
 }
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat verticalInset = 0.9;
-    CGFloat targetHeight = CGRectGetHeight(host.bounds) - verticalInset * 2.0;
-    CGFloat baseWidth = CGRectGetWidth(slot) - 10.0;
-    CGFloat targetWidth = MAX(baseWidth, targetHeight * 1.18);
+    CGFloat hostH = CGRectGetHeight(host.bounds);
+    CGFloat verticalInset = round(hostH * 0.02);
+    CGFloat targetHeight = hostH - verticalInset * 2.0;
+    CGFloat horizontalInset = round(hostH * 0.20);
+    CGFloat targetWidth = MAX(CGRectGetWidth(slot) - horizontalInset * 2.0, targetHeight * 1.08);
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
-    CGFloat minX = 5.0;
-    CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - 5.0;
-    if (x < minX) x = minX;
-    if (x > maxX) x = maxX;
     return CGRectMake(x, verticalInset, targetWidth, targetHeight);
 }
 
