@@ -67,6 +67,7 @@ static UIView *MMFindSearchBarInView(UIView *root);
 static CAGradientLayer *MMEnsureGradient(UIView *view, NSString *name);
 static void MMEnsureLiquidAnimation(CAGradientLayer *layer, NSString *key);
 static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle);
+static void MMApplyButtonSelectionLayout(UIView *container, UIView *host, UITabBar *tabBar, NSArray *originalItemViews, NSInteger selectedIndex, CGRect activeCapsuleFrame, BOOL useActiveCapsuleFrame);
 
 
 
@@ -432,6 +433,78 @@ static BOOL MMShouldHideFloatingBar(UIViewController *vc) {
 @implementation MMFloatingTabButton
 @end
 
+
+@interface MMFloatingDragProxy : NSObject
+@property (nonatomic, assign) UIViewController *mainTabVC;
+@property (nonatomic, assign) NSInteger currentIndex;
+@end
+
+@implementation MMFloatingDragProxy
+
+- (NSInteger)nearestIndexForHost:(UIView *)host count:(NSInteger)count x:(CGFloat)x {
+    NSInteger nearest = 0;
+    CGFloat best = CGFLOAT_MAX;
+    for (NSInteger i = 0; i < count; i++) {
+        CGRect slot = MMSlotFrame(host, i, count);
+        CGFloat mid = CGRectGetMidX(slot);
+        CGFloat d = fabs(mid - x);
+        if (d < best) {
+            best = d;
+            nearest = i;
+        }
+    }
+    return nearest;
+}
+
+- (void)handlePan:(UIPanGestureRecognizer *)gesture {
+    UIView *host = gesture.view;
+    UIViewController *vc = self.mainTabVC;
+    if (!host || !vc) return;
+
+    UITabBar *tabBar = MMFindTabBar(vc);
+    NSArray *items = tabBar.items;
+    NSArray *originalItemViews = MMOriginalItemViews(tabBar);
+    NSInteger count = items.count;
+    if (count <= 0) return;
+
+    CGPoint location = [gesture locationInView:host];
+    NSInteger nearest = [self nearestIndexForHost:host count:count x:location.x];
+    CGRect baseCapsule = MMCapsuleFrame(host, nearest, count);
+
+    CGFloat minX = 1.5;
+    CGFloat maxX = CGRectGetWidth(host.bounds) - CGRectGetWidth(baseCapsule) - 1.5;
+    CGFloat x = location.x - CGRectGetWidth(baseCapsule) * 0.5;
+    if (x < minX) x = minX;
+    if (x > maxX) x = maxX;
+    CGRect activeFrame = CGRectMake(x, CGRectGetMinY(baseCapsule), CGRectGetWidth(baseCapsule), CGRectGetHeight(baseCapsule));
+
+    if (gesture.state == UIGestureRecognizerStateBegan || gesture.state == UIGestureRecognizerStateChanged) {
+        self.currentIndex = nearest;
+        UIView *capsule = MMCapsule(host);
+        capsule.frame = activeFrame;
+        MMSetRadius(capsule, CGRectGetHeight(activeFrame) * 0.5);
+        MMApplyLiquidGlass(capsule, YES);
+        UIView *container = MMButtonsContainer(host);
+        MMApplyButtonSelectionLayout(container, host, tabBar, originalItemViews, nearest, activeFrame, YES);
+    } else if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled || gesture.state == UIGestureRecognizerStateFailed) {
+        self.currentIndex = nearest;
+        MMSelectIndex(host, nearest);
+        MMRequestFloatingBarRefresh(vc);
+    }
+}
+
+@end
+
+static MMFloatingDragProxy *MMSharedFloatingDragProxy(void) {
+    static MMFloatingDragProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMFloatingDragProxy new];
+        proxy.currentIndex = 0;
+    });
+    return proxy;
+}
+
 @interface MMColorPickerProxy : NSObject <UIColorPickerViewControllerDelegate>
 @property (nonatomic, assign) UIViewController *vc;
 @property (nonatomic, copy) NSString *prefix;
@@ -788,17 +861,10 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat verticalInset = 0.8;
+    CGFloat verticalInset = 0.4;
     CGFloat targetHeight = hostH - verticalInset * 2.0;
-    CGFloat targetWidth = MAX(CGRectGetWidth(slot) - 6.0, targetHeight * 1.18);
+    CGFloat targetWidth = MAX(CGRectGetWidth(slot) - 6.0, targetHeight * 1.16);
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
-
-    if (index == 0) {
-        x = MAX(2.0, x - 2.0);
-    } else if (index == count - 1) {
-        x = MIN(CGRectGetWidth(host.bounds) - targetWidth - 2.0, x + 2.0);
-    }
-
     return CGRectMake(x, verticalInset, targetWidth, targetHeight);
 }
 
@@ -900,32 +966,18 @@ static void MMSelectIndex(UIView *view, NSInteger index) {
     }
 }
 
-static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host) {
-    UIView *container = MMButtonsContainer(host);
+
+static void MMApplyButtonSelectionLayout(UIView *container, UIView *host, UITabBar *tabBar, NSArray *originalItemViews, NSInteger selectedIndex, CGRect activeCapsuleFrame, BOOL useActiveCapsuleFrame) {
     NSArray *items = tabBar.items;
-    NSArray *originalItemViews = MMOriginalItemViews(tabBar);
-    NSInteger count = [items count];
-    if (count <= 0) return;
+    NSInteger count = items.count;
 
-    NSInteger selectedIndex = 0;
-    if (tabBar.selectedItem) {
-        NSInteger idx = [items indexOfObject:tabBar.selectedItem];
-        if (idx != NSNotFound) selectedIndex = idx;
-    }
-
-    MMStyleCapsule(host, selectedIndex, count);
-
-    NSMutableSet *validTags = [NSMutableSet set];
     for (NSInteger i = 0; i < count; i++) {
-        [validTags addObject:[NSNumber numberWithInteger:(6000 + i)]];
-        MMFloatingTabButton *button = MMEnsureButton(container, i);
-        button.mm_index = i;
-        [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
-        [button addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull action) {
-            MMSelectIndex(button, button.mm_index);
-        }] forControlEvents:UIControlEventTouchUpInside];
+        MMFloatingTabButton *button = (MMFloatingTabButton *)[container viewWithTag:6000 + i];
+        if (![button isKindOfClass:[MMFloatingTabButton class]]) continue;
 
-        CGRect frame = (i == selectedIndex) ? MMCapsuleFrame(host, i, count) : MMSlotFrame(host, i, count);
+        CGRect frame = (i == selectedIndex)
+            ? (useActiveCapsuleFrame ? activeCapsuleFrame : MMCapsuleFrame(host, i, count))
+            : MMSlotFrame(host, i, count);
         button.frame = frame;
         button.backgroundColor = [UIColor clearColor];
 
@@ -987,6 +1039,51 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         }
         MMSetRadius(button.mm_badgeLabel, 9.0);
     }
+}
+
+static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host) {
+    UIView *container = MMButtonsContainer(host);
+    NSArray *items = tabBar.items;
+    NSArray *originalItemViews = MMOriginalItemViews(tabBar);
+    NSInteger count = [items count];
+    if (count <= 0) return;
+
+    NSInteger selectedIndex = 0;
+    if (tabBar.selectedItem) {
+        NSInteger idx = [items indexOfObject:tabBar.selectedItem];
+        if (idx != NSNotFound) selectedIndex = idx;
+    }
+
+    MMStyleCapsule(host, selectedIndex, count);
+
+    UIPanGestureRecognizer *pan = nil;
+    for (UIGestureRecognizer *gr in host.gestureRecognizers) {
+        if ([gr isKindOfClass:[UIPanGestureRecognizer class]]) {
+            pan = (UIPanGestureRecognizer *)gr;
+            break;
+        }
+    }
+    if (!pan) {
+        pan = [[UIPanGestureRecognizer alloc] initWithTarget:MMSharedFloatingDragProxy() action:@selector(handlePan:)];
+        pan.maximumNumberOfTouches = 1;
+        pan.cancelsTouchesInView = NO;
+        [host addGestureRecognizer:pan];
+    }
+    MMSharedFloatingDragProxy().mainTabVC = vc;
+    MMSharedFloatingDragProxy().currentIndex = selectedIndex;
+
+    NSMutableSet *validTags = [NSMutableSet set];
+    for (NSInteger i = 0; i < count; i++) {
+        [validTags addObject:[NSNumber numberWithInteger:(6000 + i)]];
+        MMFloatingTabButton *button = MMEnsureButton(container, i);
+        button.mm_index = i;
+        [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
+        [button addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull action) {
+            MMSelectIndex(button, button.mm_index);
+        }] forControlEvents:UIControlEventTouchUpInside];
+    }
+
+    MMApplyButtonSelectionLayout(container, host, tabBar, originalItemViews, selectedIndex, CGRectZero, NO);
 
     for (UIView *sub in [[container subviews] copy]) {
         if (![validTags containsObject:[NSNumber numberWithInteger:sub.tag]]) {
