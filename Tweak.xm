@@ -108,11 +108,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
 
     BOOL dark = MMIsDark(view.traitCollection);
 
-    if (capsuleStyle) {
-        core.frame = CGRectInset(view.bounds, 1.2, 1.2);
-    } else {
-        core.frame = CGRectInset(view.bounds, 1.15, 1.15);
-    }
+    core.frame = CGRectInset(view.bounds, capsuleStyle ? 0.9 : 1.1, capsuleStyle ? 0.9 : 1.1);
     MMSetRadius(core, core.bounds.size.height * 0.5);
     if (@available(iOS 13.0, *)) core.layer.cornerCurve = kCACornerCurveContinuous;
     core.clipsToBounds = YES;
@@ -137,7 +133,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         shine.userInteractionEnabled = NO;
         [view addSubview:shine];
     }
-    shine.frame = CGRectInset(view.bounds, 0.65, 0.65);
+    shine.frame = CGRectInset(view.bounds, 0.55, 0.55);
     MMSetRadius(shine, shine.bounds.size.height * 0.5);
     if (@available(iOS 13.0, *)) shine.layer.cornerCurve = kCACornerCurveContinuous;
     shine.backgroundColor = [UIColor clearColor];
@@ -173,12 +169,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.cornerRadius = shine.bounds.size.height * 0.5;
         topLine.masksToBounds = YES;
     } else {
-        moving.frame = CGRectInset(shine.bounds, -shine.bounds.size.width * 0.35, 0.0);
+        moving.frame = CGRectInset(shine.bounds, -shine.bounds.size.width * 0.42, 0.0);
         moving.startPoint = CGPointMake(0.0, 0.0);
         moving.endPoint = CGPointMake(1.0, 1.0);
         moving.colors = @[
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.11 : 0.13)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.15 : 0.18)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
         moving.locations = @[@(-0.35), @(-0.08), @(0.18)];
@@ -190,8 +186,8 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.startPoint = CGPointMake(0.5, 0.0);
         topLine.endPoint = CGPointMake(0.5, 1.0);
         topLine.colors = @[
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.22 : 0.32)].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.03 : 0.05)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.26 : 0.36)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.05 : 0.07)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
         topLine.locations = @[@0.0, @0.12, @0.34];
@@ -768,7 +764,7 @@ static void MMStyleHost(UIView *host) {
 }
 
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
-    CGFloat side = 24.0;
+    CGFloat side = 28.0;
     CGFloat top = 4.5;
     CGFloat totalW = host.bounds.size.width - side * 2.0;
     CGFloat slotW = floor(totalW / MAX(count, 1));
@@ -780,15 +776,10 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat verticalInset = 0.6;
+    CGFloat verticalInset = 0.4;
     CGFloat targetHeight = CGRectGetHeight(host.bounds) - verticalInset * 2.0;
-    CGFloat baseWidth = CGRectGetWidth(slot) - 12.0;
-    CGFloat targetWidth = MAX(baseWidth, targetHeight * 1.12);
+    CGFloat targetWidth = CGRectGetWidth(slot) - 8.0;
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
-    CGFloat minX = 6.0;
-    CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - 6.0;
-    if (x < minX) x = minX;
-    if (x > maxX) x = maxX;
     return CGRectMake(x, verticalInset, targetWidth, targetHeight);
 }
 
@@ -1143,7 +1134,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     }
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat margin = 18.0;
+    CGFloat margin = 12.0;
     CGFloat dockSize = 76.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 11.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
@@ -1212,8 +1203,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     }
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat margin = 18.0;
-    CGFloat gap = 12.0;
+    CGFloat margin = 12.0;
+    CGFloat gap = 10.0;
     CGFloat dockSize = 76.0;
     CGFloat height = 78.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 8.0;
