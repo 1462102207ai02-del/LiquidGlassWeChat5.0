@@ -786,13 +786,17 @@ static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat targetHeight = hostH - verticalInset * 2.0;
     CGFloat horizontalInset = round(hostH * 0.18);
     CGFloat targetWidth = MAX(CGRectGetWidth(slot) - horizontalInset * 2.0, targetHeight * 1.06);
-    CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
 
+    CGFloat centeredX = CGRectGetMidX(slot) - targetWidth * 0.5;
+    CGFloat x = centeredX;
     CGFloat edgePad = 1.2;
+
     if (index == 0) {
-        x = edgePad;
+        CGFloat minX = edgePad;
+        x = centeredX - (centeredX - minX) * 0.38;
     } else if (index == count - 1) {
-        x = CGRectGetWidth(host.bounds) - targetWidth - edgePad;
+        CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - edgePad;
+        x = centeredX + (maxX - centeredX) * 0.38;
     }
 
     return CGRectMake(x, verticalInset, targetWidth, targetHeight);
