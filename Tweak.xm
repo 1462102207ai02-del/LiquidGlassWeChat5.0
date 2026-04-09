@@ -156,12 +156,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.060 : 0.060)];
+        core.backgroundColor = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:1.0];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.120 : 0.130)];
+        core.backgroundColor = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:1.0];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -857,9 +857,9 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
 
     UIView *tint = [host viewWithTag:kMMNativeBackdropTintTag];
     tint.frame = host.bounds;
-    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.002) : MMRGBA(255, 255, 255, 0.006);
+    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.001) : MMRGBA(255, 255, 255, 0.006);
 
-    host.alpha = MMIsDark(root.traitCollection) ? 0.035 : 0.045;
+    host.alpha = MMIsDark(root.traitCollection) ? 0.025 : 0.045;
 
     CAGradientLayer *fade = MMEnsureGradient(host, @"native_backdrop_fade");
     fade.frame = host.bounds;
@@ -905,7 +905,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
     UIColor *tint = MMBackgroundTintColor(host.traitCollection);
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
-    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.045 : 0.060)];
+    blur.backgroundColor = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.10 : 0.18)];
 
     MMSetRadius(blur, host.bounds.size.height * 0.5);
     blur.layer.masksToBounds = YES;
