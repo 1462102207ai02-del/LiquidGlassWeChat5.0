@@ -209,12 +209,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.120 : 0.080)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.090 : 0.040)];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.200 : 0.115)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.165 : 0.105)];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -885,26 +885,50 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     UIView *root = vc.view;
     UIView *host = MMNativeBackdropHost(root);
 
-    CGRect tabBarFrame = tabBar.frame;
-    CGFloat sideInset = 0.0;
-    CGFloat extraBottom = 18.0;
-    host.frame = CGRectMake(CGRectGetMinX(tabBarFrame) + sideInset, CGRectGetMaxY(tabBarFrame) - 2.0, CGRectGetWidth(tabBarFrame) - sideInset * 2.0, extraBottom + 8.0);
-    host.layer.cornerRadius = 0.0;
-    host.layer.masksToBounds = YES;
+    CGFloat inset = MMBottomInset(root);
+    CGFloat margin = 18.0;
+    CGFloat gap = 10.0;
+    CGFloat dockSize = 72.0;
+    CGFloat hostHeight = 70.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - hostHeight - 14.0;
 
-    UIVisualEffectView *blur = (UIVisualEffectView *)[host viewWithTag:kMMNativeBackdropBlurTag];
+    UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
+    UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
+    BOOL showDockSearch = (searchBar != nil);
+
+    CGFloat hostWidth = CGRectGetWidth(root.bounds) - margin * 2.0 - (showDockSearch ? (dockSize + gap) : 0.0);
+    CGRect floatingFrame = CGRectMake(margin, y, hostWidth, hostHeight);
+
+    CGFloat backdropPadX = 14.0;
+    CGFloat backdropPadTop = 10.0;
+    CGFloat backdropPadBottom = 12.0;
+    CGFloat backdropHeight = hostHeight + backdropPadTop + backdropPadBottom;
+    CGFloat backdropX = margin - backdropPadX;
+    CGFloat backdropY = y - backdropPadTop;
+    CGFloat backdropWidth = hostWidth + backdropPadX * 2.0 + (showDockSearch ? (gap + dockSize + 10.0) : 0.0);
+
+    host.frame = CGRectMake(backdropX, backdropY, backdropWidth, backdropHeight);
+    host.layer.cornerRadius = host.bounds.size.height * 0.5;
+    host.layer.masksToBounds = YES;
+    if (@available(iOS 13.0, *)) host.layer.cornerCurve = kCACornerCurveContinuous;
+
+    UIView *blur = [host viewWithTag:kMMNativeBackdropBlurTag];
     blur.frame = host.bounds;
     if ([blur isKindOfClass:[UIVisualEffectView class]]) {
         ((UIVisualEffectView *)blur).effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialLight];
     }
-    blur.layer.cornerRadius = 0.0;
+    blur.layer.cornerRadius = host.bounds.size.height * 0.5;
     blur.layer.masksToBounds = YES;
+    if (@available(iOS 13.0, *)) blur.layer.cornerCurve = kCACornerCurveContinuous;
 
     UIView *tint = [host viewWithTag:kMMNativeBackdropTintTag];
     tint.frame = host.bounds;
-    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(236, 240, 246, 0.08) : MMRGBA(255, 255, 255, 0.14);
+    tint.layer.cornerRadius = host.bounds.size.height * 0.5;
+    tint.layer.masksToBounds = YES;
+    if (@available(iOS 13.0, *)) tint.layer.cornerCurve = kCACornerCurveContinuous;
+    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(236, 240, 246, 0.08) : MMRGBA(255, 255, 255, 0.12);
 
-    host.alpha = MMIsDark(root.traitCollection) ? 0.38 : 0.30;
+    host.alpha = MMIsDark(root.traitCollection) ? 0.32 : 0.52;
     [root insertSubview:host belowSubview:MMHost(root)];
 }
 
@@ -939,7 +963,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
     UIColor *tint = MMBackgroundTintColor(host.traitCollection);
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
-    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.065 : 0.032)];
+    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.050 : 0.014)];
 
     UIView *overlay = [host viewWithTag:kMMPrivateBackdropOverlayTag];
     if (!overlay) {
@@ -1470,7 +1494,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     UIColor *tint = MMBackgroundTintColor(host.traitCollection);
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
-    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.060 : 0.028)];
+    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.048 : 0.014)];
     if ([blur isKindOfClass:[UIVisualEffectView class]]) {
         ((UIVisualEffectView *)blur).effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialLight];
     }
