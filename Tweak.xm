@@ -898,7 +898,6 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     BOOL showDockSearch = (searchBar != nil);
 
     CGFloat hostWidth = CGRectGetWidth(root.bounds) - margin * 2.0 - (showDockSearch ? (dockSize + gap) : 0.0);
-    CGRect floatingFrame = CGRectMake(margin, y, hostWidth, hostHeight);
 
     CGFloat backdropPadX = 14.0;
     CGFloat backdropPadTop = 10.0;
