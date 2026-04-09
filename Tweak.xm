@@ -70,7 +70,6 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
 static void MMHideOriginalTabBarVisuals(UITabBar *tabBar);
 static UIView *MMFindSearchBarInView(UIView *root);
 static CAGradientLayer *MMEnsureGradient(UIView *view, NSString *name);
-static void MMEnsureLiquidAnimation(CAGradientLayer *layer, NSString *key);
 static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle);
 static void MMApplyButtonSelectionLayout(UIView *container, UIView *host, UITabBar *tabBar, NSArray *originalItemViews, NSInteger selectedIndex, CGRect activeCapsuleFrame, BOOL useActiveCapsuleFrame);
 
@@ -86,19 +85,6 @@ static CAGradientLayer *MMEnsureGradient(UIView *view, NSString *name) {
     layer.name = name;
     [view.layer addSublayer:layer];
     return layer;
-}
-
-static void MMEnsureLiquidAnimation(CAGradientLayer *layer, NSString *key) {
-    if ([layer animationForKey:key]) return;
-
-    CABasicAnimation *anim = [CABasicAnimation animationWithKeyPath:@"locations"];
-    anim.fromValue = @[@(-0.35), @(-0.08), @(0.18)];
-    anim.toValue = @[@(0.82), @(1.08), @(1.35)];
-    anim.duration = 4.8;
-    anim.repeatCount = HUGE_VALF;
-    anim.autoreverses = NO;
-    anim.removedOnCompletion = NO;
-    [layer addAnimation:anim forKey:key];
 }
 
 static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
