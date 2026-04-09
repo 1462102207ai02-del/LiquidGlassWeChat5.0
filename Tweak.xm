@@ -17,8 +17,6 @@ static NSInteger const kMMNativeBackdropBlurTag = 990212;
 static NSInteger const kMMNativeBackdropTintTag = 990213;
 static NSInteger const kMMPrivateBackdropTag = 990214;
 static NSInteger const kMMPrivateBackdropOverlayTag = 990215;
-static NSInteger const kMMPrivateCapsuleBackdropTag = 990216;
-static NSInteger const kMMPrivateSearchBackdropTag = 990217;
 
 static NSInteger const kMMDockSearchHostTag = 991201;
 static NSInteger const kMMDockSearchBlurTag = 991202;
