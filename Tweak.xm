@@ -836,8 +836,9 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     CGFloat floatingHeight = 74.0;
     CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 14.0;
 
-    CGFloat blurTop = floatingY - 18.0;
-    CGFloat blurHeight = floatingHeight + 46.0;
+    // 下移 + 更贴近底部
+    CGFloat blurTop = floatingY - 6.0;
+    CGFloat blurHeight = floatingHeight + 28.0;
 
     host.frame = CGRectMake(0.0, blurTop, CGRectGetWidth(root.bounds), blurHeight);
     host.layer.cornerRadius = 0.0;
@@ -848,14 +849,16 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     if ([blur isKindOfClass:[UIVisualEffectView class]]) {
         ((UIVisualEffectView *)blur).effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialLight];
     }
-    blur.layer.cornerRadius = 0.0;
-    blur.layer.masksToBounds = YES;
 
     UIView *tint = [host viewWithTag:kMMNativeBackdropTintTag];
     tint.frame = host.bounds;
-    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.045) : MMRGBA(255, 255, 255, 0.16);
 
-    host.alpha = MMIsDark(root.traitCollection) ? 0.24 : 0.38;
+    // 几乎透明
+    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.02) : MMRGBA(255, 255, 255, 0.05);
+
+    // 整体透明度降低
+    host.alpha = MMIsDark(root.traitCollection) ? 0.18 : 0.22;
+
     [root insertSubview:host belowSubview:MMHost(root)];
 }
 
