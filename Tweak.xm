@@ -156,12 +156,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         UIColor *capsuleTint = MMCapsuleTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [capsuleTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.082 : 0.052)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.060 : 0.060)];
     } else {
         UIColor *bgTint = MMBackgroundTintColor(view.traitCollection);
         CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
         [bgTint getRed:&r green:&g blue:&b alpha:&a];
-        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.145 : 0.108)];
+        core.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(dark ? 0.120 : 0.130)];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -378,11 +378,11 @@ static void MMRemoveColor(NSString *prefix, UITraitCollection *trait) {
 }
 
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(98, 108, 120, 1.0) : MMRGBA(244, 248, 255, 1.0));
+    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(255, 255, 255, 1.0) : MMRGBA(255, 255, 255, 1.0));
 }
 
 static UIColor *MMCapsuleTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(136, 146, 160, 1.0) : MMRGBA(252, 254, 255, 1.0));
+    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(255, 255, 255, 1.0) : MMRGBA(255, 255, 255, 1.0));
 }
 
 static UIColor *MMSelectedColor(UITraitCollection *trait) {
@@ -836,7 +836,7 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     CGFloat floatingHeight = 74.0;
     CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 14.0;
 
-    CGFloat blurTop = floatingY - 2.0;
+    CGFloat blurTop = floatingY - 14.0;
     CGFloat blurHeight = CGRectGetHeight(root.bounds) - blurTop;
 
     host.frame = CGRectMake(0.0, blurTop, CGRectGetWidth(root.bounds), blurHeight);
@@ -857,9 +857,9 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
 
     UIView *tint = [host viewWithTag:kMMNativeBackdropTintTag];
     tint.frame = host.bounds;
-    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.003) : MMRGBA(255, 255, 255, 0.008);
+    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.002) : MMRGBA(255, 255, 255, 0.006);
 
-    host.alpha = MMIsDark(root.traitCollection) ? 0.045 : 0.060;
+    host.alpha = MMIsDark(root.traitCollection) ? 0.035 : 0.045;
 
     CAGradientLayer *fade = MMEnsureGradient(host, @"native_backdrop_fade");
     fade.frame = host.bounds;
@@ -867,10 +867,10 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     fade.endPoint = CGPointMake(0.5, 1.0);
     fade.colors = @[
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.75].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.45].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:1.0].CGColor
     ];
-    fade.locations = @[@0.0, @0.10, @1.0];
+    fade.locations = @[@0.0, @0.18, @1.0];
     host.layer.mask = fade;
 
     [root insertSubview:host belowSubview:MMHost(root)];
@@ -905,7 +905,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
     UIColor *tint = MMBackgroundTintColor(host.traitCollection);
     CGFloat r = 1.0, g = 1.0, b = 1.0, a = 1.0;
     [tint getRed:&r green:&g blue:&b alpha:&a];
-    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.060 : 0.078)];
+    blur.backgroundColor = [UIColor colorWithRed:r green:g blue:b alpha:(MMIsDark(host.traitCollection) ? 0.045 : 0.060)];
 
     MMSetRadius(blur, host.bounds.size.height * 0.5);
     blur.layer.masksToBounds = YES;
