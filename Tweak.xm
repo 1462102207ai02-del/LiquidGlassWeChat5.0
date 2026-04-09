@@ -123,6 +123,7 @@ static void MMSelectIndex(UIView *view, NSInteger index);
 static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host);
 static void MMHideOriginalTabBarVisuals(UITabBar *tabBar);
 static UIView *MMFindSearchBarInView(UIView *root);
+static UIViewController *MMFindHomeContentControllerFromController(UIViewController *vc);
 static CAGradientLayer *MMEnsureGradient(UIView *view, NSString *name);
 static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle);
 static void MMApplyButtonSelectionLayout(UIView *container, UIView *host, UITabBar *tabBar, NSArray *originalItemViews, NSInteger selectedIndex, CGRect activeCapsuleFrame, BOOL useActiveCapsuleFrame);
