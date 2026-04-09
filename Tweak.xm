@@ -804,7 +804,6 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
 
     CGRect tabBarFrame = tabBar.frame;
     CGFloat sideInset = 0.0;
-    CGFloat extraTop = 18.0;
     CGFloat extraBottom = 24.0;
     host.frame = CGRectMake(CGRectGetMinX(tabBarFrame) + sideInset, CGRectGetMaxY(tabBarFrame) - 8.0, CGRectGetWidth(tabBarFrame) - sideInset * 2.0, extraBottom + 16.0);
     host.layer.cornerRadius = 0.0;
