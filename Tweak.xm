@@ -836,7 +836,7 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     CGFloat floatingHeight = 74.0;
     CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 14.0;
 
-    CGFloat blurTop = floatingY - 6.0;
+    CGFloat blurTop = floatingY - 4.0;
     CGFloat blurBottom = CGRectGetHeight(root.bounds);
     CGFloat blurHeight = blurBottom - blurTop;
 
@@ -858,9 +858,22 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
 
     UIView *tint = [host viewWithTag:kMMNativeBackdropTintTag];
     tint.frame = host.bounds;
-    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.012) : MMRGBA(255, 255, 255, 0.028);
+    tint.backgroundColor = MMIsDark(root.traitCollection) ? MMRGBA(255, 255, 255, 0.006) : MMRGBA(255, 255, 255, 0.014);
 
-    host.alpha = MMIsDark(root.traitCollection) ? 0.12 : 0.15;
+    host.alpha = MMIsDark(root.traitCollection) ? 0.08 : 0.10;
+
+    CAGradientLayer *fade = MMEnsureGradient(host, @"native_backdrop_fade");
+    fade.frame = host.bounds;
+    fade.startPoint = CGPointMake(0.5, 0.0);
+    fade.endPoint = CGPointMake(0.5, 1.0);
+    fade.colors = @[
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:1.0].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:1.0].CGColor
+    ];
+    fade.locations = @[@0.0, @0.18, @1.0];
+    host.layer.mask = fade;
+
     [root insertSubview:host belowSubview:MMHost(root)];
 }
 
