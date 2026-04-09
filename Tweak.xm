@@ -1378,6 +1378,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     proxy.mainTabVC = vc;
     [hit addTarget:proxy action:@selector(handleTap:) forControlEvents:UIControlEventTouchUpInside];
 
+    UIView *nativeBackdropNow = [root viewWithTag:kMMNativeBackdropHostTag];
     if (nativeBackdropNow) [root insertSubview:nativeBackdropNow belowSubview:host];
     [root bringSubviewToFront:host];
 }
