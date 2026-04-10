@@ -822,8 +822,6 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     CGFloat inset = MMBottomInset(root);
     CGFloat containerHeight = 91.0;
     CGFloat containerY = CGRectGetHeight(root.bounds) - inset - containerHeight;
-    CGFloat floatingHeight = 64.0;
-
     CGFloat blurTop = containerY;
     CGFloat blurHeight = containerHeight;
 
