@@ -820,8 +820,8 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     UIView *host = MMNativeBackdropHost(root);
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat floatingHeight = 66.0;
-    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 16.0;
+    CGFloat floatingHeight = 60.0;
+    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 12.0;
 
     CGFloat blurTop = floatingY - 10.0;
     CGFloat blurHeight = CGRectGetHeight(root.bounds) - blurTop;
@@ -968,7 +968,7 @@ static void MMStyleHost(UIView *host) {
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat hostW = CGRectGetWidth(host.bounds);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat top = 4.0;
+    CGFloat top = 4.8;
     CGFloat slotH = hostH - top * 2.0;
 
     CGFloat sideInset = 23.0;
@@ -986,7 +986,7 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat verticalInset = 7.8;
+    CGFloat verticalInset = 9.2;
     CGFloat targetHeight = hostH - verticalInset * 2.0;
     CGFloat targetWidth = MIN(CGRectGetWidth(slot) + 10.0, MAX(CGRectGetWidth(slot) + 6.0, targetHeight * 1.36));
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
@@ -1471,8 +1471,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat margin = 18.0;
     CGFloat gap = 12.0;
     CGFloat dockSize = 70.0;
-    CGFloat height = 66.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 16.0;
+    CGFloat height = 60.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 12.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
