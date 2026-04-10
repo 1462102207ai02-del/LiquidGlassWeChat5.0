@@ -820,7 +820,7 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     UIView *host = MMNativeBackdropHost(root);
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat floatingHeight = 60.0;
+    CGFloat floatingHeight = 74.0;
     CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 12.0;
 
     CGFloat blurTop = floatingY - 10.0;
@@ -968,11 +968,11 @@ static void MMStyleHost(UIView *host) {
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat hostW = CGRectGetWidth(host.bounds);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat top = 4.8;
+    CGFloat top = 5.0;
     CGFloat slotH = hostH - top * 2.0;
 
-    CGFloat sideInset = 23.0;
-    CGFloat interGap = 14.0;
+    CGFloat sideInset = 21.0;
+    CGFloat interGap = 12.0;
     CGFloat usableW = hostW - sideInset * 2.0 - interGap * (MAX(count, 1) - 1);
     CGFloat slotW = floor(usableW / MAX(count, 1));
 
@@ -1012,7 +1012,7 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     border.layer.borderWidth = 0.0;
 
     UIView *glow = [capsule viewWithTag:kMMFloatingCapsuleGlowTag];
-    glow.frame = CGRectInset(capsule.bounds, 1.9, 1.9);
+    glow.frame = CGRectInset(capsule.bounds, 1.1, 1.1);
     MMSetRadius(glow, glow.bounds.size.height * 0.5);
     glow.backgroundColor = [UIColor clearColor];
     glow.clipsToBounds = YES;
@@ -1419,7 +1419,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     blur.layer.cornerRadius = host.bounds.size.height * 0.5;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
-    icon.frame = CGRectMake(floor((dockSize - 29.0) * 0.5), floor((dockSize - 29.0) * 0.5), 29.0, 29.0);
+    icon.frame = CGRectMake(floor((dockSize - 31.0) * 0.5), floor((dockSize - 31.0) * 0.5), 31.0, 31.0);
     icon.tintColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.82) : MMRGBA(104, 108, 118, 0.74);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -1470,8 +1470,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat gap = 12.0;
-    CGFloat dockSize = 70.0;
-    CGFloat height = 60.0;
+    CGFloat dockSize = 78.0;
+    CGFloat height = 74.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 12.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
