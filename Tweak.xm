@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <objc/message.h>
 
 static NSInteger const kMMFloatingHostTag = 991001;
 static NSInteger const kMMFloatingBlurTag = 991002;
@@ -340,7 +341,7 @@ static void MMHideOriginalTabBarBackground(UITabBar *tabBar) {
             tabBar.standardAppearance = appearance;
         }
         if ([tabBar respondsToSelector:@selector(setScrollEdgeAppearance:)]) {
-            tabBar.scrollEdgeAppearance = appearance;
+            ((void (*)(id, SEL, id))objc_msgSend)(tabBar, @selector(setScrollEdgeAppearance:), appearance);
         }
     }
     UIView *bg = [tabBar mm_findSubviewPassing:^BOOL(UIView *view) {
