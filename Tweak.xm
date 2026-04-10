@@ -260,9 +260,9 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     }
 
     edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:outerAlpha].CGColor;
-    edge.layer.borderWidth = outerWidth;
+    edge.layer.borderWidth = 0.6;
     innerEdge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:innerAlpha].CGColor;
-    innerEdge.layer.borderWidth = innerWidth;
+    innerEdge.layer.borderWidth = 0.6;
 
     view.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(capsuleStyle ? (dark ? 0.006 : 0.001) : (dark ? 0.008 : 0.001))].CGColor;
     view.layer.shadowOpacity = 1.0;
@@ -821,7 +821,7 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat floatingHeight = 74.0;
-    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 12.0;
+    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 6.0;
 
     CGFloat blurTop = floatingY - 10.0;
     CGFloat blurHeight = CGRectGetHeight(root.bounds) - blurTop;
@@ -956,7 +956,7 @@ static UIView *MMButtonsContainer(UIView *host) {
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, host.bounds.size.height * 0.5);
     host.backgroundColor = [UIColor clearColor];
-    host.layer.borderWidth = 0.0;
+    host.layer.borderWidth = 0.6;
     host.layer.borderColor = [UIColor clearColor].CGColor;
     host.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(MMIsDark(host.traitCollection) ? 0.022 : 0.006)].CGColor;
     host.layer.shadowOpacity = 1.0;
@@ -1009,7 +1009,7 @@ static void MMStyleCapsule(UIView *host, NSInteger selectedIndex, NSInteger coun
     UIView *border = [capsule viewWithTag:kMMFloatingCapsuleBorderTag];
     border.frame = capsule.bounds;
     border.backgroundColor = [UIColor clearColor];
-    border.layer.borderWidth = 0.0;
+    border.layer.borderWidth = 0.6;
 
     UIView *glow = [capsule viewWithTag:kMMFloatingCapsuleGlowTag];
     glow.frame = CGRectInset(capsule.bounds, 1.1, 1.1);
@@ -1399,7 +1399,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     host.userInteractionEnabled = YES;
     MMSetRadius(host, dockSize * 0.5);
     if (@available(iOS 13.0, *)) host.layer.cornerCurve = kCACornerCurveContinuous;
-    host.layer.borderWidth = 0.0;
+    host.layer.borderWidth = 0.6;
     host.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:(MMIsDark(host.traitCollection) ? 0.006 : 0.001)].CGColor;
     host.layer.shadowOpacity = 1.0;
     host.layer.shadowRadius = 0.9;
@@ -1472,7 +1472,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat gap = 12.0;
     CGFloat dockSize = 78.0;
     CGFloat height = 74.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 12.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 6.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
