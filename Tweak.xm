@@ -566,3 +566,72 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     }
 }
 
+
+
+%hook MainTabBarViewController
+
+%new
+- (void)mm_floatingTabTapped:(UIControl *)sender {
+    NSNumber *indexNum = objc_getAssociatedObject(sender, &kMMFloatingIndexKey);
+    if (!indexNum) return;
+    NSInteger index = indexNum.integerValue;
+    UITabBarController *tabVC = [self isKindOfClass:[UITabBarController class]] ? (UITabBarController *)self : self.tabBarController;
+    if (!tabVC) return;
+    if (index < 0 || index >= (NSInteger)tabVC.viewControllers.count) return;
+    tabVC.selectedIndex = index;
+    [tabVC.view setNeedsLayout];
+    [tabVC.view layoutIfNeeded];
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+%new
+- (void)mm_floatingSearchTapped:(UIControl *)sender {
+    MMTriggerTopSearch(self.view);
+}
+
+- (void)viewDidLoad {
+    %orig;
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)viewDidLayoutSubviews {
+    %orig;
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig(animated);
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)viewSafeAreaInsetsDidChange {
+    %orig;
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)setSelectedIndex:(NSUInteger)index {
+    %orig(index);
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+%end
+
+
+%hook UITabBar
+
+- (void)setSelectedItem:(UITabBarItem *)item {
+    %orig(item);
+    UIResponder *r = self;
+    while (r) {
+        r = [r nextResponder];
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                MMUpdateFloatingBar(vc);
+                break;
+            }
+        }
+    }
+}
+
+%end
