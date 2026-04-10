@@ -194,17 +194,6 @@ static UIImageView *MMSearchIcon(UIView *dock) {
     return icon;
 }
 
-static UIViewController *MMNearestViewController(UIView *view) {
-    UIResponder *responder = view;
-    while (responder) {
-        responder = responder.nextResponder;
-        if ([responder isKindOfClass:[UIViewController class]]) {
-            return (UIViewController *)responder;
-        }
-    }
-    return nil;
-}
-
 static UITabBar *MMFindTabBar(UIViewController *vc) {
     if ([vc isKindOfClass:[UITabBarController class]]) {
         return ((UITabBarController *)vc).tabBar;
