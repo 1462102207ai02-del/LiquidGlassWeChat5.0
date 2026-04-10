@@ -209,9 +209,10 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
     if ([vc isKindOfClass:[UITabBarController class]]) {
         return ((UITabBarController *)vc).tabBar;
     }
-    return [vc.view mm_findSubviewPassing:^BOOL(UIView *view) {
+    UIView *found = [vc.view mm_findSubviewPassing:^BOOL(UIView *view) {
         return [view isKindOfClass:[UITabBar class]];
     }];
+    return [found isKindOfClass:[UITabBar class]] ? (UITabBar *)found : nil;
 }
 
 static NSArray<UIControl *> *MMTabBarItemViews(UITabBar *tabBar) {
@@ -424,7 +425,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat slotWidth = floor((barWidth - contentLeft - contentRight) / count);
     CGFloat slotHeight = barHeight;
     NSInteger selectedIndex = 0;
-    UITabBarController *tabVC = tabBar.tabBarController;
+    UITabBarController *tabVC = [vc isKindOfClass:[UITabBarController class]] ? (UITabBarController *)vc : vc.tabBarController;
     if (tabVC) selectedIndex = MAX(0, MIN((NSInteger)tabVC.selectedIndex, count - 1));
 
     CGRect selectedSlot = CGRectMake(contentLeft + slotWidth * selectedIndex, 0.0, slotWidth, slotHeight);
@@ -466,7 +467,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         button.titleLabel.font = [UIFont systemFontOfSize:10.5 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
         UIColor *titleColor = MMNormalTextColor(dark);
         if (i == selectedIndex) {
-            UIColor *sourceTextColor = sourceLabel.textColor ?: item.selectedImageTintColor ?: tabBar.tintColor ?: MMRGBA(7, 193, 96, 1.0);
+            UIColor *sourceTextColor = sourceLabel.textColor ?: tabBar.tintColor ?: MMRGBA(7, 193, 96, 1.0);
             [button setTitleColor:sourceTextColor forState:UIControlStateNormal];
         } else {
             [button setTitleColor:titleColor forState:UIControlStateNormal];
