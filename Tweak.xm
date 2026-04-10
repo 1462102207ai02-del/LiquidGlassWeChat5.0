@@ -138,6 +138,71 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
     return [found isKindOfClass:[UITabBar class]] ? (UITabBar *)found : nil;
 }
 
+static UIViewController *MMResolveMainTabBarController(UIViewController *vc) {
+    UIViewController *current = vc;
+    while (current) {
+        if ([NSStringFromClass(current.class) isEqualToString:@"MainTabBarViewController"]) return current;
+        current = current.parentViewController;
+    }
+    UITabBarController *tabVC = vc.tabBarController;
+    if ([NSStringFromClass(tabVC.class) isEqualToString:@"MainTabBarViewController"]) return tabVC;
+    return nil;
+}
+
+static BOOL MMShouldShowOnlyOnHomeRoot(UIViewController *vc) {
+    UIViewController *mainVC = MMResolveMainTabBarController(vc);
+    if (!mainVC) return NO;
+    if (vc == mainVC) return YES;
+    UIViewController *selected = nil;
+    @try {
+        selected = [mainVC valueForKey:@"selectedViewController"];
+    } @catch (__unused NSException *e) {}
+    if ([selected isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)selected;
+        UIViewController *top = nav.topViewController ?: nav.visibleViewController;
+        UIViewController *root = nav.viewControllers.count > 0 ? nav.viewControllers.firstObject : nil;
+        return (vc == top && top == root);
+    }
+    return (vc == selected);
+}
+
+static void MMHideFloatingIfExists(UIViewController *vc) {
+    UIView *root = vc.view;
+    UIView *host = [root viewWithTag:kMMFloatingHostTag];
+    UIView *backdrop = [root viewWithTag:kMMFloatingBackdropTag];
+    if (host) { host.hidden = YES; host.alpha = 0.0; host.userInteractionEnabled = NO; }
+    if (backdrop) { backdrop.hidden = YES; backdrop.alpha = 0.0; }
+}
+
+static void MMCollectImageViews(UIView *view, NSMutableArray<UIImageView *> *result) {
+    if ([view isKindOfClass:[UIImageView class]] && ((UIImageView *)view).image) {
+        [result addObject:(UIImageView *)view];
+    }
+    for (UIView *sub in view.subviews) {
+        MMCollectImageViews(sub, result);
+    }
+}
+
+static UIImageView *MMBestImageViewInTabButton(UIView *button) {
+    NSMutableArray<UIImageView *> *candidates = [NSMutableArray array];
+    MMCollectImageViews(button, candidates);
+    UIImageView *best = nil;
+    CGFloat bestScore = -CGFLOAT_MAX;
+    for (UIImageView *iv in candidates) {
+        CGRect f = [iv.superview convertRect:iv.frame toView:button];
+        CGFloat w = CGRectGetWidth(f);
+        CGFloat h = CGRectGetHeight(f);
+        CGFloat score = 0.0;
+        if (w >= 16.0 && w <= 40.0 && h >= 16.0 && h <= 40.0) score += 100.0;
+        score -= fabs(w - 26.0) * 2.0;
+        score -= fabs(h - 26.0) * 2.0;
+        score -= fabs(CGRectGetMidY(f) - 20.0);
+        score += iv.alpha * 5.0;
+        if (score > bestScore) { bestScore = score; best = iv; }
+    }
+    return best;
+}
+
 static NSArray<UIControl *> *MMTabBarItemViews(UITabBar *tabBar) {
     NSMutableArray<UIControl *> *result = [NSMutableArray array];
     for (UIView *subview in tabBar.subviews) {
@@ -159,9 +224,7 @@ static NSArray<UIControl *> *MMTabBarItemViews(UITabBar *tabBar) {
 }
 
 static UIView *MMImageViewInTabButton(UIView *button) {
-    return [button mm_findSubviewPassing:^BOOL(UIView *view) {
-        return [view isKindOfClass:[UIImageView class]];
-    }];
+    return MMBestImageViewInTabButton(button);
 }
 
 static UILabel *MMLabelInTabButton(UIView *button) {
@@ -318,9 +381,17 @@ static BOOL MMTriggerTopSearch(UIView *root) {
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
     if (!vc.isViewLoaded) return;
+    if (!MMShouldShowOnlyOnHomeRoot(vc)) {
+        MMHideFloatingIfExists(vc);
+        return;
+    }
+    UIViewController *mainVC = MMResolveMainTabBarController(vc) ?: vc;
     UIView *root = vc.view;
-    UITabBar *tabBar = MMFindTabBar(vc);
-    if (!root || !tabBar || tabBar.items.count == 0) return;
+    UITabBar *tabBar = MMFindTabBar(mainVC);
+    if (!root || !tabBar || tabBar.items.count == 0) {
+        MMHideFloatingIfExists(vc);
+        return;
+    }
 
     MMHideOriginalTabBarBackground(tabBar);
 
@@ -455,7 +526,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         }
         baseImage = MMOriginalImage(baseImage);
         UIColor *normalColor = MMNormalTextColor(dark);
-        UIColor *selectedColor = sourceLabel.textColor ?: tabBar.tintColor ?: MMRGBA(7, 193, 96, 1.0);
+        UIColor *selectedColor = sourceLabel.textColor ?: ((UIImageView *)sourceImageView).tintColor ?: tabBar.tintColor ?: MMRGBA(7, 193, 96, 1.0);
         UIColor *iconTint = (i == selectedIndex) ? selectedColor : normalColor;
 
         iconView.frame = CGRectMake(floor((slotWidth - 26.0) * 0.5), 7.0, 26.0, 26.0);
@@ -466,11 +537,21 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         label.alpha = 1.0;
 
         UIImage *finalImage = baseImage;
+        if (!finalImage && [sourceImageView isKindOfClass:[UIImageView class]]) {
+            finalImage = ((UIImageView *)sourceImageView).image;
+        }
         if (finalImage && finalImage.renderingMode != UIImageRenderingModeAlwaysOriginal && [finalImage respondsToSelector:@selector(imageWithTintColor:renderingMode:)]) {
             finalImage = [finalImage imageWithTintColor:iconTint renderingMode:UIImageRenderingModeAlwaysOriginal];
         }
-        if (!finalImage && [sourceImageView isKindOfClass:[UIImageView class]]) {
-            finalImage = ((UIImageView *)sourceImageView).image;
+        if (!finalImage) {
+            NSString *title = item.title ?: @"";
+            if ([title containsString:@"微信"]) finalImage = [UIImage systemImageNamed:@"message"];
+            else if ([title containsString:@"通讯录"]) finalImage = [UIImage systemImageNamed:@"person.2"];
+            else if ([title containsString:@"发现"]) finalImage = [UIImage systemImageNamed:@"safari"];
+            else if ([title containsString:@"我"]) finalImage = [UIImage systemImageNamed:@"person"];
+            if (finalImage && [finalImage respondsToSelector:@selector(imageWithTintColor:renderingMode:)]) {
+                finalImage = [finalImage imageWithTintColor:iconTint renderingMode:UIImageRenderingModeAlwaysOriginal];
+            }
         }
         iconView.image = finalImage;
         iconView.hidden = (finalImage == nil);
@@ -485,34 +566,3 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     }
 }
 
-%hook UIViewController
-
-%new
-- (void)mm_floatingTabTapped:(UIControl *)sender {
-    NSNumber *indexNum = objc_getAssociatedObject(sender, &kMMFloatingIndexKey);
-    if (!indexNum) return;
-    NSInteger index = indexNum.integerValue;
-    UITabBarController *tabVC = [self isKindOfClass:[UITabBarController class]] ? (UITabBarController *)self : self.tabBarController;
-    if (!tabVC) return;
-    if (index < 0 || index >= (NSInteger)tabVC.viewControllers.count) return;
-    tabVC.selectedIndex = index;
-    [tabVC.view setNeedsLayout];
-    [tabVC.view layoutIfNeeded];
-}
-
-%new
-- (void)mm_floatingSearchTapped:(UIControl *)sender {
-    MMTriggerTopSearch(self.view);
-}
-
-- (void)viewDidLayoutSubviews {
-    %orig;
-    MMUpdateFloatingBar(self);
-}
-
-- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
-    %orig;
-    MMUpdateFloatingBar(self);
-}
-
-%end
