@@ -33,7 +33,8 @@ static NSInteger const kMMFloatingBackdropTintTag = 991206;
 @end
 
 static BOOL MMIsDark(UITraitCollection *trait) {
-    if (@available(iOS 12.0, *)) {
+    if (!trait) return NO;
+    if ([trait respondsToSelector:@selector(userInterfaceStyle)]) {
         return trait.userInterfaceStyle == UIUserInterfaceStyleDark;
     }
     return NO;
@@ -45,7 +46,7 @@ static UIColor *MMRGBA(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
 
 static void MMSetContinuousRadius(UIView *view, CGFloat radius) {
     view.layer.cornerRadius = radius;
-    if (@available(iOS 13.0, *)) {
+    if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) {
         view.layer.cornerCurve = kCACornerCurveContinuous;
     }
 }
@@ -319,7 +320,7 @@ static UIImage *MMSearchImage(BOOL dark) {
     UIImageSymbolConfiguration *config = [UIImageSymbolConfiguration configurationWithPointSize:30 weight:UIImageSymbolWeightRegular];
     UIImage *image = [UIImage systemImageNamed:@"magnifyingglass" withConfiguration:config];
     if (!image) image = [UIImage systemImageNamed:@"magnifyingglass"];
-    if (@available(iOS 13.0, *)) {
+    if ([image respondsToSelector:@selector(imageWithTintColor:renderingMode:)]) {
         return [image imageWithTintColor:(dark ? UIColor.whiteColor : MMRGBA(92, 97, 108, 0.82)) renderingMode:UIImageRenderingModeAlwaysOriginal];
     }
     return image;
@@ -330,13 +331,15 @@ static void MMHideOriginalTabBarBackground(UITabBar *tabBar) {
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = UIColor.clearColor;
-    if (@available(iOS 13.0, *)) {
+    if ([UITabBarAppearance class]) {
         UITabBarAppearance *appearance = [[UITabBarAppearance alloc] init];
         [appearance configureWithTransparentBackground];
         appearance.backgroundColor = UIColor.clearColor;
         appearance.shadowColor = UIColor.clearColor;
-        tabBar.standardAppearance = appearance;
-        if (@available(iOS 15.0, *)) {
+        if ([tabBar respondsToSelector:@selector(setStandardAppearance:)]) {
+            tabBar.standardAppearance = appearance;
+        }
+        if ([tabBar respondsToSelector:@selector(setScrollEdgeAppearance:)]) {
             tabBar.scrollEdgeAppearance = appearance;
         }
     }
