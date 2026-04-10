@@ -244,19 +244,19 @@ static UIImage *MMRenderedOriginalImage(UIImage *image) {
 }
 
 static UIColor *MMNormalTextColor(BOOL dark) {
-    return dark ? MMRGBA(255, 255, 255, 0.72) : MMRGBA(92, 97, 108, 0.78);
+    return dark ? MMRGBA(255, 255, 255, 0.78) : MMRGBA(88, 94, 106, 0.84);
 }
 
 static UIColor *MMSearchStrokeColor(BOOL dark) {
-    return dark ? MMRGBA(255, 255, 255, 0.16) : MMRGBA(255, 255, 255, 0.48);
+    return dark ? MMRGBA(255, 255, 255, 0.18) : MMRGBA(255, 255, 255, 0.58);
 }
 
 static UIColor *MMBarStrokeColor(BOOL dark) {
-    return dark ? MMRGBA(255, 255, 255, 0.12) : MMRGBA(255, 255, 255, 0.42);
+    return dark ? MMRGBA(255, 255, 255, 0.16) : MMRGBA(255, 255, 255, 0.52);
 }
 
 static UIColor *MMCapsuleStrokeColor(BOOL dark) {
-    return dark ? MMRGBA(255, 255, 255, 0.18) : MMRGBA(255, 255, 255, 0.62);
+    return dark ? MMRGBA(255, 255, 255, 0.22) : MMRGBA(255, 255, 255, 0.72);
 }
 
 static void MMApplyMaterial(UIVisualEffectView *view, BOOL dark, CGFloat radius, CGFloat alpha) {
@@ -267,54 +267,54 @@ static void MMApplyMaterial(UIVisualEffectView *view, BOOL dark, CGFloat radius,
 }
 
 static void MMApplyBarStyling(UIView *bar, BOOL dark) {
-    bar.backgroundColor = [UIColor colorWithWhite:1.0 alpha:(dark ? 0.06 : 0.14)];
+    bar.backgroundColor = dark ? MMRGBA(118, 124, 136, 0.20) : MMRGBA(245, 250, 255, 0.28);
     MMSetContinuousRadius(bar, CGRectGetHeight(bar.bounds) * 0.5);
 
     CAShapeLayer *border = MMEnsureBorder(bar, kMMFloatingBarBorderTag);
     border.path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(bar.bounds, 0.35, 0.35) cornerRadius:CGRectGetHeight(bar.bounds) * 0.5].CGPath;
     border.fillColor = UIColor.clearColor.CGColor;
     border.strokeColor = MMBarStrokeColor(dark).CGColor;
-    border.lineWidth = 0.7;
+    border.lineWidth = 0.85;
 
     CAGradientLayer *glow = MMEnsureGlow(bar, kMMFloatingBarGlowTag);
     glow.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.38].CGColor,
-        (__bridge id)[UIColor colorWithRed:(225.0 / 255.0) green:(238.0 / 255.0) blue:(252.0 / 255.0) alpha:0.16].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.52].CGColor,
+        (__bridge id)[UIColor colorWithRed:(219.0 / 255.0) green:(234.0 / 255.0) blue:(255.0 / 255.0) alpha:0.28].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.04].CGColor
     ];
     glow.startPoint = CGPointMake(0.0, 0.0);
     glow.endPoint = CGPointMake(1.0, 1.0);
 }
 
 static void MMApplyCapsuleStyling(UIView *capsule, BOOL dark) {
-    capsule.backgroundColor = [UIColor colorWithWhite:1.0 alpha:(dark ? 0.08 : 0.22)];
+    capsule.backgroundColor = dark ? MMRGBA(246, 249, 252, 0.12) : MMRGBA(255, 255, 255, 0.34);
     MMSetContinuousRadius(capsule, CGRectGetHeight(capsule.bounds) * 0.5);
 
     CAShapeLayer *border = MMEnsureBorder(capsule, kMMFloatingCapsuleBorderTag);
     border.path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(capsule.bounds, 0.3, 0.3) cornerRadius:CGRectGetHeight(capsule.bounds) * 0.5].CGPath;
     border.fillColor = UIColor.clearColor.CGColor;
     border.strokeColor = MMCapsuleStrokeColor(dark).CGColor;
-    border.lineWidth = 0.75;
+    border.lineWidth = 0.95;
 
     CAGradientLayer *glow = MMEnsureGlow(capsule, kMMFloatingCapsuleGlowTag);
     glow.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.72].CGColor,
-        (__bridge id)[UIColor colorWithRed:(233.0 / 255.0) green:(243.0 / 255.0) blue:(253.0 / 255.0) alpha:0.28].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.05].CGColor
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.88].CGColor,
+        (__bridge id)[UIColor colorWithRed:(233.0 / 255.0) green:(244.0 / 255.0) blue:(255.0 / 255.0) alpha:0.42].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.08].CGColor
     ];
     glow.startPoint = CGPointMake(0.0, 0.0);
     glow.endPoint = CGPointMake(1.0, 1.0);
 }
 
 static void MMApplySearchStyling(UIView *dock, BOOL dark) {
-    dock.backgroundColor = [UIColor colorWithWhite:1.0 alpha:(dark ? 0.06 : 0.14)];
+    dock.backgroundColor = dark ? MMRGBA(118, 124, 136, 0.20) : MMRGBA(245, 250, 255, 0.30);
     MMSetContinuousRadius(dock, CGRectGetHeight(dock.bounds) * 0.5);
 
     CAShapeLayer *border = MMEnsureBorder(dock, kMMFloatingSearchBorderTag);
     border.path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(dock.bounds, 0.35, 0.35) cornerRadius:CGRectGetHeight(dock.bounds) * 0.5].CGPath;
     border.fillColor = UIColor.clearColor.CGColor;
     border.strokeColor = MMSearchStrokeColor(dark).CGColor;
-    border.lineWidth = 0.7;
+    border.lineWidth = 0.85;
 }
 
 static UIImage *MMSearchImage(BOOL dark) {
@@ -322,7 +322,7 @@ static UIImage *MMSearchImage(BOOL dark) {
     UIImage *image = [UIImage systemImageNamed:@"magnifyingglass" withConfiguration:config];
     if (!image) image = [UIImage systemImageNamed:@"magnifyingglass"];
     if ([image respondsToSelector:@selector(imageWithTintColor:renderingMode:)]) {
-        return [image imageWithTintColor:(dark ? UIColor.whiteColor : MMRGBA(92, 97, 108, 0.82)) renderingMode:UIImageRenderingModeAlwaysOriginal];
+        return [image imageWithTintColor:(dark ? UIColor.whiteColor : MMRGBA(90, 96, 108, 0.88)) renderingMode:UIImageRenderingModeAlwaysOriginal];
     }
     return image;
 }
@@ -376,12 +376,12 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     UIVisualEffectView *backdrop = MMBackdrop(host);
     backdrop.frame = host.bounds;
-    MMApplyMaterial(backdrop, dark, 0.0, dark ? 0.02 : 0.08);
+    MMApplyMaterial(backdrop, dark, 0.0, dark ? 0.03 : 0.12);
     backdrop.layer.cornerRadius = 0.0;
 
     UIView *backdropTint = MMBackdropTint(host);
     backdropTint.frame = host.bounds;
-    backdropTint.backgroundColor = dark ? [UIColor colorWithWhite:1.0 alpha:0.004] : MMRGBA(205, 228, 255, 0.12);
+    backdropTint.backgroundColor = dark ? MMRGBA(255, 255, 255, 0.012) : MMRGBA(196, 223, 255, 0.22);
 
     CGFloat sideMargin = 14.0;
     CGFloat gap = 14.0;
@@ -395,7 +395,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     UIVisualEffectView *barBlur = MMBarBlur(host);
     barBlur.frame = CGRectMake(barX, barY, barWidth, barHeight);
-    MMApplyMaterial(barBlur, dark, barHeight * 0.5, dark ? 0.015 : 0.055);
+    MMApplyMaterial(barBlur, dark, barHeight * 0.5, dark ? 0.025 : 0.10);
 
     UIView *bar = MMBar(host);
     bar.frame = CGRectMake(barX, barY, barWidth, barHeight);
@@ -413,8 +413,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     NSInteger count = MIN((NSInteger)itemViews.count, 4);
     if (count <= 0) return;
 
-    CGFloat contentLeft = 16.0;
-    CGFloat contentRight = 16.0;
+    CGFloat contentLeft = 17.0;
+    CGFloat contentRight = 17.0;
     CGFloat slotWidth = floor((barWidth - contentLeft - contentRight) / count);
     CGFloat slotHeight = barHeight;
     NSInteger selectedIndex = 0;
@@ -422,9 +422,9 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     if (tabVC) selectedIndex = MAX(0, MIN((NSInteger)tabVC.selectedIndex, count - 1));
 
     CGRect selectedSlot = CGRectMake(contentLeft + slotWidth * selectedIndex, 0.0, slotWidth, slotHeight);
-    CGFloat capsuleHeight = 52.0;
+    CGFloat capsuleHeight = 54.0;
     CGFloat capsuleY = floor((barHeight - capsuleHeight) * 0.5);
-    CGFloat capsuleWidth = MIN(slotWidth + 18.0, MAX(capsuleHeight * 1.56, slotWidth + 10.0));
+    CGFloat capsuleWidth = MIN(slotWidth + 20.0, MAX(capsuleHeight * 1.58, slotWidth + 12.0));
     CGFloat capsuleX = floor(CGRectGetMidX(selectedSlot) - capsuleWidth * 0.5);
     UIView *capsule = MMCapsule(bar);
     capsule.frame = CGRectMake(capsuleX, capsuleY, capsuleWidth, capsuleHeight);
@@ -453,8 +453,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         [button setTitle:(item.title ?: @"") forState:UIControlStateNormal];
 
         CGFloat imageSide = 26.0;
-        CGFloat imageY = 8.0;
-        CGFloat titleY = 36.0;
+        CGFloat imageY = 7.0;
+        CGFloat titleY = 36.5;
 
         button.imageView.contentMode = UIViewContentModeScaleAspectFit;
         button.titleLabel.font = [UIFont systemFontOfSize:10.5 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
