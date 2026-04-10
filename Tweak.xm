@@ -575,7 +575,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     NSNumber *indexNum = objc_getAssociatedObject(sender, &kMMFloatingIndexKey);
     if (!indexNum) return;
     NSInteger index = indexNum.integerValue;
-    UITabBarController *tabVC = [self isKindOfClass:[UITabBarController class]] ? (UITabBarController *)self : self.tabBarController;
+    UIViewController *selfVC = (UIViewController *)self;
+    UITabBarController *tabVC = [selfVC isKindOfClass:[UITabBarController class]] ? (UITabBarController *)selfVC : selfVC.tabBarController;
     if (!tabVC) return;
     if (index < 0 || index >= (NSInteger)tabVC.viewControllers.count) return;
     tabVC.selectedIndex = index;
@@ -586,7 +587,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
 %new
 - (void)mm_floatingSearchTapped:(UIControl *)sender {
-    MMTriggerTopSearch(self.view);
+    MMTriggerTopSearch(((UIViewController *)self).view);
 }
 
 - (void)viewDidLoad {
