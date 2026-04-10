@@ -148,9 +148,9 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     core.layer.masksToBounds = YES;
 
     if (capsuleStyle) {
-        core.backgroundColor = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:(dark ? 0.040 : 0.072)];
+        core.backgroundColor = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:(dark ? 0.042 : 0.100)];
     } else {
-        core.backgroundColor = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:(dark ? 0.018 : 0.030)];
+        core.backgroundColor = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:(dark ? 0.020 : 0.045)];
     }
 
     UIView *shine = [view viewWithTag:kMMFloatingShineTag];
@@ -189,7 +189,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.endPoint = CGPointMake(1.0, 0.0);
         topLine.colors = @[
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.24 : 0.82)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.24 : 0.92)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
         topLine.locations = @[@0.0, @0.50, @1.0];
@@ -214,7 +214,7 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
         topLine.endPoint = CGPointMake(1.0, 0.0);
         topLine.colors = @[
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.16 : 0.44)].CGColor,
+            (__bridge id)[UIColor colorWithWhite:1.0 alpha:(dark ? 0.16 : 0.54)].CGColor,
             (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
         ];
         topLine.locations = @[@0.0, @0.50, @1.0];
@@ -248,12 +248,12 @@ static void MMApplyLiquidGlass(UIView *view, BOOL capsuleStyle) {
     MMSetRadius(innerEdge, innerEdge.bounds.size.height * 0.5);
     if (@available(iOS 13.0, *)) innerEdge.layer.cornerCurve = kCACornerCurveContinuous;
 
-    CGFloat outerAlpha = dark ? 0.10 : 0.36;
+    CGFloat outerAlpha = dark ? 0.10 : 0.42;
     CGFloat innerAlpha = dark ? 0.08 : 0.10;
     CGFloat outerWidth = 0.62;
     CGFloat innerWidth = 0.10;
     if (capsuleStyle) {
-        outerAlpha = dark ? 0.12 : 0.44;
+        outerAlpha = dark ? 0.12 : 0.52;
         innerAlpha = dark ? 0.09 : 0.11;
         outerWidth = 0.68;
         innerWidth = 0.11;
@@ -365,11 +365,11 @@ static void MMRemoveColor(NSString *prefix, UITraitCollection *trait) {
 }
 
 static UIColor *MMBackgroundTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(120, 128, 138, 1.0) : MMRGBA(235, 245, 255, 1.0));
+    return MMColorFromStored(@"mm_bg_color", trait, MMIsDark(trait) ? MMRGBA(120, 128, 138, 1.0) : MMRGBA(228, 240, 255, 1.0));
 }
 
 static UIColor *MMCapsuleTintColor(UITraitCollection *trait) {
-    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(238, 244, 248, 1.0) : MMRGBA(246, 251, 255, 1.0));
+    return MMColorFromStored(@"mm_capsule_color", trait, MMIsDark(trait) ? MMRGBA(238, 244, 248, 1.0) : MMRGBA(250, 253, 255, 1.0));
 }
 
 static UIColor *MMSelectedColor(UITraitCollection *trait) {
@@ -820,8 +820,8 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     UIView *host = MMNativeBackdropHost(root);
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat floatingHeight = 68.0;
-    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight;
+    CGFloat floatingHeight = 66.0;
+    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 8.0;
 
     CGFloat blurTop = floatingY - 10.0;
     CGFloat blurHeight = CGRectGetHeight(root.bounds) - blurTop;
@@ -968,11 +968,11 @@ static void MMStyleHost(UIView *host) {
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat hostW = CGRectGetWidth(host.bounds);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat top = 4.8;
+    CGFloat top = 4.2;
     CGFloat slotH = hostH - top * 2.0;
 
-    CGFloat sideInset = 22.0;
-    CGFloat interGap = 12.0;
+    CGFloat sideInset = 23.0;
+    CGFloat interGap = 13.0;
     CGFloat usableW = hostW - sideInset * 2.0 - interGap * (MAX(count, 1) - 1);
     CGFloat slotW = floor(usableW / MAX(count, 1));
 
@@ -986,9 +986,9 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat verticalInset = 7.0;
+    CGFloat verticalInset = 5.6;
     CGFloat targetHeight = hostH - verticalInset * 2.0;
-    CGFloat targetWidth = MIN(CGRectGetWidth(slot) + 16.0, MAX(CGRectGetWidth(slot) + 10.0, targetHeight * 1.48));
+    CGFloat targetWidth = MIN(CGRectGetWidth(slot) + 22.0, MAX(CGRectGetWidth(slot) + 16.0, targetHeight * 1.62));
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
     CGFloat minX = 6.0;
     CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - 6.0;
@@ -1389,8 +1389,8 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat dockSize = 74.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize;
+    CGFloat dockSize = 76.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 8.0;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
     host.frame = CGRectMake(x, y, dockSize, dockSize);
@@ -1419,7 +1419,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     blur.layer.cornerRadius = host.bounds.size.height * 0.5;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
-    icon.frame = CGRectMake(floor((dockSize - 30.0) * 0.5), floor((dockSize - 30.0) * 0.5), 30.0, 30.0);
+    icon.frame = CGRectMake(floor((dockSize - 31.0) * 0.5), floor((dockSize - 31.0) * 0.5), 31.0, 31.0);
     icon.tintColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.82) : MMRGBA(104, 108, 118, 0.74);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -1470,9 +1470,9 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat gap = 12.0;
-    CGFloat dockSize = 74.0;
-    CGFloat height = 68.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height;
+    CGFloat dockSize = 76.0;
+    CGFloat height = 66.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 8.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
