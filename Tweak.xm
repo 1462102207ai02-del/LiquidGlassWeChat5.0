@@ -820,7 +820,7 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
     UIView *host = MMNativeBackdropHost(root);
 
     CGFloat inset = MMBottomInset(root);
-    CGFloat floatingHeight = 82.0;
+    CGFloat floatingHeight = 68.0;
     CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight;
 
     CGFloat blurTop = floatingY - 10.0;
@@ -968,7 +968,7 @@ static void MMStyleHost(UIView *host) {
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
     CGFloat hostW = CGRectGetWidth(host.bounds);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat top = 5.5;
+    CGFloat top = 4.8;
     CGFloat slotH = hostH - top * 2.0;
 
     CGFloat sideInset = 22.0;
@@ -986,9 +986,9 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
     CGFloat hostH = CGRectGetHeight(host.bounds);
-    CGFloat verticalInset = 6.2;
+    CGFloat verticalInset = 7.0;
     CGFloat targetHeight = hostH - verticalInset * 2.0;
-    CGFloat targetWidth = MIN(CGRectGetWidth(slot) + 18.0, MAX(CGRectGetWidth(slot) + 12.0, targetHeight * 1.54));
+    CGFloat targetWidth = MIN(CGRectGetWidth(slot) + 16.0, MAX(CGRectGetWidth(slot) + 10.0, targetHeight * 1.48));
     CGFloat x = CGRectGetMidX(slot) - targetWidth * 0.5;
     CGFloat minX = 6.0;
     CGFloat maxX = CGRectGetWidth(host.bounds) - targetWidth - 6.0;
@@ -1389,7 +1389,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
-    CGFloat dockSize = 82.0;
+    CGFloat dockSize = 74.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
@@ -1419,7 +1419,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     blur.layer.cornerRadius = host.bounds.size.height * 0.5;
 
     UIImageView *icon = (UIImageView *)[host viewWithTag:kMMDockSearchIconTag];
-    icon.frame = CGRectMake(floor((dockSize - 33.0) * 0.5), floor((dockSize - 33.0) * 0.5), 33.0, 33.0);
+    icon.frame = CGRectMake(floor((dockSize - 30.0) * 0.5), floor((dockSize - 30.0) * 0.5), 30.0, 30.0);
     icon.tintColor = MMIsDark(host.traitCollection) ? MMRGBA(255, 255, 255, 0.82) : MMRGBA(104, 108, 118, 0.74);
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -1470,8 +1470,8 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat gap = 12.0;
-    CGFloat dockSize = 82.0;
-    CGFloat height = 82.0;
+    CGFloat dockSize = 74.0;
+    CGFloat height = 68.0;
     CGFloat y = CGRectGetHeight(root.bounds) - inset - height;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
