@@ -821,7 +821,7 @@ static void MMUpdateNativeBackdrop(UIViewController *vc, UITabBar *tabBar) {
 
     CGFloat inset = MMBottomInset(root);
     CGFloat floatingHeight = 82.0;
-    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight - 6.0;
+    CGFloat floatingY = CGRectGetHeight(root.bounds) - inset - floatingHeight;
 
     CGFloat blurTop = floatingY - 10.0;
     CGFloat blurHeight = CGRectGetHeight(root.bounds) - blurTop;
@@ -1390,7 +1390,7 @@ static void MMUpdateDockSearchButton(UIViewController *vc) {
     CGFloat inset = MMBottomInset(root);
     CGFloat margin = 18.0;
     CGFloat dockSize = 82.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize - 6.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - dockSize;
     CGFloat x = CGRectGetWidth(root.bounds) - margin - dockSize;
 
     host.frame = CGRectMake(x, y, dockSize, dockSize);
@@ -1472,7 +1472,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat gap = 12.0;
     CGFloat dockSize = 82.0;
     CGFloat height = 82.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 6.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
