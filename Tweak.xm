@@ -13,22 +13,24 @@
 
 static MMFloatingActionProxy *MMSharedActionProxy(void);
 
-static NSInteger const kMMBackdropTag = 993000;
-static NSInteger const kMMBarTag = 993001;
-static NSInteger const kMMBarBlurTag = 993002;
-static NSInteger const kMMBarTintTag = 993003;
-static NSInteger const kMMBarBorderTag = 993004;
-static NSInteger const kMMBarShineTag = 993005;
-static NSInteger const kMMCapsuleTag = 993006;
-static NSInteger const kMMCapsuleBlurTag = 993007;
-static NSInteger const kMMCapsuleTintTag = 993008;
-static NSInteger const kMMCapsuleBorderTag = 993009;
-static NSInteger const kMMButtonsHostTag = 993010;
-static NSInteger const kMMSearchHostTag = 993011;
-static NSInteger const kMMSearchBlurTag = 993012;
-static NSInteger const kMMSearchTintTag = 993013;
-static NSInteger const kMMSearchIconTag = 993014;
-static NSInteger const kMMSearchButtonTag = 993015;
+static NSInteger const kMMBackdropTag = 994000;
+static NSInteger const kMMBackdropBlurTag = 994001;
+static NSInteger const kMMBackdropTintTag = 994002;
+static NSInteger const kMMBarTag = 994003;
+static NSInteger const kMMBarBlurTag = 994004;
+static NSInteger const kMMBarTintTag = 994005;
+static NSInteger const kMMBarBorderTag = 994006;
+static NSInteger const kMMBarShineTag = 994007;
+static NSInteger const kMMCapsuleTag = 994008;
+static NSInteger const kMMCapsuleBlurTag = 994009;
+static NSInteger const kMMCapsuleTintTag = 994010;
+static NSInteger const kMMCapsuleBorderTag = 994011;
+static NSInteger const kMMButtonsHostTag = 994012;
+static NSInteger const kMMSearchHostTag = 994013;
+static NSInteger const kMMSearchBlurTag = 994014;
+static NSInteger const kMMSearchTintTag = 994015;
+static NSInteger const kMMSearchIconTag = 994016;
+static NSInteger const kMMSearchButtonTag = 994017;
 
 static BOOL kMMUpdating = NO;
 
@@ -168,6 +170,16 @@ static UIView *MMEnsureBackdrop(UIView *root) {
         view.userInteractionEnabled = NO;
         view.backgroundColor = [UIColor clearColor];
         [root addSubview:view];
+
+        UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:nil];
+        blur.tag = kMMBackdropBlurTag;
+        blur.userInteractionEnabled = NO;
+        [view addSubview:blur];
+
+        UIView *tint = [UIView new];
+        tint.tag = kMMBackdropTintTag;
+        tint.userInteractionEnabled = NO;
+        [blur.contentView addSubview:tint];
     }
     return view;
 }
@@ -304,22 +316,35 @@ static UIView *MMEnsureSearchHost(UIView *root) {
 }
 
 static void MMStyleBackdrop(UIView *backdrop) {
-    CAGradientLayer *g = nil;
-    if (backdrop.layer.sublayers.count > 0 && [backdrop.layer.sublayers.firstObject isKindOfClass:[CAGradientLayer class]]) {
-        g = (CAGradientLayer *)backdrop.layer.sublayers.firstObject;
+    UIVisualEffectView *blur = (UIVisualEffectView *)[backdrop viewWithTag:kMMBackdropBlurTag];
+    blur.frame = backdrop.bounds;
+    if (@available(iOS 13.0, *)) {
+        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(backdrop.traitCollection) ? UIBlurEffectStyleSystemUltraThinMaterialDark : UIBlurEffectStyleSystemUltraThinMaterialLight)];
     } else {
-        g = [CAGradientLayer layer];
-        [backdrop.layer insertSublayer:g atIndex:0];
+        blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
     }
-    g.frame = backdrop.bounds;
-    g.startPoint = CGPointMake(0.5, 0.0);
-    g.endPoint = CGPointMake(0.5, 1.0);
-    g.colors = @[
+
+    UIView *tint = [blur.contentView viewWithTag:kMMBackdropTintTag];
+    tint.frame = blur.contentView.bounds;
+    tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    tint.backgroundColor = MMIsDark(backdrop.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.02] : [UIColor colorWithWhite:1.0 alpha:0.05];
+
+    CAGradientLayer *mask = nil;
+    if ([backdrop.layer.mask isKindOfClass:[CAGradientLayer class]]) {
+        mask = (CAGradientLayer *)backdrop.layer.mask;
+    } else {
+        mask = [CAGradientLayer layer];
+        backdrop.layer.mask = mask;
+    }
+    mask.frame = backdrop.bounds;
+    mask.startPoint = CGPointMake(0.5, 0.0);
+    mask.endPoint = CGPointMake(0.5, 1.0);
+    mask.colors = @[
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.06].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.12].CGColor
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.20].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:1.0].CGColor
     ];
-    g.locations = @[@0.0, @0.55, @1.0];
+    mask.locations = @[@0.0, @0.25, @1.0];
 }
 
 static void MMStyleBar(UIView *bar) {
@@ -337,7 +362,7 @@ static void MMStyleBar(UIView *bar) {
     UIView *tint = [blur.contentView viewWithTag:kMMBarTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.10];
+    tint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.11];
 
     bar.layer.shadowColor = [UIColor blackColor].CGColor;
     bar.layer.shadowOpacity = MMIsDark(bar.traitCollection) ? 0.12 : 0.08;
@@ -366,7 +391,7 @@ static void MMStyleBar(UIView *bar) {
     g.startPoint = CGPointMake(0.5, 0.0);
     g.endPoint = CGPointMake(0.5, 1.0);
     g.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.12 : 0.20)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.12 : 0.18)].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.03].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
     ];
@@ -386,13 +411,13 @@ static void MMStyleCapsule(UIView *capsule, UIView *bar) {
 
     UIView *capsuleTint = [capsule viewWithTag:kMMCapsuleTintTag];
     capsuleTint.frame = capsule.bounds;
-    capsuleTint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.18];
+    capsuleTint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.16];
     MMSetRadius(capsuleTint, CGRectGetHeight(capsuleTint.bounds) * 0.5);
 
     UIView *capsuleBorder = [capsule viewWithTag:kMMCapsuleBorderTag];
     capsuleBorder.frame = capsule.bounds;
     capsuleBorder.layer.borderWidth = 0.8;
-    capsuleBorder.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.18 : 0.32)].CGColor;
+    capsuleBorder.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.18 : 0.30)].CGColor;
     MMSetRadius(capsuleBorder, CGRectGetHeight(capsuleBorder.bounds) * 0.5);
 }
 
@@ -428,19 +453,19 @@ static CGRect MMComputeFloatingFrame(UIViewController *vc, UITabBar *tabBar, BOO
     UIView *root = vc.view;
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
-    CGFloat searchSize = 68.0;
+    CGFloat searchSize = 64.0;
     CGFloat height = 64.0;
 
-    CGRect originalFrame = tabBar.frame;
-    CGFloat y = CGRectGetMinY(originalFrame) - 10.0;
+    CGFloat safeBottom = root.safeAreaInsets.bottom;
+    CGFloat y = CGRectGetHeight(root.bounds) - safeBottom - height - 14.0;
 
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
         UIView *banner = label.superview ?: label;
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat minY = CGRectGetMaxY(bannerRect) + 2.0;
-        if (y < minY) y = minY;
+        CGFloat maxAllowedY = CGRectGetMaxY(bannerRect) + 1.0;
+        if (y < maxAllowedY) y = maxAllowedY;
     }
 
     CGFloat width = CGRectGetWidth(root.bounds) - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
@@ -454,26 +479,38 @@ static UIButton *MMEnsureTabButton(UIView *host, NSInteger index) {
         button.tag = 8000 + index;
         button.backgroundColor = [UIColor clearColor];
         button.adjustsImageWhenHighlighted = NO;
-        button.imageView.contentMode = UIViewContentModeScaleAspectFit;
-        button.titleLabel.textAlignment = NSTextAlignmentCenter;
-        button.titleLabel.adjustsFontSizeToFitWidth = YES;
-        button.titleLabel.minimumScaleFactor = 0.6;
         [button addTarget:MMSharedActionProxy() action:@selector(handleTabTap:) forControlEvents:UIControlEventTouchUpInside];
+
+        UIImageView *iconView = [UIImageView new];
+        iconView.tag = 100 + index;
+        iconView.contentMode = UIViewContentModeScaleAspectFit;
+        iconView.userInteractionEnabled = NO;
+        [button addSubview:iconView];
+
+        UILabel *titleLabel = [UILabel new];
+        titleLabel.tag = 200 + index;
+        titleLabel.textAlignment = NSTextAlignmentCenter;
+        titleLabel.adjustsFontSizeToFitWidth = YES;
+        titleLabel.minimumScaleFactor = 0.6;
+        titleLabel.userInteractionEnabled = NO;
+        [button addSubview:titleLabel];
+
         [host addSubview:button];
     }
     return button;
 }
 
-static void MMConfigureButtonLayout(UIButton *button, CGFloat width, CGFloat height) {
-    CGFloat iconSize = 22.0;
-    CGFloat titleH = 13.0;
-    CGFloat gap = 2.0;
-    CGFloat totalH = iconSize + gap + titleH;
-    CGFloat top = floor((height - totalH) * 0.5);
-    if (top < 4.0) top = 4.0;
-
-    button.imageEdgeInsets = UIEdgeInsetsMake(top, (width - iconSize) * 0.5 - button.imageView.frame.origin.x, height - top - iconSize, 0.0);
-    button.titleEdgeInsets = UIEdgeInsetsMake(top + iconSize + gap, -button.imageView.image.size.width, height - (top + iconSize + gap + titleH), 0.0);
+static UIImage *MMBestImageForItem(UITabBarItem *item, BOOL selected) {
+    UIImage *image = nil;
+    if (selected && item.selectedImage) image = item.selectedImage;
+    if (!image && item.image) image = item.image;
+    if (!image) {
+        @try {
+            image = [item valueForKey:(selected ? @"_selectedImage" : @"_image")];
+        } @catch (__unused NSException *e) {
+        }
+    }
+    return image;
 }
 
 static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar) {
@@ -488,8 +525,8 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar)
         if (idx != NSNotFound) selectedIndex = idx;
     }
 
-    CGFloat sideInset = 12.0;
-    CGFloat interGap = 4.0;
+    CGFloat sideInset = 10.0;
+    CGFloat interGap = 2.0;
     CGFloat usableW = CGRectGetWidth(host.bounds) - sideInset * 2.0 - interGap * (count - 1);
     CGFloat slotW = floor(usableW / count);
     CGFloat slotH = CGRectGetHeight(host.bounds);
@@ -506,23 +543,35 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar)
         button.frame = CGRectMake(x, 0.0, w, slotH);
 
         UITabBarItem *item = [items objectAtIndex:i];
-        UIImage *image = (i == selectedIndex && item.selectedImage) ? item.selectedImage : item.image;
-        [button setImage:(image ? [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil) forState:UIControlStateNormal];
-
         NSString *title = item.title;
         if (![title length] && fallbackTitles && i < (NSInteger)[fallbackTitles count]) {
             title = [fallbackTitles objectAtIndex:i];
         }
-        [button setTitle:(title ?: @"") forState:UIControlStateNormal];
 
         UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
-        [button setTitleColor:color forState:UIControlStateNormal];
-        button.tintColor = color;
-        button.titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
 
-        MMConfigureButtonLayout(button, w, slotH);
+        UIImageView *iconView = (UIImageView *)[button viewWithTag:100 + i];
+        UILabel *titleLabel = (UILabel *)[button viewWithTag:200 + i];
+
+        UIImage *image = MMBestImageForItem(item, i == selectedIndex);
+        iconView.image = image ? [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
+        iconView.tintColor = color;
+
+        titleLabel.text = title ?: @"";
+        titleLabel.textColor = color;
+        titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
+
+        CGFloat iconSize = 22.0;
+        CGFloat titleH = 13.0;
+        CGFloat gap = 2.0;
+        CGFloat totalH = iconSize + gap + titleH;
+        CGFloat top = floor((slotH - totalH) * 0.5);
+        if (top < 4.0) top = 4.0;
+
+        iconView.frame = CGRectMake(floor((w - iconSize) * 0.5), top, iconSize, iconSize);
+        titleLabel.frame = CGRectMake(0.0, CGRectGetMaxY(iconView.frame) + gap, w, titleH);
     }
 
     for (UIView *sub in [[host subviews] copy]) {
@@ -563,7 +612,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
         return;
     }
 
-    CGFloat size = CGRectGetHeight(barFrame);
+    CGFloat size = 64.0;
     CGFloat gap = 10.0;
     CGFloat x = CGRectGetMaxX(barFrame) + gap;
     CGFloat y = CGRectGetMinY(barFrame);
@@ -638,7 +687,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     CGRect barFrame = MMComputeFloatingFrame(vc, tabBar, showSearch);
 
-    backdrop.frame = CGRectMake(CGRectGetMinX(barFrame) - 4.0, CGRectGetMinY(barFrame) - 2.0, CGRectGetWidth(root.bounds) - (CGRectGetMinX(barFrame) - 4.0) * 2.0, CGRectGetHeight(barFrame) + 4.0);
+    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(barFrame) - 4.0, CGRectGetWidth(root.bounds), CGRectGetHeight(root.bounds) - (CGRectGetMinY(barFrame) - 4.0));
     MMStyleBackdrop(backdrop);
 
     bar.frame = barFrame;
@@ -671,11 +720,9 @@ static void MMRequestRefresh(UIViewController *vc) {
     NSInteger index = sender.tag - 8000;
     UIViewController *vc = MMFindMainTabControllerFromResponder(sender);
     if (!vc) return;
-
     if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
         ((void (*)(id, SEL, NSUInteger))objc_msgSend)(vc, @selector(setSelectedIndex:), (NSUInteger)index);
     }
-
     MMRequestRefresh(vc);
 }
 
