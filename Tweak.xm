@@ -66,6 +66,32 @@ static NSInteger MMSelectedIndex(UITabBar *tabBar) {
     return 0;
 }
 
+static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
+    if (!vc || !vc.isViewLoaded || !vc.view.window) return NO;
+
+    id selected = nil;
+    @try {
+        if ([vc respondsToSelector:@selector(selectedViewController)]) {
+            selected = [vc valueForKey:@"selectedViewController"];
+        }
+    } @catch (__unused NSException *e) {
+    }
+
+    if ([selected isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)selected;
+        UIViewController *root = nav.viewControllers.count > 0 ? nav.viewControllers.firstObject : nil;
+        UIViewController *top = nav.topViewController ?: nav.visibleViewController;
+        if (root && top && top != root) return NO;
+        if (nav.presentedViewController) return NO;
+    } else if ([selected isKindOfClass:[UIViewController class]]) {
+        UIViewController *child = (UIViewController *)selected;
+        if (child.presentedViewController) return NO;
+    }
+
+    if (vc.presentedViewController) return NO;
+    return YES;
+}
+
 static UIView *MMHost(UIView *root) {
     UIView *host = [root viewWithTag:kMMFloatingHostTag];
     if (!host) {
@@ -90,7 +116,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
     }
     blur.frame = host.bounds;
     if (@available(iOS 13.0, *)) {
-        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(host.traitCollection) ? UIBlurEffectStyleSystemThinMaterialDark : UIBlurEffectStyleSystemThinMaterialLight)];
+        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(host.traitCollection) ? UIBlurEffectStyleSystemUltraThinMaterialDark : UIBlurEffectStyleSystemThinMaterialLight)];
     } else {
         blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
     }
@@ -105,7 +131,7 @@ static UIVisualEffectView *MMBlur(UIView *host) {
     }
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.06] : [UIColor colorWithWhite:1.0 alpha:0.16];
+    tint.backgroundColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.07] : [UIColor colorWithWhite:1.0 alpha:0.17];
     return blur;
 }
 
@@ -144,9 +170,9 @@ static UIView *MMCapsule(UIView *host) {
 static void MMStyleHost(UIView *host) {
     MMSetRadius(host, CGRectGetHeight(host.bounds) * 0.5);
     host.layer.shadowColor = [UIColor blackColor].CGColor;
-    host.layer.shadowOpacity = MMIsDark(host.traitCollection) ? 0.10 : 0.08;
-    host.layer.shadowRadius = 16.0;
-    host.layer.shadowOffset = CGSizeMake(0.0, 6.0);
+    host.layer.shadowOpacity = MMIsDark(host.traitCollection) ? 0.12 : 0.10;
+    host.layer.shadowRadius = 18.0;
+    host.layer.shadowOffset = CGSizeMake(0.0, 8.0);
     host.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:host.bounds cornerRadius:CGRectGetHeight(host.bounds) * 0.5].CGPath;
 
     UIView *edge = [host viewWithTag:990302];
@@ -160,7 +186,7 @@ static void MMStyleHost(UIView *host) {
     edge.frame = host.bounds;
     MMSetRadius(edge, CGRectGetHeight(host.bounds) * 0.5);
     edge.layer.borderWidth = 0.8;
-    edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.14 : 0.28)].CGColor;
+    edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.16 : 0.30)].CGColor;
 
     UIView *shine = [host viewWithTag:990303];
     if (!shine) {
@@ -189,11 +215,11 @@ static void MMStyleHost(UIView *host) {
     g.startPoint = CGPointMake(0.5, 0.0);
     g.endPoint = CGPointMake(0.5, 1.0);
     g.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.14 : 0.24)].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.03 : 0.06)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.16 : 0.28)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.04 : 0.07)].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
     ];
-    g.locations = @[@0.0, @0.18, @0.42];
+    g.locations = @[@0.0, @0.16, @0.42];
     g.cornerRadius = CGRectGetHeight(shine.bounds) * 0.5;
 }
 
@@ -209,13 +235,13 @@ static void MMStyleCapsule(UIView *capsule, UIView *host) {
 
     UIView *tint = [capsule viewWithTag:990305];
     tint.frame = capsule.bounds;
-    tint.backgroundColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.15];
+    tint.backgroundColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.10] : [UIColor colorWithWhite:1.0 alpha:0.18];
     MMSetRadius(tint, CGRectGetHeight(capsule.bounds) * 0.5);
 
     UIView *border = [capsule viewWithTag:990306];
     border.frame = capsule.bounds;
     border.layer.borderWidth = 0.8;
-    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.16 : 0.34)].CGColor;
+    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(host.traitCollection) ? 0.18 : 0.34)].CGColor;
     MMSetRadius(border, CGRectGetHeight(capsule.bounds) * 0.5);
 }
 
@@ -246,6 +272,7 @@ static void MMMakeTabBarTransparent(UITabBar *tabBar) {
         if ([name containsString:@"Background"] || [name containsString:@"BarBackground"]) {
             sub.hidden = YES;
             sub.alpha = 0.0;
+            sub.userInteractionEnabled = NO;
         } else {
             sub.hidden = NO;
             sub.alpha = 1.0;
@@ -257,11 +284,16 @@ static void MMMakeTabBarTransparent(UITabBar *tabBar) {
 static CGRect MMHostFrameForTabBar(UIView *root, UITabBar *tabBar) {
     CGRect tabFrame = tabBar.frame;
     CGFloat sideInset = 16.0;
-    CGFloat hostH = 64.0;
-    CGFloat minY = CGRectGetMinY(tabFrame) + 2.0;
-    CGFloat maxY = CGRectGetMaxY(tabFrame) - hostH - 4.0;
-    CGFloat y = maxY;
-    if (y < minY) y = minY;
+    CGFloat availableH = CGRectGetHeight(tabFrame) - 6.0;
+    CGFloat hostH = availableH > 64.0 ? 64.0 : availableH;
+    if (hostH < 58.0) hostH = availableH;
+    CGFloat y = CGRectGetMinY(tabFrame) + 2.0;
+    if (availableH > hostH) {
+        y = CGRectGetMinY(tabFrame) + (availableH - hostH) * 0.5;
+    }
+    if (y + hostH > CGRectGetMaxY(tabFrame) - 2.0) {
+        y = CGRectGetMaxY(tabFrame) - 2.0 - hostH;
+    }
     return CGRectMake(sideInset, y, CGRectGetWidth(root.bounds) - sideInset * 2.0, hostH);
 }
 
@@ -276,20 +308,39 @@ static CGRect MMCapsuleFrameForItemView(UIView *itemView, UITabBar *tabBar, UIVi
     return CGRectMake(x, y, capW, capH);
 }
 
+static void MMSetFloatingVisible(UIView *host, BOOL visible) {
+    if (!host) return;
+    host.userInteractionEnabled = NO;
+    if (visible) {
+        host.hidden = NO;
+        [UIView animateWithDuration:0.16 delay:0.0 options:UIViewAnimationOptionBeginFromCurrentState|UIViewAnimationOptionAllowUserInteraction animations:^{
+            host.alpha = 1.0;
+        } completion:nil];
+    } else {
+        [UIView animateWithDuration:0.12 delay:0.0 options:UIViewAnimationOptionBeginFromCurrentState|UIViewAnimationOptionAllowUserInteraction animations:^{
+            host.alpha = 0.0;
+        } completion:^(BOOL finished) {
+            if (finished) host.hidden = YES;
+        }];
+    }
+}
+
 static void MMUpdateFloatingBar(UIViewController *vc) {
     if (!vc || kMMUpdatingLayout) return;
     kMMUpdatingLayout = YES;
 
     UIView *root = vc.view;
     UITabBar *tabBar = MMFindTabBar(vc);
-    if (!root || !tabBar) {
+    UIView *host = MMHost(root);
+
+    if (!root || !tabBar || !MMShouldShowFloatingBar(vc)) {
+        MMSetFloatingVisible(host, NO);
         kMMUpdatingLayout = NO;
         return;
     }
 
     MMMakeTabBarTransparent(tabBar);
 
-    UIView *host = MMHost(root);
     host.frame = MMHostFrameForTabBar(root, tabBar);
     MMStyleHost(host);
     MMBlur(host);
@@ -309,6 +360,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     [root insertSubview:host belowSubview:tabBar];
     [root bringSubviewToFront:tabBar];
+    MMSetFloatingVisible(host, YES);
 
     kMMUpdatingLayout = NO;
 }
@@ -339,6 +391,16 @@ static void MMRequestFloatingBarRefresh(UIViewController *vc) {
 
 - (void)viewSafeAreaInsetsDidChange {
     %orig;
+    MMRequestFloatingBarRefresh((UIViewController *)self);
+}
+
+- (void)setSelectedViewController:(UIViewController *)selectedViewController {
+    %orig(selectedViewController);
+    MMRequestFloatingBarRefresh((UIViewController *)self);
+}
+
+- (void)setSelectedIndex:(NSUInteger)selectedIndex {
+    %orig(selectedIndex);
     MMRequestFloatingBarRefresh((UIViewController *)self);
 }
 
@@ -378,9 +440,9 @@ static void MMRequestFloatingBarRefresh(UIViewController *vc) {
 
 %end
 
-%hook UIViewController
+%hook UINavigationController
 
-- (void)viewWillAppear:(BOOL)animated {
+- (void)viewDidAppear:(BOOL)animated {
     %orig(animated);
     UIResponder *r = self;
     while (r) {
@@ -393,6 +455,37 @@ static void MMRequestFloatingBarRefresh(UIViewController *vc) {
         }
         r = [r nextResponder];
     }
+}
+
+- (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated {
+    %orig(viewController, animated);
+    UIResponder *r = self;
+    while (r) {
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                MMRequestFloatingBarRefresh(vc);
+                break;
+            }
+        }
+        r = [r nextResponder];
+    }
+}
+
+- (UIViewController *)popViewControllerAnimated:(BOOL)animated {
+    UIViewController *ret = %orig(animated);
+    UIResponder *r = self;
+    while (r) {
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                MMRequestFloatingBarRefresh(vc);
+                break;
+            }
+        }
+        r = [r nextResponder];
+    }
+    return ret;
 }
 
 %end
