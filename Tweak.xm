@@ -57,6 +57,7 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
         if ([tb isKindOfClass:[UITabBar class]]) return (UITabBar *)tb;
     } @catch (__unused NSException *e) {
     }
+
     for (UIView *sub in vc.view.subviews) {
         if ([sub isKindOfClass:[UITabBar class]]) return (UITabBar *)sub;
         NSString *name = NSStringFromClass([sub class]);
@@ -285,10 +286,10 @@ static void MMStyleBackdrop(UIView *backdrop) {
     mask.endPoint = CGPointMake(0.5, 1.0);
     mask.colors = @[
         (__bridge id)[UIColor colorWithWhite:1 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1 alpha:0.24].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1 alpha:0.22].CGColor,
         (__bridge id)[UIColor colorWithWhite:1 alpha:1.0].CGColor
     ];
-    mask.locations = @[@0.0, @0.24, @1.0];
+    mask.locations = @[@0.0, @0.26, @1.0];
 }
 
 static void MMStyleGlass(UIView *glass) {
@@ -669,40 +670,6 @@ static MMFloatingActionProxy *MMSharedActionProxy(void) {
 - (void)setSelectedViewController:(UIViewController *)selectedViewController {
     %orig(selectedViewController);
     MMRequestRefresh((UIViewController *)self);
-}
-
-%end
-
-%hook UITabBar
-
-- (void)layoutSubviews {
-    %orig;
-    UIResponder *r = self;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                MMRequestRefresh(vc);
-                break;
-            }
-        }
-    }
-}
-
-- (void)setSelectedItem:(UITabBarItem *)item {
-    %orig(item);
-    UIResponder *r = self;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                MMRequestRefresh(vc);
-                break;
-            }
-        }
-    }
 }
 
 %end
