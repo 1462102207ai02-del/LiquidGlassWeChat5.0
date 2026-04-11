@@ -71,16 +71,6 @@ static UIImageView *MMFindImageView(UIView *view) {
     return nil;
 }
 
-static UILabel *MMFindLabel(UIView *view) {
-    if (!view) return nil;
-    if ([view isKindOfClass:[UILabel class]] && [((UILabel *)view).text length] > 0) return (UILabel *)view;
-    for (UIView *sub in view.subviews) {
-        UILabel *found = MMFindLabel(sub);
-        if (found) return found;
-    }
-    return nil;
-}
-
 static UITabBar *MMFindTabBar(UIViewController *vc) {
     @try {
         id tb = [vc valueForKey:@"tabBar"];
@@ -505,8 +495,8 @@ static MMFloatingActionProxy *MMSharedActionProxy(void) {
 }
 
 static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
-    CGFloat sideInset = 14.0;
-    CGFloat interGap = 6.0;
+    CGFloat sideInset = 12.0;
+    CGFloat interGap = 4.0;
     CGFloat usableW = CGRectGetWidth(host.bounds) - sideInset * 2.0 - interGap * (MAX(count, 1) - 1);
     CGFloat slotW = floor(usableW / MAX(count, 1));
     CGFloat x = sideInset + index * (slotW + interGap);
@@ -519,7 +509,7 @@ static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
 static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
     CGRect slot = MMSlotFrame(host, index, count);
     CGFloat capH = CGRectGetHeight(host.bounds) - 10.0;
-    CGFloat capW = MIN(CGRectGetWidth(slot) + 10.0, 72.0);
+    CGFloat capW = MIN(CGRectGetWidth(slot) + 8.0, 68.0);
     CGFloat x = CGRectGetMidX(slot) - capW * 0.5;
     CGFloat y = (CGRectGetHeight(host.bounds) - capH) * 0.5;
     if (x < 4.0) x = 4.0;
@@ -572,6 +562,11 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
     NSInteger count = [items count];
     if (count <= 0) return;
 
+    NSArray *fallbackTitles = nil;
+    if (count == 4) {
+        fallbackTitles = @[@"微信", @"通讯录", @"发现", @"我"];
+    }
+
     NSInteger selectedIndex = 0;
     if (tabBar.selectedItem) {
         NSInteger idx = [items indexOfObject:tabBar.selectedItem];
@@ -588,12 +583,8 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         UITabBarItem *item = [items objectAtIndex:i];
         UIView *sourceView = i < (NSInteger)[sourceViews count] ? [sourceViews objectAtIndex:i] : nil;
         UIImageView *sourceImageView = MMKVC(sourceView, @"_imageView");
-        UILabel *sourceLabel = MMKVC(sourceView, @"_textLabel");
         if (![sourceImageView isKindOfClass:[UIImageView class]] || !sourceImageView.image) {
             sourceImageView = MMFindImageView(sourceView);
-        }
-        if (![sourceLabel isKindOfClass:[UILabel class]] || ![sourceLabel.text length]) {
-            sourceLabel = MMFindLabel(sourceView);
         }
 
         UIImage *image = nil;
@@ -617,20 +608,22 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
 
         if (i == selectedIndex) {
-            UIColor *iconColor = ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.tintColor) ? sourceImageView.tintColor : selectedColor;
-            UIColor *textColor = ([sourceLabel isKindOfClass:[UILabel class]] && sourceLabel.textColor) ? sourceLabel.textColor : iconColor;
-            button.mm_imageView.tintColor = iconColor;
-            button.mm_titleLabel.textColor = textColor;
-            button.mm_titleLabel.font = sourceLabel ? sourceLabel.font : [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
+            button.mm_imageView.tintColor = selectedColor;
+            button.mm_titleLabel.textColor = selectedColor;
+            button.mm_titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
         } else {
-            UIColor *iconColor = ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.tintColor && sourceImageView.tintColor != UIColor.clearColor) ? sourceImageView.tintColor : normalColor;
-            UIColor *textColor = ([sourceLabel isKindOfClass:[UILabel class]] && sourceLabel.textColor && sourceLabel.textColor != UIColor.clearColor) ? sourceLabel.textColor : normalColor;
-            button.mm_imageView.tintColor = iconColor;
-            button.mm_titleLabel.textColor = textColor;
-            button.mm_titleLabel.font = sourceLabel ? sourceLabel.font : [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
+            button.mm_imageView.tintColor = normalColor;
+            button.mm_titleLabel.textColor = normalColor;
+            button.mm_titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
         }
 
-        button.mm_titleLabel.text = [sourceLabel.text length] > 0 ? sourceLabel.text : (item.title ?: @"");
+        NSString *title = nil;
+        if (fallbackTitles && i < (NSInteger)[fallbackTitles count]) {
+            title = [fallbackTitles objectAtIndex:i];
+        } else {
+            title = item.title ?: @"";
+        }
+        button.mm_titleLabel.text = title;
 
         NSString *badge = item.badgeValue;
         if ([badge length] > 0) {
@@ -765,7 +758,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat gap = 10.0;
     CGFloat searchSize = 72.0;
     CGFloat height = 72.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height + 22.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 14.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
@@ -774,7 +767,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat width = CGRectGetWidth(root.bounds) - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
     CGRect barFrame = CGRectMake(margin, y, width, height);
 
-    backdrop.frame = CGRectMake(margin - 6.0, y - 10.0, CGRectGetWidth(root.bounds) - (margin - 6.0) * 2.0, height + inset + 8.0);
+    backdrop.frame = CGRectMake(margin - 6.0, y - 8.0, CGRectGetWidth(root.bounds) - (margin - 6.0) * 2.0, height + inset + 6.0);
     MMStyleBackdrop(backdrop);
 
     host.frame = barFrame;
