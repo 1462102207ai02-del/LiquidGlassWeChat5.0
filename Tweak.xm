@@ -62,17 +62,6 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
     return nil;
 }
 
-static UIViewController *MMFindMainTabControllerFromResponder(UIResponder *r) {
-    while (r) {
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) return vc;
-        }
-        r = [r nextResponder];
-    }
-    return nil;
-}
-
 static UIViewController *MMFindHomeController(UIViewController *vc) {
     if (!vc) return nil;
     NSString *name = NSStringFromClass([vc class]);
