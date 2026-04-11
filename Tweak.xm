@@ -13,24 +13,24 @@
 
 static MMFloatingActionProxy *MMSharedActionProxy(void);
 
-static NSInteger const kMMBackdropTag = 994000;
-static NSInteger const kMMBackdropBlurTag = 994001;
-static NSInteger const kMMBackdropTintTag = 994002;
-static NSInteger const kMMBarTag = 994003;
-static NSInteger const kMMBarBlurTag = 994004;
-static NSInteger const kMMBarTintTag = 994005;
-static NSInteger const kMMBarBorderTag = 994006;
-static NSInteger const kMMBarShineTag = 994007;
-static NSInteger const kMMCapsuleTag = 994008;
-static NSInteger const kMMCapsuleBlurTag = 994009;
-static NSInteger const kMMCapsuleTintTag = 994010;
-static NSInteger const kMMCapsuleBorderTag = 994011;
-static NSInteger const kMMButtonsHostTag = 994012;
-static NSInteger const kMMSearchHostTag = 994013;
-static NSInteger const kMMSearchBlurTag = 994014;
-static NSInteger const kMMSearchTintTag = 994015;
-static NSInteger const kMMSearchIconTag = 994016;
-static NSInteger const kMMSearchButtonTag = 994017;
+static NSInteger const kMMBackdropTag = 995000;
+static NSInteger const kMMBackdropBlurTag = 995001;
+static NSInteger const kMMBackdropTintTag = 995002;
+static NSInteger const kMMBarTag = 995003;
+static NSInteger const kMMBarBlurTag = 995004;
+static NSInteger const kMMBarTintTag = 995005;
+static NSInteger const kMMBarBorderTag = 995006;
+static NSInteger const kMMBarShineTag = 995007;
+static NSInteger const kMMCapsuleTag = 995008;
+static NSInteger const kMMCapsuleBlurTag = 995009;
+static NSInteger const kMMCapsuleTintTag = 995010;
+static NSInteger const kMMCapsuleBorderTag = 995011;
+static NSInteger const kMMButtonsHostTag = 995012;
+static NSInteger const kMMSearchHostTag = 995013;
+static NSInteger const kMMSearchBlurTag = 995014;
+static NSInteger const kMMSearchTintTag = 995015;
+static NSInteger const kMMSearchIconTag = 995016;
+static NSInteger const kMMSearchButtonTag = 995017;
 
 static BOOL kMMUpdating = NO;
 
@@ -64,6 +64,24 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
     return nil;
 }
 
+static NSArray *MMOriginalItemViews(UITabBar *tabBar) {
+    NSMutableArray *items = [NSMutableArray array];
+    for (UIView *sub in tabBar.subviews) {
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name containsString:@"UITabBarButton"] || [name containsString:@"MMTabBarItemView"]) {
+            [items addObject:sub];
+        }
+    }
+    [items sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
+        CGFloat x1 = CGRectGetMinX(a.frame);
+        CGFloat x2 = CGRectGetMinX(b.frame);
+        if (x1 < x2) return NSOrderedAscending;
+        if (x1 > x2) return NSOrderedDescending;
+        return NSOrderedSame;
+    }];
+    return items;
+}
+
 static UIViewController *MMFindMainTabControllerFromResponder(UIResponder *r) {
     while (r) {
         if ([r isKindOfClass:[UIViewController class]]) {
@@ -94,7 +112,8 @@ static UIViewController *MMFindHomeController(UIViewController *vc) {
     }
 
     id vcs = nil;
-    @try { vcs = [vc valueForKey:@"viewControllers"]; } @catch (__unused NSException *e) {}
+    @try { vcs = [vc valueForKey:@"viewControllers"]; } @catch (__unused NSException *e) {
+    }
     if ([vcs isKindOfClass:[NSArray class]]) {
         for (UIViewController *child in (NSArray *)vcs) {
             UIViewController *found = MMFindHomeController(child);
@@ -123,6 +142,26 @@ static UIView *MMFindLabelContainingText(UIView *root, NSString *text) {
     }
     for (UIView *sub in root.subviews) {
         UIView *found = MMFindLabelContainingText(sub, text);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UIImageView *MMFindImageView(UIView *root) {
+    if (!root) return nil;
+    if ([root isKindOfClass:[UIImageView class]]) return (UIImageView *)root;
+    for (UIView *sub in root.subviews) {
+        UIImageView *found = MMFindImageView(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UILabel *MMFindLabel(UIView *root) {
+    if (!root) return nil;
+    if ([root isKindOfClass:[UILabel class]]) return (UILabel *)root;
+    for (UIView *sub in root.subviews) {
+        UILabel *found = MMFindLabel(sub);
         if (found) return found;
     }
     return nil;
@@ -328,23 +367,6 @@ static void MMStyleBackdrop(UIView *backdrop) {
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     tint.backgroundColor = MMIsDark(backdrop.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.02] : [UIColor colorWithWhite:1.0 alpha:0.05];
-
-    CAGradientLayer *mask = nil;
-    if ([backdrop.layer.mask isKindOfClass:[CAGradientLayer class]]) {
-        mask = (CAGradientLayer *)backdrop.layer.mask;
-    } else {
-        mask = [CAGradientLayer layer];
-        backdrop.layer.mask = mask;
-    }
-    mask.frame = backdrop.bounds;
-    mask.startPoint = CGPointMake(0.5, 0.0);
-    mask.endPoint = CGPointMake(0.5, 1.0);
-    mask.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.20].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:1.0].CGColor
-    ];
-    mask.locations = @[@0.0, @0.25, @1.0];
 }
 
 static void MMStyleBar(UIView *bar) {
@@ -362,7 +384,7 @@ static void MMStyleBar(UIView *bar) {
     UIView *tint = [blur.contentView viewWithTag:kMMBarTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.11];
+    tint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.10];
 
     bar.layer.shadowColor = [UIColor blackColor].CGColor;
     bar.layer.shadowOpacity = MMIsDark(bar.traitCollection) ? 0.12 : 0.08;
@@ -455,8 +477,8 @@ static CGRect MMComputeFloatingFrame(UIViewController *vc, UITabBar *tabBar, BOO
     CGFloat gap = 10.0;
     CGFloat searchSize = 64.0;
     CGFloat height = 64.0;
-
     CGFloat safeBottom = root.safeAreaInsets.bottom;
+
     CGFloat y = CGRectGetHeight(root.bounds) - safeBottom - height - 14.0;
 
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
@@ -464,11 +486,13 @@ static CGRect MMComputeFloatingFrame(UIViewController *vc, UITabBar *tabBar, BOO
         UIView *banner = label.superview ?: label;
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat maxAllowedY = CGRectGetMaxY(bannerRect) + 1.0;
-        if (y < maxAllowedY) y = maxAllowedY;
+        CGFloat minY = CGRectGetMaxY(bannerRect) + 1.0;
+        if (y < minY) y = minY;
     }
 
     CGFloat width = CGRectGetWidth(root.bounds) - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
+    (void)vc;
+    (void)tabBar;
     return CGRectMake(margin, y, width, height);
 }
 
@@ -500,10 +524,15 @@ static UIButton *MMEnsureTabButton(UIView *host, NSInteger index) {
     return button;
 }
 
-static UIImage *MMBestImageForItem(UITabBarItem *item, BOOL selected) {
+static UIImage *MMBestImageForItem(UITabBarItem *item, UIView *itemView, BOOL selected) {
     UIImage *image = nil;
-    if (selected && item.selectedImage) image = item.selectedImage;
-    if (!image && item.image) image = item.image;
+
+    UIImageView *sourceIcon = MMFindImageView(itemView);
+    if (sourceIcon.image) image = sourceIcon.image;
+
+    if (!image) image = selected ? item.selectedImage : item.image;
+    if (!image) image = item.image;
+
     if (!image) {
         @try {
             image = [item valueForKey:(selected ? @"_selectedImage" : @"_image")];
@@ -513,9 +542,21 @@ static UIImage *MMBestImageForItem(UITabBarItem *item, BOOL selected) {
     return image;
 }
 
+static NSString *MMBestTitleForItem(UITabBarItem *item, UIView *itemView, NSInteger index, NSInteger count) {
+    UILabel *sourceLabel = MMFindLabel(itemView);
+    if (sourceLabel.text.length > 0) return sourceLabel.text;
+    if (item.title.length > 0) return item.title;
+    if (count == 4) {
+        NSArray *fallback = @[@"微信", @"通讯录", @"发现", @"我"];
+        if (index >= 0 && index < 4) return fallback[index];
+    }
+    return @"";
+}
+
 static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar) {
     UIView *host = MMEnsureButtonsHost(bar);
     NSArray *items = tabBar.items;
+    NSArray *itemViews = MMOriginalItemViews(tabBar);
     NSInteger count = [items count];
     if (count <= 0) return;
 
@@ -532,7 +573,6 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar)
     CGFloat slotH = CGRectGetHeight(host.bounds);
 
     NSMutableSet *validTags = [NSMutableSet set];
-    NSArray *fallbackTitles = count == 4 ? @[@"微信", @"通讯录", @"发现", @"我"] : nil;
 
     for (NSInteger i = 0; i < count; i++) {
         UIButton *button = MMEnsureTabButton(host, i);
@@ -543,10 +583,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar)
         button.frame = CGRectMake(x, 0.0, w, slotH);
 
         UITabBarItem *item = [items objectAtIndex:i];
-        NSString *title = item.title;
-        if (![title length] && fallbackTitles && i < (NSInteger)[fallbackTitles count]) {
-            title = [fallbackTitles objectAtIndex:i];
-        }
+        UIView *itemView = (i < (NSInteger)[itemViews count]) ? [itemViews objectAtIndex:i] : nil;
 
         UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
@@ -555,11 +592,11 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar)
         UIImageView *iconView = (UIImageView *)[button viewWithTag:100 + i];
         UILabel *titleLabel = (UILabel *)[button viewWithTag:200 + i];
 
-        UIImage *image = MMBestImageForItem(item, i == selectedIndex);
+        UIImage *image = MMBestImageForItem(item, itemView, i == selectedIndex);
         iconView.image = image ? [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
         iconView.tintColor = color;
 
-        titleLabel.text = title ?: @"";
+        titleLabel.text = MMBestTitleForItem(item, itemView, i, count);
         titleLabel.textColor = color;
         titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
 
@@ -687,7 +724,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     CGRect barFrame = MMComputeFloatingFrame(vc, tabBar, showSearch);
 
-    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(barFrame) - 4.0, CGRectGetWidth(root.bounds), CGRectGetHeight(root.bounds) - (CGRectGetMinY(barFrame) - 4.0));
+    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(barFrame) - 4.0, CGRectGetWidth(root.bounds), CGRectGetHeight(root.bounds) - CGRectGetMinY(barFrame) + 4.0);
     MMStyleBackdrop(backdrop);
 
     bar.frame = barFrame;
