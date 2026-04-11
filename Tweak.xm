@@ -320,10 +320,10 @@ static void MMStyleGlass(UIView *glass) {
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     tint.backgroundColor = MMIsDark(glass.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.06] : [UIColor colorWithWhite:1.0 alpha:0.13];
 
-    UIView *edge = [glass viewWithTag:kMMFloatingEdgeTag];
+    UIView *edge = [glass viewWithTag:kMMGlassEdgeTag];
     if (!edge) {
         edge = [UIView new];
-        edge.tag = kMMFloatingEdgeTag;
+        edge.tag = kMMGlassEdgeTag;
         edge.userInteractionEnabled = NO;
         edge.backgroundColor = [UIColor clearColor];
         [glass addSubview:edge];
@@ -333,10 +333,10 @@ static void MMStyleGlass(UIView *glass) {
     edge.layer.borderWidth = 0.8;
     edge.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.16 : 0.28)].CGColor;
 
-    UIView *shine = [glass viewWithTag:kMMFloatingShineTag];
+    UIView *shine = [glass viewWithTag:kMMGlassShineTag];
     if (!shine) {
         shine = [UIView new];
-        shine.tag = kMMFloatingShineTag;
+        shine.tag = kMMGlassShineTag;
         shine.userInteractionEnabled = NO;
         shine.backgroundColor = [UIColor clearColor];
         shine.clipsToBounds = YES;
