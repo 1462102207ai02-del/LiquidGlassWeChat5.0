@@ -13,22 +13,22 @@
 
 static MMFloatingActionProxy *MMSharedActionProxy(void);
 
-static NSInteger const kMMBackdropTag = 992000;
-static NSInteger const kMMBarTag = 992001;
-static NSInteger const kMMBarBlurTag = 992002;
-static NSInteger const kMMBarTintTag = 992003;
-static NSInteger const kMMBarBorderTag = 992004;
-static NSInteger const kMMBarShineTag = 992005;
-static NSInteger const kMMCapsuleTag = 992006;
-static NSInteger const kMMCapsuleBlurTag = 992007;
-static NSInteger const kMMCapsuleTintTag = 992008;
-static NSInteger const kMMCapsuleBorderTag = 992009;
-static NSInteger const kMMButtonsHostTag = 992010;
-static NSInteger const kMMSearchHostTag = 992011;
-static NSInteger const kMMSearchBlurTag = 992012;
-static NSInteger const kMMSearchTintTag = 992013;
-static NSInteger const kMMSearchIconTag = 992014;
-static NSInteger const kMMSearchButtonTag = 992015;
+static NSInteger const kMMBackdropTag = 993000;
+static NSInteger const kMMBarTag = 993001;
+static NSInteger const kMMBarBlurTag = 993002;
+static NSInteger const kMMBarTintTag = 993003;
+static NSInteger const kMMBarBorderTag = 993004;
+static NSInteger const kMMBarShineTag = 993005;
+static NSInteger const kMMCapsuleTag = 993006;
+static NSInteger const kMMCapsuleBlurTag = 993007;
+static NSInteger const kMMCapsuleTintTag = 993008;
+static NSInteger const kMMCapsuleBorderTag = 993009;
+static NSInteger const kMMButtonsHostTag = 993010;
+static NSInteger const kMMSearchHostTag = 993011;
+static NSInteger const kMMSearchBlurTag = 993012;
+static NSInteger const kMMSearchTintTag = 993013;
+static NSInteger const kMMSearchIconTag = 993014;
+static NSInteger const kMMSearchButtonTag = 993015;
 
 static BOOL kMMUpdating = NO;
 
@@ -62,10 +62,22 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
     return nil;
 }
 
+static UIViewController *MMFindMainTabControllerFromResponder(UIResponder *r) {
+    while (r) {
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) return vc;
+        }
+        r = [r nextResponder];
+    }
+    return nil;
+}
+
 static UIViewController *MMFindHomeController(UIViewController *vc) {
     if (!vc) return nil;
     NSString *name = NSStringFromClass([vc class]);
     if ([name isEqualToString:@"NewMainFrameViewController"]) return vc;
+
     if ([vc isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)vc;
         for (UIViewController *child in nav.viewControllers) {
@@ -73,10 +85,12 @@ static UIViewController *MMFindHomeController(UIViewController *vc) {
             if (found) return found;
         }
     }
+
     for (UIViewController *child in vc.childViewControllers) {
         UIViewController *found = MMFindHomeController(child);
         if (found) return found;
     }
+
     id vcs = nil;
     @try { vcs = [vc valueForKey:@"viewControllers"]; } @catch (__unused NSException *e) {}
     if ([vcs isKindOfClass:[NSArray class]]) {
@@ -122,6 +136,7 @@ static void MMOpenSearchFromMainTab(UIViewController *vc) {
 
 static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return NO;
+
     id selected = nil;
     @try {
         if ([vc respondsToSelector:@selector(selectedViewController)]) {
@@ -129,6 +144,7 @@ static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
         }
     } @catch (__unused NSException *e) {
     }
+
     if ([selected isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)selected;
         UIViewController *root = nav.viewControllers.count > 0 ? nav.viewControllers.firstObject : nil;
@@ -139,6 +155,7 @@ static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
         UIViewController *child = (UIViewController *)selected;
         if (child.presentedViewController) return NO;
     }
+
     if (vc.presentedViewController) return NO;
     return YES;
 }
@@ -299,10 +316,10 @@ static void MMStyleBackdrop(UIView *backdrop) {
     g.endPoint = CGPointMake(0.5, 1.0);
     g.colors = @[
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.08].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.16].CGColor
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.06].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.12].CGColor
     ];
-    g.locations = @[@0.0, @0.58, @1.0];
+    g.locations = @[@0.0, @0.55, @1.0];
 }
 
 static void MMStyleBar(UIView *bar) {
@@ -320,18 +337,18 @@ static void MMStyleBar(UIView *bar) {
     UIView *tint = [blur.contentView viewWithTag:kMMBarTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.12];
+    tint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.10];
 
     bar.layer.shadowColor = [UIColor blackColor].CGColor;
-    bar.layer.shadowOpacity = MMIsDark(bar.traitCollection) ? 0.14 : 0.10;
-    bar.layer.shadowRadius = 22.0;
-    bar.layer.shadowOffset = CGSizeMake(0.0, 10.0);
+    bar.layer.shadowOpacity = MMIsDark(bar.traitCollection) ? 0.12 : 0.08;
+    bar.layer.shadowRadius = 18.0;
+    bar.layer.shadowOffset = CGSizeMake(0.0, 8.0);
     bar.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:bar.bounds cornerRadius:CGRectGetHeight(bar.bounds) * 0.5].CGPath;
 
     UIView *border = [bar viewWithTag:kMMBarBorderTag];
     border.frame = bar.bounds;
     border.layer.borderWidth = 0.8;
-    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.16 : 0.28)].CGColor;
+    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.16 : 0.26)].CGColor;
     MMSetRadius(border, CGRectGetHeight(border.bounds) * 0.5);
 
     UIView *shine = [bar viewWithTag:kMMBarShineTag];
@@ -349,7 +366,7 @@ static void MMStyleBar(UIView *bar) {
     g.startPoint = CGPointMake(0.5, 0.0);
     g.endPoint = CGPointMake(0.5, 1.0);
     g.colors = @[
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.14 : 0.22)].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.12 : 0.20)].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.03].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor
     ];
@@ -369,13 +386,13 @@ static void MMStyleCapsule(UIView *capsule, UIView *bar) {
 
     UIView *capsuleTint = [capsule viewWithTag:kMMCapsuleTintTag];
     capsuleTint.frame = capsule.bounds;
-    capsuleTint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.20];
+    capsuleTint.backgroundColor = MMIsDark(bar.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.18];
     MMSetRadius(capsuleTint, CGRectGetHeight(capsuleTint.bounds) * 0.5);
 
     UIView *capsuleBorder = [capsule viewWithTag:kMMCapsuleBorderTag];
     capsuleBorder.frame = capsule.bounds;
     capsuleBorder.layer.borderWidth = 0.8;
-    capsuleBorder.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.18 : 0.34)].CGColor;
+    capsuleBorder.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(bar.traitCollection) ? 0.18 : 0.32)].CGColor;
     MMSetRadius(capsuleBorder, CGRectGetHeight(capsuleBorder.bounds) * 0.5);
 }
 
@@ -411,18 +428,18 @@ static CGRect MMComputeFloatingFrame(UIViewController *vc, UITabBar *tabBar, BOO
     UIView *root = vc.view;
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
-    CGFloat searchSize = 72.0;
-    CGFloat height = 72.0;
+    CGFloat searchSize = 68.0;
+    CGFloat height = 64.0;
 
     CGRect originalFrame = tabBar.frame;
-    CGFloat y = CGRectGetMinY(originalFrame) - 3.0;
+    CGFloat y = CGRectGetMinY(originalFrame) - 10.0;
 
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
         UIView *banner = label.superview ?: label;
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat minY = CGRectGetMaxY(bannerRect) + 8.0;
+        CGFloat minY = CGRectGetMaxY(bannerRect) + 2.0;
         if (y < minY) y = minY;
     }
 
@@ -448,8 +465,8 @@ static UIButton *MMEnsureTabButton(UIView *host, NSInteger index) {
 }
 
 static void MMConfigureButtonLayout(UIButton *button, CGFloat width, CGFloat height) {
-    CGFloat iconSize = 24.0;
-    CGFloat titleH = 14.0;
+    CGFloat iconSize = 22.0;
+    CGFloat titleH = 13.0;
     CGFloat gap = 2.0;
     CGFloat totalH = iconSize + gap + titleH;
     CGFloat top = floor((height - totalH) * 0.5);
@@ -518,7 +535,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *bar)
     if (selectedIndex >= 0 && selectedIndex < count) {
         UIButton *selectedButton = (UIButton *)[host viewWithTag:8000 + selectedIndex];
         CGFloat capH = CGRectGetHeight(bar.bounds) - 10.0;
-        CGFloat capW = MIN(CGRectGetWidth(selectedButton.frame) + 8.0, 68.0);
+        CGFloat capW = MIN(CGRectGetWidth(selectedButton.frame) + 8.0, 62.0);
         CGFloat capX = CGRectGetMidX(selectedButton.frame) - capW * 0.5;
         CGFloat capY = (CGRectGetHeight(bar.bounds) - capH) * 0.5;
         if (capX < 4.0) capX = 4.0;
@@ -567,17 +584,17 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
     UIView *tint = [blur.contentView viewWithTag:kMMSearchTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(searchHost.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.06] : [UIColor colorWithWhite:1.0 alpha:0.12];
+    tint.backgroundColor = MMIsDark(searchHost.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.06] : [UIColor colorWithWhite:1.0 alpha:0.10];
 
     searchHost.layer.shadowColor = [UIColor blackColor].CGColor;
-    searchHost.layer.shadowOpacity = MMIsDark(searchHost.traitCollection) ? 0.12 : 0.10;
-    searchHost.layer.shadowRadius = 20.0;
-    searchHost.layer.shadowOffset = CGSizeMake(0.0, 10.0);
+    searchHost.layer.shadowOpacity = MMIsDark(searchHost.traitCollection) ? 0.12 : 0.08;
+    searchHost.layer.shadowRadius = 18.0;
+    searchHost.layer.shadowOffset = CGSizeMake(0.0, 8.0);
     searchHost.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:searchHost.bounds cornerRadius:size * 0.5].CGPath;
     MMSetRadius(searchHost, size * 0.5);
 
     UIImageView *icon = (UIImageView *)[searchHost viewWithTag:kMMSearchIconTag];
-    icon.frame = CGRectMake(floor((size - 28.0) * 0.5), floor((size - 28.0) * 0.5), 28.0, 28.0);
+    icon.frame = CGRectMake(floor((size - 26.0) * 0.5), floor((size - 26.0) * 0.5), 26.0, 26.0);
     icon.tintColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -621,7 +638,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 
     CGRect barFrame = MMComputeFloatingFrame(vc, tabBar, showSearch);
 
-    backdrop.frame = CGRectMake(CGRectGetMinX(barFrame) - 6.0, CGRectGetMinY(barFrame) - 6.0, CGRectGetWidth(root.bounds) - (CGRectGetMinX(barFrame) - 6.0) * 2.0, CGRectGetHeight(barFrame) + 10.0);
+    backdrop.frame = CGRectMake(CGRectGetMinX(barFrame) - 4.0, CGRectGetMinY(barFrame) - 2.0, CGRectGetWidth(root.bounds) - (CGRectGetMinX(barFrame) - 4.0) * 2.0, CGRectGetHeight(barFrame) + 4.0);
     MMStyleBackdrop(backdrop);
 
     bar.frame = barFrame;
@@ -652,38 +669,20 @@ static void MMRequestRefresh(UIViewController *vc) {
 
 - (void)handleTabTap:(UIButton *)sender {
     NSInteger index = sender.tag - 8000;
-    UIResponder *r = sender;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                UITabBar *tabBar = MMFindTabBar(vc);
-                if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-                    ((void (*)(id, SEL, NSUInteger))objc_msgSend)(vc, @selector(setSelectedIndex:), (NSUInteger)index);
-                }
-                if (tabBar && index >= 0 && index < (NSInteger)[tabBar.items count]) {
-                    tabBar.selectedItem = [tabBar.items objectAtIndex:index];
-                }
-                MMRequestRefresh(vc);
-                break;
-            }
-        }
+    UIViewController *vc = MMFindMainTabControllerFromResponder(sender);
+    if (!vc) return;
+
+    if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
+        ((void (*)(id, SEL, NSUInteger))objc_msgSend)(vc, @selector(setSelectedIndex:), (NSUInteger)index);
     }
+
+    MMRequestRefresh(vc);
 }
 
 - (void)handleSearchTap:(UIButton *)sender {
-    UIResponder *r = sender;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                MMOpenSearchFromMainTab(vc);
-                break;
-            }
-        }
-    }
+    UIViewController *vc = MMFindMainTabControllerFromResponder(sender);
+    if (!vc) return;
+    MMOpenSearchFromMainTab(vc);
 }
 
 @end
@@ -706,7 +705,7 @@ static MMFloatingActionProxy *MMSharedActionProxy(void) {
 
 - (void)viewDidLayoutSubviews {
     %orig;
-    MMRequestRefresh((UIViewController *)self);
+    MMUpdateFloatingBar((UIViewController *)self);
 }
 
 - (void)viewDidAppear:(BOOL)animated {
