@@ -40,13 +40,6 @@ static BOOL MMIsDark(UITraitCollection *trait) {
     return NO;
 }
 
-static CGFloat MMBottomInset(UIView *view) {
-    if ([view respondsToSelector:@selector(safeAreaInsets)]) {
-        return view.safeAreaInsets.bottom;
-    }
-    return 0.0;
-}
-
 static void MMSetRadius(UIView *view, CGFloat radius) {
     if (!view) return;
     view.layer.cornerRadius = radius;
