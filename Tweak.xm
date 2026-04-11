@@ -5,6 +5,12 @@
 @interface MainTabBarViewController : UIViewController
 @end
 
+@interface MMFloatingActionProxy : NSObject
+- (void)handleSearchTap:(UIButton *)sender;
+@end
+
+static MMFloatingActionProxy *MMSharedActionProxy(void);
+
 static NSInteger const kMMFloatingHostTag = 990201;
 static NSInteger const kMMFloatingBlurTag = 990202;
 static NSInteger const kMMFloatingCapsuleTag = 990203;
@@ -372,7 +378,7 @@ static void MMStyleCapsule(UIView *capsule, UIView *host) {
     UIView *tint = [capsule viewWithTag:kMMFloatingCapsuleTintTag];
     tint.frame = capsule.bounds;
     tint.backgroundColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.10] : [UIColor colorWithWhite:1.0 alpha:0.18];
-    MMSetRadius(tint, CGRectGetHeight(capsule.bounds) * 0.5);
+    MMSetRadius(tint, CGRectGetHeight(tint.bounds) * 0.5);
 
     UIView *border = [capsule viewWithTag:kMMFloatingCapsuleBorderTag];
     border.frame = capsule.bounds;
@@ -425,7 +431,8 @@ static CGRect MMBarFrameForRoot(UIViewController *vc, BOOL showSearch) {
     CGFloat searchSize = 72.0;
     CGFloat height = 72.0;
 
-    CGFloat bottomLimit = CGRectGetHeight(root.bounds) - inset - height - 14.0;
+    CGFloat homeIndicatorTop = CGRectGetHeight(root.bounds) - inset - 8.0;
+    CGFloat bottomLimit = homeIndicatorTop - height - 10.0;
 
     UIView *label = MMFindLabelHostWithText(root, @"折叠置顶聊天");
     CGFloat minY = 0.0;
@@ -501,7 +508,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
         button = [UIButton buttonWithType:UIButtonTypeCustom];
         button.tag = kMMFloatingSearchButtonTag;
         button.backgroundColor = [UIColor clearColor];
-[button addTarget:MMSharedActionProxy() action:@selector(handleSearchTap:) forControlEvents:UIControlEventTouchUpInside];
+        [button addTarget:MMSharedActionProxy() action:@selector(handleSearchTap:) forControlEvents:UIControlEventTouchUpInside];
         [searchHost addSubview:button];
     }
     button.frame = searchHost.bounds;
@@ -598,6 +605,33 @@ static void MMRequestRefresh(UIViewController *vc) {
     dispatch_async(dispatch_get_main_queue(), ^{
         MMUpdateFloatingBar(vc);
     });
+}
+
+@implementation MMFloatingActionProxy
+
+- (void)handleSearchTap:(UIButton *)sender {
+    UIResponder *r = sender;
+    while (r) {
+        r = [r nextResponder];
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                MMOpenSearchFromMainTab(vc);
+                break;
+            }
+        }
+    }
+}
+
+@end
+
+static MMFloatingActionProxy *MMSharedActionProxy(void) {
+    static MMFloatingActionProxy *proxy = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        proxy = [MMFloatingActionProxy new];
+    });
+    return proxy;
 }
 
 %hook MainTabBarViewController
