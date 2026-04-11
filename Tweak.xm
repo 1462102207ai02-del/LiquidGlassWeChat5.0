@@ -314,8 +314,6 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
             label.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
             [btn addSubview:label];
 
-            [btn addTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
-            [btn addTarget:btn action:@selector(removeTarget:action:forControlEvents:) forControlEvents:UIControlEventTouchDragInside];
             [btn addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull action) {
                 MMSelectIndex(btn, i);
             }] forControlEvents:UIControlEventTouchUpInside];
