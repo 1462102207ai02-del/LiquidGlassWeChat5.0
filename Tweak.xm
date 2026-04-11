@@ -61,6 +61,26 @@ static id MMKVC(id obj, NSString *key) {
     }
 }
 
+static UIImageView *MMFindImageView(UIView *view) {
+    if (!view) return nil;
+    if ([view isKindOfClass:[UIImageView class]] && ((UIImageView *)view).image) return (UIImageView *)view;
+    for (UIView *sub in view.subviews) {
+        UIImageView *found = MMFindImageView(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UILabel *MMFindLabel(UIView *view) {
+    if (!view) return nil;
+    if ([view isKindOfClass:[UILabel class]] && [((UILabel *)view).text length] > 0) return (UILabel *)view;
+    for (UIView *sub in view.subviews) {
+        UILabel *found = MMFindLabel(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
 static UITabBar *MMFindTabBar(UIViewController *vc) {
     @try {
         id tb = [vc valueForKey:@"tabBar"];
@@ -269,10 +289,10 @@ static void MMStyleBackdrop(UIView *backdrop) {
     mask.endPoint = CGPointMake(0.5, 1.0);
     mask.colors = @[
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.30].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.28].CGColor,
         (__bridge id)[UIColor colorWithWhite:1.0 alpha:1.0].CGColor
     ];
-    mask.locations = @[@0.0, @0.22, @1.0];
+    mask.locations = @[@0.0, @0.20, @1.0];
 }
 
 static void MMStyleHost(UIView *host) {
@@ -569,6 +589,12 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         UIView *sourceView = i < (NSInteger)[sourceViews count] ? [sourceViews objectAtIndex:i] : nil;
         UIImageView *sourceImageView = MMKVC(sourceView, @"_imageView");
         UILabel *sourceLabel = MMKVC(sourceView, @"_textLabel");
+        if (![sourceImageView isKindOfClass:[UIImageView class]] || !sourceImageView.image) {
+            sourceImageView = MMFindImageView(sourceView);
+        }
+        if (![sourceLabel isKindOfClass:[UILabel class]] || ![sourceLabel.text length]) {
+            sourceLabel = MMFindLabel(sourceView);
+        }
 
         UIImage *image = nil;
         if ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.image) {
@@ -587,22 +613,24 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
             button.mm_imageView.hidden = YES;
         }
 
-        UIColor *normalColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.88] : [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
-        UIColor *selectedColor = MMIsDark(host.traitCollection) ? [UIColor colorWithRed:0.12 green:0.93 blue:0.44 alpha:1.0] : [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
+        UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
+        UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
 
         if (i == selectedIndex) {
             UIColor *iconColor = ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.tintColor) ? sourceImageView.tintColor : selectedColor;
             UIColor *textColor = ([sourceLabel isKindOfClass:[UILabel class]] && sourceLabel.textColor) ? sourceLabel.textColor : iconColor;
             button.mm_imageView.tintColor = iconColor;
             button.mm_titleLabel.textColor = textColor;
-            button.mm_titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
+            button.mm_titleLabel.font = sourceLabel ? sourceLabel.font : [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
         } else {
-            button.mm_imageView.tintColor = normalColor;
-            button.mm_titleLabel.textColor = normalColor;
-            button.mm_titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
+            UIColor *iconColor = ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.tintColor && sourceImageView.tintColor != UIColor.clearColor) ? sourceImageView.tintColor : normalColor;
+            UIColor *textColor = ([sourceLabel isKindOfClass:[UILabel class]] && sourceLabel.textColor && sourceLabel.textColor != UIColor.clearColor) ? sourceLabel.textColor : normalColor;
+            button.mm_imageView.tintColor = iconColor;
+            button.mm_titleLabel.textColor = textColor;
+            button.mm_titleLabel.font = sourceLabel ? sourceLabel.font : [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
         }
 
-        button.mm_titleLabel.text = item.title ?: @"";
+        button.mm_titleLabel.text = [sourceLabel.text length] > 0 ? sourceLabel.text : (item.title ?: @"");
 
         NSString *badge = item.badgeValue;
         if ([badge length] > 0) {
@@ -688,7 +716,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
 
     UIImageView *icon = (UIImageView *)[searchHost viewWithTag:kMMFloatingSearchIconTag];
     icon.frame = CGRectMake(floor((size - 28.0) * 0.5), floor((size - 28.0) * 0.5), 28.0, 28.0);
-    icon.tintColor = MMIsDark(searchHost.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.92] : [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
+    icon.tintColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
         icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
     } else {
@@ -737,7 +765,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat gap = 10.0;
     CGFloat searchSize = 72.0;
     CGFloat height = 72.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height + 10.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height + 22.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
@@ -746,7 +774,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat width = CGRectGetWidth(root.bounds) - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
     CGRect barFrame = CGRectMake(margin, y, width, height);
 
-    backdrop.frame = CGRectMake(margin - 6.0, y - 12.0, CGRectGetWidth(root.bounds) - (margin - 6.0) * 2.0, height + inset + 18.0);
+    backdrop.frame = CGRectMake(margin - 6.0, y - 10.0, CGRectGetWidth(root.bounds) - (margin - 6.0) * 2.0, height + inset + 8.0);
     MMStyleBackdrop(backdrop);
 
     host.frame = barFrame;
@@ -759,13 +787,16 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         if (idx != NSNotFound) selectedIndex = idx;
     }
 
+    MMUpdateButtons(vc, tabBar, host);
+
     UIView *capsule = MMCapsule(host);
     capsule.frame = MMCapsuleFrame(host, selectedIndex, (NSInteger)[tabBar.items count]);
     capsule.hidden = NO;
     MMStyleCapsule(capsule, host);
+    [host insertSubview:capsule aboveSubview:[host viewWithTag:kMMFloatingBlurTag]];
+    [host bringSubviewToFront:[host viewWithTag:kMMFloatingButtonsTag]];
 
     MMHideOriginalTabBarVisuals(tabBar);
-    MMUpdateButtons(vc, tabBar, host);
 
     [root bringSubviewToFront:backdrop];
     [root bringSubviewToFront:host];
