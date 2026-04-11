@@ -57,7 +57,6 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
         if ([tb isKindOfClass:[UITabBar class]]) return (UITabBar *)tb;
     } @catch (__unused NSException *e) {
     }
-
     for (UIView *sub in vc.view.subviews) {
         if ([sub isKindOfClass:[UITabBar class]]) return (UITabBar *)sub;
         NSString *name = NSStringFromClass([sub class]);
@@ -286,10 +285,10 @@ static void MMStyleBackdrop(UIView *backdrop) {
     mask.endPoint = CGPointMake(0.5, 1.0);
     mask.colors = @[
         (__bridge id)[UIColor colorWithWhite:1 alpha:0.0].CGColor,
-        (__bridge id)[UIColor colorWithWhite:1 alpha:0.26].CGColor,
+        (__bridge id)[UIColor colorWithWhite:1 alpha:0.24].CGColor,
         (__bridge id)[UIColor colorWithWhite:1 alpha:1.0].CGColor
     ];
-    mask.locations = @[@0.0, @0.25, @1.0];
+    mask.locations = @[@0.0, @0.24, @1.0];
 }
 
 static void MMStyleGlass(UIView *glass) {
@@ -381,7 +380,7 @@ static void MMStyleCapsule(UIView *capsule, UIView *glass) {
     UIView *tint = [capsule viewWithTag:kMMCapsuleTintTag];
     tint.frame = capsule.bounds;
     tint.backgroundColor = MMIsDark(glass.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.10] : [UIColor colorWithWhite:1.0 alpha:0.18];
-    MMSetRadius(tint, CGRectGetHeight(capsule.bounds) * 0.5);
+    MMSetRadius(tint, CGRectGetHeight(tint.bounds) * 0.5);
 
     UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
     border.frame = capsule.bounds;
@@ -422,6 +421,7 @@ static void MMMakeTabBarTransparent(UITabBar *tabBar) {
             sub.hidden = NO;
             sub.alpha = 1.0;
             sub.userInteractionEnabled = YES;
+            sub.backgroundColor = [UIColor clearColor];
         }
     }
 }
