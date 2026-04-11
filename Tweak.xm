@@ -566,7 +566,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
     searchHost.hidden = NO;
     searchHost.alpha = 1.0;
 
-    UIVisualEffectView *blur = (UIVisualEffectView *)[searchHost viewWithTag:kMMFloatingSearchBlurTag];
+    UIVisualEffectView *blur = (UIVisualEffectView *)[searchHost viewWithTag:kMMSearchBlurTag];
     blur.frame = searchHost.bounds;
     if (@available(iOS 13.0, *)) {
         blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(searchHost.traitCollection) ? UIBlurEffectStyleSystemUltraThinMaterialDark : UIBlurEffectStyleSystemThinMaterialLight)];
@@ -575,7 +575,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
     }
     MMSetRadius(blur, size * 0.5);
 
-    UIView *tint = [blur.contentView viewWithTag:kMMFloatingSearchTintTag];
+    UIView *tint = [blur.contentView viewWithTag:kMMSearchTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     tint.backgroundColor = MMIsDark(searchHost.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.06] : [UIColor colorWithWhite:1.0 alpha:0.12];
@@ -587,7 +587,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
     searchHost.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:searchHost.bounds cornerRadius:size * 0.5].CGPath;
     MMSetRadius(searchHost, size * 0.5);
 
-    UIImageView *icon = (UIImageView *)[searchHost viewWithTag:kMMFloatingSearchIconTag];
+    UIImageView *icon = (UIImageView *)[searchHost viewWithTag:kMMSearchIconTag];
     icon.frame = CGRectMake(floor((size - 28.0) * 0.5), floor((size - 28.0) * 0.5), 28.0, 28.0);
     icon.tintColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
@@ -596,7 +596,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
         icon.image = nil;
     }
 
-    UIButton *button = (UIButton *)[searchHost viewWithTag:kMMFloatingSearchButtonTag];
+    UIButton *button = (UIButton *)[searchHost viewWithTag:kMMSearchButtonTag];
     button.frame = searchHost.bounds;
 
     [root bringSubviewToFront:searchHost];
