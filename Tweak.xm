@@ -255,7 +255,6 @@ static void MMStyleBackdrop(UIView *backdrop) {
     if (@available(iOS 13.0, *)) {
         blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(backdrop.traitCollection) ? UIBlurEffectStyleSystemUltraThinMaterialDark : UIBlurEffectStyleSystemUltraThinMaterialLight)];
     }
-    backdrop.layer.mask = nil;
 
     CAGradientLayer *mask = nil;
     if ([backdrop.layer.mask isKindOfClass:[CAGradientLayer class]]) {
@@ -438,22 +437,6 @@ static void MMSelectIndex(UIView *view, NSInteger index) {
             UIViewController *vc = (UIViewController *)r;
             if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
                 UITabBar *tabBar = MMFindTabBar(vc);
-                NSArray *originViews = MMOriginalItemViews(tabBar);
-
-                if (index >= 0 && index < (NSInteger)[originViews count]) {
-                    UIView *itemView = [originViews objectAtIndex:index];
-                    if ([itemView isKindOfClass:[UIControl class]]) {
-                        [(UIControl *)itemView sendActionsForControlEvents:UIControlEventTouchUpInside];
-                        return;
-                    }
-                    for (UIView *sub in itemView.subviews) {
-                        if ([sub isKindOfClass:[UIControl class]]) {
-                            [(UIControl *)sub sendActionsForControlEvents:UIControlEventTouchUpInside];
-                            return;
-                        }
-                    }
-                }
-
                 if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
                     @try { [(id)vc setSelectedIndex:index]; } @catch (__unused NSException *e) {}
                 }
@@ -498,6 +481,29 @@ static MMFloatingActionProxy *MMSharedActionProxy(void) {
         proxy = [MMFloatingActionProxy new];
     });
     return proxy;
+}
+
+static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
+    CGFloat sideInset = 18.0;
+    CGFloat interGap = 10.0;
+    CGFloat usableW = CGRectGetWidth(host.bounds) - sideInset * 2.0 - interGap * (MAX(count, 1) - 1);
+    CGFloat slotW = floor(usableW / MAX(count, 1));
+    CGFloat x = sideInset + index * (slotW + interGap);
+    if (index == count - 1) {
+        slotW = CGRectGetWidth(host.bounds) - sideInset - x;
+    }
+    return CGRectMake(x, 0.0, slotW, CGRectGetHeight(host.bounds));
+}
+
+static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
+    CGRect slot = MMSlotFrame(host, index, count);
+    CGFloat capH = CGRectGetHeight(host.bounds) - 10.0;
+    CGFloat capW = MIN(CGRectGetWidth(slot) + 16.0, 76.0);
+    CGFloat x = CGRectGetMidX(slot) - capW * 0.5;
+    CGFloat y = (CGRectGetHeight(host.bounds) - capH) * 0.5;
+    if (x < 4.0) x = 4.0;
+    if (x + capW > CGRectGetWidth(host.bounds) - 4.0) x = CGRectGetWidth(host.bounds) - 4.0 - capW;
+    return CGRectMake(x, y, capW, capH);
 }
 
 static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
@@ -551,21 +557,12 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
         if (idx != NSNotFound) selectedIndex = idx;
     }
 
-    CGFloat sideInset = 18.0;
-    CGFloat interGap = 10.0;
-    CGFloat usableW = CGRectGetWidth(container.bounds) - sideInset * 2.0 - interGap * (count - 1);
-    CGFloat slotW = floor(usableW / count);
-    CGFloat slotH = CGRectGetHeight(container.bounds);
-
     NSMutableSet *valid = [NSMutableSet set];
     for (NSInteger i = 0; i < count; i++) {
         MMFloatingTabButton *button = MMEnsureButton(container, i);
         button.mm_index = i;
         [valid addObject:@(button.tag)];
-
-        CGFloat x = sideInset + i * (slotW + interGap);
-        CGFloat w = (i == count - 1) ? (CGRectGetWidth(container.bounds) - sideInset - x) : slotW;
-        button.frame = CGRectMake(x, 0.0, w, slotH);
+        button.frame = MMSlotFrame(container, i, count);
 
         UITabBarItem *item = [items objectAtIndex:i];
         UIView *sourceView = i < (NSInteger)[sourceViews count] ? [sourceViews objectAtIndex:i] : nil;
@@ -594,7 +591,7 @@ static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host
 
         if (i == selectedIndex) {
             UIColor *iconColor = ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.tintColor) ? sourceImageView.tintColor : selectedColor;
-            UIColor *textColor = [sourceLabel isKindOfClass:[UILabel class]] && sourceLabel.textColor ? sourceLabel.textColor : iconColor;
+            UIColor *textColor = ([sourceLabel isKindOfClass:[UILabel class]] && sourceLabel.textColor) ? sourceLabel.textColor : iconColor;
             button.mm_imageView.tintColor = iconColor;
             button.mm_titleLabel.textColor = textColor;
             button.mm_titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
@@ -739,7 +736,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat gap = 12.0;
     CGFloat searchSize = 74.0;
     CGFloat height = 74.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 10.0;
+    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 4.0;
 
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
@@ -748,35 +745,23 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     CGFloat width = CGRectGetWidth(root.bounds) - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
     CGRect barFrame = CGRectMake(margin, y, width, height);
 
-    backdrop.frame = CGRectMake(margin - 8.0, y - 20.0, CGRectGetWidth(root.bounds) - (margin - 8.0) * 2.0, height + inset + 28.0);
+    backdrop.frame = CGRectMake(margin - 8.0, y - 16.0, CGRectGetWidth(root.bounds) - (margin - 8.0) * 2.0, height + inset + 24.0);
     MMStyleBackdrop(backdrop);
 
     host.frame = barFrame;
     MMBlur(host);
     MMStyleHost(host);
 
-    UIView *capsule = MMCapsule(host);
-    NSArray *itemViews = MMOriginalItemViews(tabBar);
     NSInteger selectedIndex = 0;
     if (tabBar.selectedItem) {
         NSInteger idx = [tabBar.items indexOfObject:tabBar.selectedItem];
         if (idx != NSNotFound) selectedIndex = idx;
     }
-    if (selectedIndex >= 0 && selectedIndex < (NSInteger)[itemViews count]) {
-        UIView *itemView = [itemViews objectAtIndex:selectedIndex];
-        CGRect itemRect = [tabBar convertRect:itemView.frame toView:host];
-        CGFloat capsuleW = MIN(CGRectGetWidth(itemRect) + 16.0, 76.0);
-        CGFloat capsuleH = CGRectGetHeight(host.bounds) - 10.0;
-        CGFloat capsuleX = CGRectGetMidX(itemRect) - capsuleW * 0.5;
-        CGFloat capsuleY = (CGRectGetHeight(host.bounds) - capsuleH) * 0.5;
-        if (capsuleX < 4.0) capsuleX = 4.0;
-        if (capsuleX + capsuleW > CGRectGetWidth(host.bounds) - 4.0) capsuleX = CGRectGetWidth(host.bounds) - 4.0 - capsuleW;
-        capsule.frame = CGRectMake(capsuleX, capsuleY, capsuleW, capsuleH);
-        capsule.hidden = NO;
-        MMStyleCapsule(capsule, host);
-    } else {
-        capsule.hidden = YES;
-    }
+
+    UIView *capsule = MMCapsule(host);
+    capsule.frame = MMCapsuleFrame(host, selectedIndex, (NSInteger)[tabBar.items count]);
+    capsule.hidden = NO;
+    MMStyleCapsule(capsule, host);
 
     MMHideOriginalTabBarVisuals(tabBar);
     MMUpdateButtons(vc, tabBar, host);
