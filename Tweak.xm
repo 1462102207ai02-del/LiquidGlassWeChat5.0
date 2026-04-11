@@ -3,33 +3,21 @@
 #import <objc/message.h>
 
 @interface MainTabBarViewController : UIViewController
-- (void)setSelectedIndex:(NSUInteger)index;
-@end
-
-@interface MMFloatingTabButton : UIControl
-@property (nonatomic, retain) UIImageView *mm_imageView;
-@property (nonatomic, retain) UILabel *mm_titleLabel;
-@property (nonatomic, retain) UILabel *mm_badgeLabel;
-@property (nonatomic, assign) NSInteger mm_index;
-@end
-
-@implementation MMFloatingTabButton
 @end
 
 static NSInteger const kMMFloatingHostTag = 990201;
 static NSInteger const kMMFloatingBlurTag = 990202;
 static NSInteger const kMMFloatingCapsuleTag = 990203;
-static NSInteger const kMMFloatingButtonsTag = 990204;
-static NSInteger const kMMFloatingEdgeTag = 990205;
-static NSInteger const kMMFloatingShineTag = 990206;
-static NSInteger const kMMFloatingBackdropTag = 990207;
-static NSInteger const kMMFloatingSearchHostTag = 990208;
-static NSInteger const kMMFloatingSearchBlurTag = 990209;
-static NSInteger const kMMFloatingSearchIconTag = 990210;
+static NSInteger const kMMFloatingEdgeTag = 990204;
+static NSInteger const kMMFloatingShineTag = 990205;
+static NSInteger const kMMFloatingBackdropTag = 990206;
+static NSInteger const kMMFloatingSearchHostTag = 990207;
+static NSInteger const kMMFloatingSearchBlurTag = 990208;
+static NSInteger const kMMFloatingSearchIconTag = 990209;
+static NSInteger const kMMFloatingSearchButtonTag = 990210;
 static NSInteger const kMMFloatingCapsuleBlurTag = 990211;
 static NSInteger const kMMFloatingCapsuleTintTag = 990212;
 static NSInteger const kMMFloatingCapsuleBorderTag = 990213;
-static NSInteger const kMMFloatingSearchButtonTag = 990214;
 
 static BOOL kMMUpdatingLayout = NO;
 
@@ -53,31 +41,12 @@ static void MMSetRadius(UIView *view, CGFloat radius) {
     }
 }
 
-static id MMKVC(id obj, NSString *key) {
-    @try {
-        return [obj valueForKey:key];
-    } @catch (__unused NSException *e) {
-        return nil;
-    }
-}
-
-static UIImageView *MMFindImageView(UIView *view) {
-    if (!view) return nil;
-    if ([view isKindOfClass:[UIImageView class]] && ((UIImageView *)view).image) return (UIImageView *)view;
-    for (UIView *sub in view.subviews) {
-        UIImageView *found = MMFindImageView(sub);
-        if (found) return found;
-    }
-    return nil;
-}
-
 static UITabBar *MMFindTabBar(UIViewController *vc) {
     @try {
         id tb = [vc valueForKey:@"tabBar"];
         if ([tb isKindOfClass:[UITabBar class]]) return (UITabBar *)tb;
     } @catch (__unused NSException *e) {
     }
-
     for (UIView *sub in vc.view.subviews) {
         if ([sub isKindOfClass:[UITabBar class]]) return (UITabBar *)sub;
         NSString *name = NSStringFromClass([sub class]);
@@ -102,6 +71,68 @@ static NSArray *MMOriginalItemViews(UITabBar *tabBar) {
         return NSOrderedSame;
     }];
     return items;
+}
+
+static UIView *MMFindLabelHostWithText(UIView *root, NSString *text) {
+    if (!root || ![text length]) return nil;
+    if ([root isKindOfClass:[UILabel class]]) {
+        UILabel *label = (UILabel *)root;
+        if ([label.text containsString:text]) return label;
+    }
+    for (UIView *sub in root.subviews) {
+        UIView *found = MMFindLabelHostWithText(sub, text);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UIView *MMFindSearchBarInView(UIView *root) {
+    if (!root) return nil;
+    NSString *name = NSStringFromClass([root class]);
+    if ([name containsString:@"WCSearchBar"]) return root;
+    for (UIView *sub in root.subviews) {
+        UIView *found = MMFindSearchBarInView(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UIViewController *MMFindHomeContentControllerFromController(UIViewController *vc) {
+    if (!vc) return nil;
+    NSString *name = NSStringFromClass([vc class]);
+    if ([name isEqualToString:@"NewMainFrameViewController"]) return vc;
+
+    if ([vc isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *nav = (UINavigationController *)vc;
+        for (UIViewController *sub in nav.viewControllers) {
+            UIViewController *found = MMFindHomeContentControllerFromController(sub);
+            if (found) return found;
+        }
+    }
+
+    for (UIViewController *child in vc.childViewControllers) {
+        UIViewController *found = MMFindHomeContentControllerFromController(child);
+        if (found) return found;
+    }
+
+    id tabs = nil;
+    @try { tabs = [vc valueForKey:@"viewControllers"]; } @catch (__unused NSException *e) {}
+    if ([tabs isKindOfClass:[NSArray class]]) {
+        for (UIViewController *sub in (NSArray *)tabs) {
+            UIViewController *found = MMFindHomeContentControllerFromController(sub);
+            if (found) return found;
+        }
+    }
+    return nil;
+}
+
+static void MMOpenSearchFromMainTab(UIViewController *vc) {
+    if (!vc) return;
+    UIViewController *targetVC = MMFindHomeContentControllerFromController(vc);
+    if (!targetVC) targetVC = vc;
+    if ([targetVC respondsToSelector:@selector(onTapOnSearchButton)]) {
+        ((void (*)(id, SEL))objc_msgSend)(targetVC, @selector(onTapOnSearchButton));
+    }
 }
 
 static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
@@ -153,7 +184,7 @@ static UIView *MMHost(UIView *root) {
         host = [UIView new];
         host.tag = kMMFloatingHostTag;
         host.backgroundColor = [UIColor clearColor];
-        host.userInteractionEnabled = YES;
+        host.userInteractionEnabled = NO;
         host.clipsToBounds = NO;
         [root addSubview:host];
     }
@@ -220,19 +251,6 @@ static UIView *MMCapsule(UIView *host) {
         [capsule addSubview:border];
     }
     return capsule;
-}
-
-static UIView *MMButtonsContainer(UIView *host) {
-    UIView *container = [host viewWithTag:kMMFloatingButtonsTag];
-    if (!container) {
-        container = [UIView new];
-        container.tag = kMMFloatingButtonsTag;
-        container.backgroundColor = [UIColor clearColor];
-        container.userInteractionEnabled = YES;
-        [host addSubview:container];
-    }
-    container.frame = host.bounds;
-    return container;
 }
 
 static UIView *MMSearchHost(UIView *root) {
@@ -363,15 +381,16 @@ static void MMStyleCapsule(UIView *capsule, UIView *host) {
     MMSetRadius(border, CGRectGetHeight(border.bounds) * 0.5);
 }
 
-static void MMHideOriginalTabBarVisuals(UITabBar *tabBar) {
+static void MMMakeTabBarTransparent(UITabBar *tabBar) {
     tabBar.hidden = NO;
-    tabBar.alpha = 0.01;
-    tabBar.userInteractionEnabled = NO;
+    tabBar.alpha = 1.0;
+    tabBar.userInteractionEnabled = YES;
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = [UIColor clearColor];
     tabBar.barTintColor = [UIColor clearColor];
     tabBar.translucent = YES;
+    tabBar.clipsToBounds = NO;
 
     if (NSClassFromString(@"UITabBarAppearance")) {
         UITabBarAppearance *appearance = [UITabBarAppearance new];
@@ -385,281 +404,42 @@ static void MMHideOriginalTabBarVisuals(UITabBar *tabBar) {
     }
 
     for (UIView *sub in tabBar.subviews) {
-        sub.hidden = YES;
-        sub.alpha = 0.0;
-        sub.userInteractionEnabled = NO;
-    }
-}
-
-static UIViewController *MMFindHomeContentControllerFromController(UIViewController *vc) {
-    if (!vc) return nil;
-    NSString *name = NSStringFromClass([vc class]);
-    if ([name isEqualToString:@"NewMainFrameViewController"]) return vc;
-
-    if ([vc isKindOfClass:[UINavigationController class]]) {
-        UINavigationController *nav = (UINavigationController *)vc;
-        for (UIViewController *sub in nav.viewControllers) {
-            UIViewController *found = MMFindHomeContentControllerFromController(sub);
-            if (found) return found;
-        }
-    }
-
-    for (UIViewController *child in vc.childViewControllers) {
-        UIViewController *found = MMFindHomeContentControllerFromController(child);
-        if (found) return found;
-    }
-
-    id tabs = nil;
-    @try { tabs = [vc valueForKey:@"viewControllers"]; } @catch (__unused NSException *e) {}
-    if ([tabs isKindOfClass:[NSArray class]]) {
-        for (UIViewController *sub in (NSArray *)tabs) {
-            UIViewController *found = MMFindHomeContentControllerFromController(sub);
-            if (found) return found;
-        }
-    }
-    return nil;
-}
-
-static UIView *MMFindSearchBarInView(UIView *root) {
-    if (!root) return nil;
-    NSString *name = NSStringFromClass([root class]);
-    if ([name containsString:@"WCSearchBar"]) return root;
-    for (UIView *sub in root.subviews) {
-        UIView *found = MMFindSearchBarInView(sub);
-        if (found) return found;
-    }
-    return nil;
-}
-
-static void MMOpenSearchFromMainTab(UIViewController *vc) {
-    if (!vc) return;
-    UIViewController *targetVC = MMFindHomeContentControllerFromController(vc);
-    if (!targetVC) targetVC = vc;
-    if ([targetVC respondsToSelector:@selector(onTapOnSearchButton)]) {
-        ((void (*)(id, SEL))objc_msgSend)(targetVC, @selector(onTapOnSearchButton));
-    }
-}
-
-static void MMSelectIndex(UIView *view, NSInteger index) {
-    UIResponder *r = view;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                UITabBar *tabBar = MMFindTabBar(vc);
-                if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-                    @try { [(id)vc setSelectedIndex:index]; } @catch (__unused NSException *e) {}
-                }
-                if (tabBar && index >= 0 && index < (NSInteger)[tabBar.items count]) {
-                    @try { tabBar.selectedItem = [tabBar.items objectAtIndex:index]; } @catch (__unused NSException *e) {}
-                }
-                break;
-            }
-        }
-    }
-}
-
-@interface MMFloatingActionProxy : NSObject
-@end
-
-@implementation MMFloatingActionProxy
-
-- (void)handleTabTap:(MMFloatingTabButton *)sender {
-    MMSelectIndex(sender, sender.mm_index);
-}
-
-- (void)handleSearchTap:(UIButton *)sender {
-    UIResponder *r = sender;
-    while (r) {
-        r = [r nextResponder];
-        if ([r isKindOfClass:[UIViewController class]]) {
-            UIViewController *vc = (UIViewController *)r;
-            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
-                MMOpenSearchFromMainTab(vc);
-                break;
-            }
-        }
-    }
-}
-
-@end
-
-static MMFloatingActionProxy *MMSharedActionProxy(void) {
-    static MMFloatingActionProxy *proxy = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        proxy = [MMFloatingActionProxy new];
-    });
-    return proxy;
-}
-
-static CGRect MMSlotFrame(UIView *host, NSInteger index, NSInteger count) {
-    CGFloat sideInset = 12.0;
-    CGFloat interGap = 4.0;
-    CGFloat usableW = CGRectGetWidth(host.bounds) - sideInset * 2.0 - interGap * (MAX(count, 1) - 1);
-    CGFloat slotW = floor(usableW / MAX(count, 1));
-    CGFloat x = sideInset + index * (slotW + interGap);
-    if (index == count - 1) {
-        slotW = CGRectGetWidth(host.bounds) - sideInset - x;
-    }
-    return CGRectMake(x, 0.0, slotW, CGRectGetHeight(host.bounds));
-}
-
-static CGRect MMCapsuleFrame(UIView *host, NSInteger index, NSInteger count) {
-    CGRect slot = MMSlotFrame(host, index, count);
-    CGFloat capH = CGRectGetHeight(host.bounds) - 10.0;
-    CGFloat capW = MIN(CGRectGetWidth(slot) + 8.0, 68.0);
-    CGFloat x = CGRectGetMidX(slot) - capW * 0.5;
-    CGFloat y = (CGRectGetHeight(host.bounds) - capH) * 0.5;
-    if (x < 4.0) x = 4.0;
-    if (x + capW > CGRectGetWidth(host.bounds) - 4.0) x = CGRectGetWidth(host.bounds) - 4.0 - capW;
-    return CGRectMake(x, y, capW, capH);
-}
-
-static MMFloatingTabButton *MMEnsureButton(UIView *container, NSInteger index) {
-    MMFloatingTabButton *button = (MMFloatingTabButton *)[container viewWithTag:6000 + index];
-    if (!button) {
-        button = [MMFloatingTabButton new];
-        button.tag = 6000 + index;
-        button.backgroundColor = [UIColor clearColor];
-        button.clipsToBounds = NO;
-
-        UIImageView *imageView = [UIImageView new];
-        imageView.contentMode = UIViewContentModeScaleAspectFit;
-        imageView.backgroundColor = [UIColor clearColor];
-        [button addSubview:imageView];
-        button.mm_imageView = imageView;
-
-        UILabel *titleLabel = [UILabel new];
-        titleLabel.textAlignment = NSTextAlignmentCenter;
-        titleLabel.adjustsFontSizeToFitWidth = YES;
-        titleLabel.minimumScaleFactor = 0.65;
-        titleLabel.backgroundColor = [UIColor clearColor];
-        [button addSubview:titleLabel];
-        button.mm_titleLabel = titleLabel;
-
-        UILabel *badgeLabel = [UILabel new];
-        badgeLabel.textAlignment = NSTextAlignmentCenter;
-        badgeLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightSemibold];
-        badgeLabel.textColor = [UIColor whiteColor];
-        badgeLabel.backgroundColor = [UIColor colorWithRed:1.0 green:0.33 blue:0.33 alpha:1.0];
-        badgeLabel.hidden = YES;
-        badgeLabel.clipsToBounds = YES;
-        [button addSubview:badgeLabel];
-        button.mm_badgeLabel = badgeLabel;
-
-        [button addTarget:MMSharedActionProxy() action:@selector(handleTabTap:) forControlEvents:UIControlEventTouchUpInside];
-        [container addSubview:button];
-    }
-    return button;
-}
-
-static void MMUpdateButtons(UIViewController *vc, UITabBar *tabBar, UIView *host) {
-    UIView *container = MMButtonsContainer(host);
-    NSArray *items = tabBar.items;
-    NSArray *sourceViews = MMOriginalItemViews(tabBar);
-    NSInteger count = [items count];
-    if (count <= 0) return;
-
-    NSArray *fallbackTitles = nil;
-    if (count == 4) {
-        fallbackTitles = @[@"微信", @"通讯录", @"发现", @"我"];
-    }
-
-    NSInteger selectedIndex = 0;
-    if (tabBar.selectedItem) {
-        NSInteger idx = [items indexOfObject:tabBar.selectedItem];
-        if (idx != NSNotFound) selectedIndex = idx;
-    }
-
-    NSMutableSet *valid = [NSMutableSet set];
-    for (NSInteger i = 0; i < count; i++) {
-        MMFloatingTabButton *button = MMEnsureButton(container, i);
-        button.mm_index = i;
-        [valid addObject:@(button.tag)];
-        button.frame = MMSlotFrame(container, i, count);
-
-        UITabBarItem *item = [items objectAtIndex:i];
-        UIView *sourceView = i < (NSInteger)[sourceViews count] ? [sourceViews objectAtIndex:i] : nil;
-        UIImageView *sourceImageView = MMKVC(sourceView, @"_imageView");
-        if (![sourceImageView isKindOfClass:[UIImageView class]] || !sourceImageView.image) {
-            sourceImageView = MMFindImageView(sourceView);
-        }
-
-        UIImage *image = nil;
-        if ([sourceImageView isKindOfClass:[UIImageView class]] && sourceImageView.image) {
-            image = sourceImageView.image;
-        } else if (i == selectedIndex && item.selectedImage) {
-            image = item.selectedImage;
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name containsString:@"Background"] || [name containsString:@"BarBackground"]) {
+            sub.hidden = YES;
+            sub.alpha = 0.0;
+            sub.userInteractionEnabled = NO;
         } else {
-            image = item.image;
+            sub.hidden = NO;
+            sub.alpha = 1.0;
+            sub.userInteractionEnabled = YES;
         }
+    }
+}
 
-        if (image) {
-            button.mm_imageView.image = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-            button.mm_imageView.hidden = NO;
-        } else {
-            button.mm_imageView.image = nil;
-            button.mm_imageView.hidden = YES;
-        }
+static CGRect MMBarFrameForRoot(UIViewController *vc, BOOL showSearch) {
+    UIView *root = vc.view;
+    CGFloat inset = MMBottomInset(root);
+    CGFloat margin = 16.0;
+    CGFloat gap = 10.0;
+    CGFloat searchSize = 72.0;
+    CGFloat height = 72.0;
 
-        UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
-        UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
+    CGFloat bottomLimit = CGRectGetHeight(root.bounds) - inset - height - 14.0;
 
-        if (i == selectedIndex) {
-            button.mm_imageView.tintColor = selectedColor;
-            button.mm_titleLabel.textColor = selectedColor;
-            button.mm_titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightSemibold];
-        } else {
-            button.mm_imageView.tintColor = normalColor;
-            button.mm_titleLabel.textColor = normalColor;
-            button.mm_titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightRegular];
-        }
-
-        NSString *title = nil;
-        if (fallbackTitles && i < (NSInteger)[fallbackTitles count]) {
-            title = [fallbackTitles objectAtIndex:i];
-        } else {
-            title = item.title ?: @"";
-        }
-        button.mm_titleLabel.text = title;
-
-        NSString *badge = item.badgeValue;
-        if ([badge length] > 0) {
-            button.mm_badgeLabel.hidden = NO;
-            button.mm_badgeLabel.text = badge;
-        } else {
-            button.mm_badgeLabel.hidden = YES;
-            button.mm_badgeLabel.text = nil;
-        }
-
-        CGFloat bw = CGRectGetWidth(button.bounds);
-        CGFloat bh = CGRectGetHeight(button.bounds);
-        CGFloat iconSize = 24.0;
-        CGFloat titleH = 14.0;
-        CGFloat gap = 2.0;
-        CGFloat totalH = iconSize + gap + titleH;
-        CGFloat startY = floor((bh - totalH) * 0.5);
-        if (startY < 4.0) startY = 4.0;
-
-        if (!button.mm_imageView.hidden) {
-            button.mm_imageView.frame = CGRectMake(floor((bw - iconSize) * 0.5), startY, iconSize, iconSize);
-            button.mm_titleLabel.frame = CGRectMake(0.0, startY + iconSize + gap, bw, titleH);
-        } else {
-            button.mm_titleLabel.frame = CGRectMake(0.0, floor((bh - titleH) * 0.5), bw, titleH);
-        }
-
-        CGFloat badgeW = MAX(18.0, MIN(30.0, 10.0 + [badge length] * 8.0));
-        button.mm_badgeLabel.frame = CGRectMake(CGRectGetMaxX(button.mm_imageView.frame) - 1.0, CGRectGetMinY(button.mm_imageView.frame) - 4.0, badgeW, 18.0);
-        MMSetRadius(button.mm_badgeLabel, 9.0);
+    UIView *label = MMFindLabelHostWithText(root, @"折叠置顶聊天");
+    CGFloat minY = 0.0;
+    if (label) {
+        UIView *banner = label.superview ?: label;
+        CGRect bannerRect = [banner.superview convertRect:banner.frame toView:root];
+        minY = CGRectGetMaxY(bannerRect) + 8.0;
     }
 
-    for (UIView *sub in [[container subviews] copy]) {
-        if (![valid containsObject:@(sub.tag)]) [sub removeFromSuperview];
-    }
+    CGFloat y = bottomLimit;
+    if (y < minY) y = minY;
 
-    (void)vc;
+    CGFloat width = CGRectGetWidth(root.bounds) - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
+    return CGRectMake(margin, y, width, height);
 }
 
 static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barFrame) {
@@ -721,7 +501,7 @@ static void MMUpdateSearchButton(UIViewController *vc, UIView *root, CGRect barF
         button = [UIButton buttonWithType:UIButtonTypeCustom];
         button.tag = kMMFloatingSearchButtonTag;
         button.backgroundColor = [UIColor clearColor];
-        [button addTarget:MMSharedActionProxy() action:@selector(handleSearchTap:) forControlEvents:UIControlEventTouchUpInside];
+[button addTarget:MMSharedActionProxy() action:@selector(handleSearchTap:) forControlEvents:UIControlEventTouchUpInside];
         [searchHost addSubview:button];
     }
     button.frame = searchHost.bounds;
@@ -753,46 +533,58 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         return;
     }
 
-    CGFloat inset = MMBottomInset(root);
-    CGFloat margin = 16.0;
-    CGFloat gap = 10.0;
-    CGFloat searchSize = 72.0;
-    CGFloat height = 72.0;
-    CGFloat y = CGRectGetHeight(root.bounds) - inset - height - 14.0;
-
     UIViewController *homeVC = MMFindHomeContentControllerFromController(vc);
     UIView *searchBar = homeVC ? MMFindSearchBarInView(homeVC.view) : nil;
     BOOL showSearch = (searchBar != nil);
 
-    CGFloat width = CGRectGetWidth(root.bounds) - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
-    CGRect barFrame = CGRectMake(margin, y, width, height);
+    CGRect barFrame = MMBarFrameForRoot(vc, showSearch);
 
-    backdrop.frame = CGRectMake(margin - 6.0, y - 8.0, CGRectGetWidth(root.bounds) - (margin - 6.0) * 2.0, height + inset + 6.0);
+    CGFloat inset = MMBottomInset(root);
+    backdrop.frame = CGRectMake(CGRectGetMinX(barFrame) - 6.0, CGRectGetMinY(barFrame) - 8.0, CGRectGetWidth(root.bounds) - (CGRectGetMinX(barFrame) - 6.0) * 2.0, CGRectGetHeight(barFrame) + inset + 6.0);
     MMStyleBackdrop(backdrop);
 
     host.frame = barFrame;
     MMBlur(host);
     MMStyleHost(host);
 
+    MMMakeTabBarTransparent(tabBar);
+    tabBar.frame = barFrame;
+    [tabBar setNeedsLayout];
+    [tabBar layoutIfNeeded];
+
+    NSArray *itemViews = MMOriginalItemViews(tabBar);
     NSInteger selectedIndex = 0;
     if (tabBar.selectedItem) {
         NSInteger idx = [tabBar.items indexOfObject:tabBar.selectedItem];
         if (idx != NSNotFound) selectedIndex = idx;
     }
 
-    MMUpdateButtons(vc, tabBar, host);
-
     UIView *capsule = MMCapsule(host);
-    capsule.frame = MMCapsuleFrame(host, selectedIndex, (NSInteger)[tabBar.items count]);
-    capsule.hidden = NO;
-    MMStyleCapsule(capsule, host);
-    [host insertSubview:capsule aboveSubview:[host viewWithTag:kMMFloatingBlurTag]];
-    [host bringSubviewToFront:[host viewWithTag:kMMFloatingButtonsTag]];
+    if (selectedIndex >= 0 && selectedIndex < (NSInteger)[itemViews count]) {
+        UIView *itemView = [itemViews objectAtIndex:selectedIndex];
+        CGRect itemRect = [tabBar convertRect:itemView.frame toView:host];
+        CGFloat capH = CGRectGetHeight(host.bounds) - 10.0;
+        CGFloat capW = MIN(CGRectGetWidth(itemRect) + 8.0, 68.0);
+        CGFloat capX = CGRectGetMidX(itemRect) - capW * 0.5;
+        CGFloat capY = (CGRectGetHeight(host.bounds) - capH) * 0.5;
+        if (capX < 4.0) capX = 4.0;
+        if (capX + capW > CGRectGetWidth(host.bounds) - 4.0) capX = CGRectGetWidth(host.bounds) - 4.0 - capW;
+        capsule.frame = CGRectMake(capX, capY, capW, capH);
+        capsule.hidden = NO;
+        MMStyleCapsule(capsule, host);
+    } else {
+        capsule.hidden = YES;
+    }
 
-    MMHideOriginalTabBarVisuals(tabBar);
+    for (UIView *itemView in itemViews) {
+        itemView.hidden = NO;
+        itemView.alpha = 1.0;
+        itemView.userInteractionEnabled = YES;
+    }
 
     [root bringSubviewToFront:backdrop];
     [root bringSubviewToFront:host];
+    [root bringSubviewToFront:tabBar];
     MMUpdateSearchButton(vc, root, barFrame);
 
     MMSetVisible(backdrop, YES);
@@ -843,6 +635,21 @@ static void MMRequestRefresh(UIViewController *vc) {
 %end
 
 %hook UITabBar
+
+- (void)layoutSubviews {
+    %orig;
+    UIResponder *r = self;
+    while (r) {
+        r = [r nextResponder];
+        if ([r isKindOfClass:[UIViewController class]]) {
+            UIViewController *vc = (UIViewController *)r;
+            if ([NSStringFromClass([vc class]) isEqualToString:@"MainTabBarViewController"]) {
+                MMRequestRefresh(vc);
+                break;
+            }
+        }
+    }
+}
 
 - (void)setSelectedItem:(UITabBarItem *)item {
     %orig(item);
