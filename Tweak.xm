@@ -381,7 +381,7 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
 
-    CGFloat bottomGap = 14.0;
+    CGFloat bottomGap = 8.0;
     CGFloat yFromBottom = h - safeBottom - glassH - bottomGap;
     CGFloat y = yFromBottom;
 
@@ -390,7 +390,7 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
         UIView *banner = label.superview ?: label;
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat yFromBanner = CGRectGetMaxY(bannerRect) + 4.0;
+        CGFloat yFromBanner = CGRectGetMaxY(bannerRect) + 6.0;
         if (yFromBanner > y) y = yFromBanner;
     }
 
@@ -427,13 +427,21 @@ static void MMInvalidateLockedFrame(UIViewController *vc) {
 
 static void MMMakeTabBarTransparent(UITabBar *tabBar) {
     tabBar.hidden = NO;
-    tabBar.alpha = 0.01;
+    tabBar.alpha = 0.001;
     tabBar.userInteractionEnabled = NO;
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = [UIColor clearColor];
     tabBar.barTintColor = [UIColor clearColor];
     tabBar.translucent = YES;
+    tabBar.clipsToBounds = YES;
+    for (UIView *sub in tabBar.subviews) {
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"]) {
+            sub.hidden = YES;
+            sub.alpha = 0.0;
+        }
+    }
     if (NSClassFromString(@"UITabBarAppearance")) {
         UITabBarAppearance *appearance = [UITabBarAppearance new];
         [appearance configureWithTransparentBackground];
@@ -449,12 +457,20 @@ static void MMMakeTabBarTransparent(UITabBar *tabBar) {
 static void MMPrepareTabBarEarly(UIViewController *vc) {
     UITabBar *tabBar = MMFindTabBar(vc);
     if (!tabBar) return;
-    tabBar.alpha = 0.01;
+    tabBar.alpha = 0.001;
     tabBar.hidden = NO;
+    tabBar.userInteractionEnabled = NO;
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = [UIColor clearColor];
     tabBar.barTintColor = [UIColor clearColor];
+    for (UIView *sub in tabBar.subviews) {
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"]) {
+            sub.hidden = YES;
+            sub.alpha = 0.0;
+        }
+    }
 }
 
 static void MMLayoutSearch(UIViewController *vc, CGRect glassFrame) {
@@ -622,8 +638,15 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     UITabBar *tabBar = MMFindTabBar(vc);
     if (!tabBar || !MMShouldShow(vc)) {
         if (tabBar) {
-            tabBar.alpha = 1.0;
-            tabBar.userInteractionEnabled = YES;
+            tabBar.alpha = 0.001;
+            tabBar.userInteractionEnabled = NO;
+            for (UIView *sub in tabBar.subviews) {
+                NSString *name = NSStringFromClass([sub class]);
+                if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"]) {
+                    sub.hidden = YES;
+                    sub.alpha = 0.0;
+                }
+            }
         }
         MMHideOrShowFloating(vc, NO);
         kMMUpdating = NO;
@@ -701,13 +724,14 @@ static MMFloatingProxy *MMSharedProxy(void) {
 }
 
 - (void)viewWillAppear:(BOOL)animated {
-    %orig(animated);
     MMPrepareTabBarEarly((UIViewController *)self);
+    MMUpdateFloatingBar((UIViewController *)self);
+    %orig(animated);
 }
 
 - (void)viewWillLayoutSubviews {
     MMPrepareTabBarEarly((UIViewController *)self);
-    if (kMMPrepared) MMUpdateFloatingBar((UIViewController *)self);
+    MMUpdateFloatingBar((UIViewController *)self);
     %orig;
 }
 
