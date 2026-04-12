@@ -434,14 +434,14 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
     CGFloat h = CGRectGetHeight(root.bounds);
     CGFloat w = CGRectGetWidth(root.bounds);
     CGFloat safeBottom = root.safeAreaInsets.bottom;
+    CGFloat wholeBarH = 89.0;
     CGFloat glassH = 68.0;
     CGFloat searchSize = 68.0;
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
 
     CGFloat bottomGap = 10.0;
-    CGFloat yFromBottom = h - safeBottom - glassH - bottomGap;
-    CGFloat y = yFromBottom;
+    CGFloat wholeBarTop = h - safeBottom - wholeBarH - bottomGap;
 
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
@@ -451,19 +451,16 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
         }
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat topGap = 6.0;
-        CGFloat yFromBanner = CGRectGetMaxY(bannerRect) + topGap;
-        if (yFromBanner <= yFromBottom) {
-            y = floor((yFromBanner + yFromBottom) * 0.5);
-        } else {
-            y = yFromBottom;
+        CGFloat minWholeBarTop = CGRectGetMaxY(bannerRect) + 6.0;
+        if (wholeBarTop < minWholeBarTop) {
+            wholeBarTop = minWholeBarTop;
         }
     }
 
-    if (y > yFromBottom) y = yFromBottom;
+    CGFloat glassY = wholeBarTop + floor((wholeBarH - glassH) * 0.5);
 
     CGFloat width = w - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
-    return CGRectMake(margin, y, width, glassH);
+    return CGRectMake(margin, glassY, width, glassH);
 }
 
 static CGRect MMGlassFrame(UIViewController *vc, BOOL showSearch) {
@@ -716,7 +713,9 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     BOOL showSearch = home ? (MMFindSearchBarInView(home.view) != nil) : NO;
     CGRect glassFrame = MMGlassFrame(vc, showSearch);
     UIView *backdrop = MMEnsureBackdrop(vc.view);
-    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(glassFrame) - 8.0, CGRectGetWidth(vc.view.bounds), CGRectGetHeight(vc.view.bounds) - CGRectGetMinY(glassFrame) + 8.0);
+    CGFloat wholeBarH = 89.0;
+    CGFloat wholeBarTop = CGRectGetMinY(glassFrame) - floor((wholeBarH - CGRectGetHeight(glassFrame)) * 0.5);
+    backdrop.frame = CGRectMake(0.0, wholeBarTop, CGRectGetWidth(vc.view.bounds), CGRectGetHeight(vc.view.bounds) - wholeBarTop);
     MMStyleBackdrop(backdrop);
     UIView *glass = MMEnsureGlass(vc.view);
     glass.frame = glassFrame;
