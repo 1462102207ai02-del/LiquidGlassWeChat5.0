@@ -44,12 +44,41 @@ static BOOL MMIsDark(UITraitCollection *trait) {
     return NO;
 }
 
+static void MMSetVisible(UIView *view, BOOL visible) {
+    if (!view) return;
+    view.hidden = !visible;
+    view.alpha = visible ? 1.0 : 0.0;
+}
+
 static void MMSetRadius(UIView *view, CGFloat radius) {
     if (!view) return;
     view.layer.cornerRadius = radius;
     if ([view.layer respondsToSelector:@selector(setCornerCurve:)]) {
         view.layer.cornerCurve = kCACornerCurveContinuous;
     }
+}
+
+static UIImageView *MMFindImageView(UIView *root) {
+    if (!root) return nil;
+    if ([root isKindOfClass:[UIImageView class]]) {
+        UIImageView *iv = (UIImageView *)root;
+        if (iv.image) return iv;
+    }
+    for (UIView *sub in root.subviews) {
+        UIImageView *found = MMFindImageView(sub);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static UILabel *MMFindLabel(UIView *root) {
+    if (!root) return nil;
+    if ([root isKindOfClass:[UILabel class]]) return (UILabel *)root;
+    for (UIView *sub in root.subviews) {
+        UILabel *found = MMFindLabel(sub);
+        if (found) return found;
+    }
+    return nil;
 }
 
 static UITabBar *MMFindTabBar(UIViewController *vc) {
@@ -134,12 +163,12 @@ static BOOL MMShouldShow(UIViewController *vc) {
     return YES;
 }
 
-static NSComparisonResult MMCompareViewX(id a, id b, void *context) {
+static NSInteger MMCompareViewX(id a, id b, void *context) {
     CGFloat ax = CGRectGetMinX(((UIView *)a).frame);
     CGFloat bx = CGRectGetMinX(((UIView *)b).frame);
-    if (ax < bx) return NSOrderedAscending;
-    if (ax > bx) return NSOrderedDescending;
-    return NSOrderedSame;
+    if (ax < bx) return -1;
+    if (ax > bx) return 1;
+    return 0;
 }
 
 static NSArray *MMItemViews(UITabBar *tabBar) {
@@ -243,7 +272,7 @@ static UIView *MMEnsureSearch(UIView *root) {
         [host addSubview:icon];
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
         btn.backgroundColor = [UIColor clearColor];
-        [btn addTarget:MMSharedProxy() action:@selector(handleSearchTap:) forControlEvents:UIControlEventTouchUpInside];
+        [btn addTarget:MMSharedProxy() action:@selector(tapSearch:) forControlEvents:UIControlEventTouchUpInside];
         [host addSubview:btn];
     }
     return host;
@@ -392,7 +421,8 @@ static void MMLayoutSearch(UIViewController *vc, CGRect glassFrame) {
     host.frame = CGRectMake(CGRectGetMaxX(glassFrame) + 10.0, CGRectGetMinY(glassFrame), size, size);
     host.hidden = NO;
     host.alpha = 1.0;
-    objc_setAssociatedObject(host.subviews.lastObject, &kMMVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
+    UIButton *searchButton = (UIButton *)host.subviews.lastObject;
+    objc_setAssociatedObject(searchButton, &kMMVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
     UIVisualEffectView *blur = (UIVisualEffectView *)[host viewWithTag:kMMSearchBlurTag];
     blur.frame = host.bounds;
     if (@available(iOS 13.0, *)) {
@@ -415,8 +445,7 @@ static void MMLayoutSearch(UIViewController *vc, CGRect glassFrame) {
     icon.frame = CGRectMake(16.0, 16.0, 26.0, 26.0);
     icon.tintColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
     if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    UIButton *btn = (UIButton *)host.subviews.lastObject;
-    btn.frame = host.bounds;
+    searchButton.frame = host.bounds;
     [root bringSubviewToFront:host];
 }
 
@@ -443,13 +472,10 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         btn.frame = CGRectMake(x, CGRectGetMinY(glass.frame), w, slotH);
         objc_setAssociatedObject(btn, &kMMVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
         objc_setAssociatedObject(btn, &kMMIndexKey, @(i), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-
-        UIView *itemView = i < (NSInteger)itemViews.count ? itemViews[i] : nil;
-        UITabBarItem *item = i < (NSInteger)items.count ? items[i] : nil;
-
+        UIView *itemView = i < (NSInteger)itemViews.count ? [itemViews objectAtIndex:i] : nil;
+        UITabBarItem *item = i < (NSInteger)items.count ? [items objectAtIndex:i] : nil;
         UIImageView *srcIcon = MMFindImageView(itemView);
         UILabel *srcLabel = MMFindLabel(itemView);
-
         UIImageView *iconView = (UIImageView *)[btn viewWithTag:100 + i];
         UILabel *titleLabel = (UILabel *)[btn viewWithTag:200 + i];
         if (!iconView) {
@@ -468,11 +494,9 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
             titleLabel.userInteractionEnabled = NO;
             [btn addSubview:titleLabel];
         }
-
         UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
-
         UIImage *img = srcIcon.image;
         if (!img && item) img = (i == selectedIndex && item.selectedImage) ? item.selectedImage : item.image;
         if (!img && item) {
@@ -480,14 +504,12 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         }
         iconView.image = img ? [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
         iconView.tintColor = color;
-
         NSString *title = srcLabel.text;
         if (!title.length && item.title.length) title = item.title;
-        if (!title.length && i < 4) title = fallback[i];
+        if (!title.length && i < 4) title = [fallback objectAtIndex:i];
         titleLabel.text = title ?: @"";
         titleLabel.textColor = color;
         titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
-
         CGFloat iconSize = 21.0;
         CGFloat titleH = 12.0;
         CGFloat contentGap = 2.0;
@@ -497,7 +519,6 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         iconView.frame = CGRectMake(floor((w - iconSize) * 0.5), top, iconSize, iconSize);
         titleLabel.frame = CGRectMake(0.0, CGRectGetMaxY(iconView.frame) + contentGap, w, titleH);
     }
-
     UIView *capsule = [glass viewWithTag:kMMCapsuleTag];
     UIButton *selectedBtn = (UIButton *)[vc.view viewWithTag:kMMOverlayButtonBaseTag + selectedIndex];
     if (selectedBtn) {
@@ -517,16 +538,10 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
 
 static void MMHideOrShowFloating(UIViewController *vc, BOOL visible) {
     UIView *root = vc.view;
-    UIView *backdrop = [root viewWithTag:kMMBackdropTag];
-    UIView *glass = [root viewWithTag:kMMGlassTag];
-    UIView *search = [root viewWithTag:kMMSearchTag];
-    MMSetVisible(backdrop, visible);
-    MMSetVisible(glass, visible);
-    MMSetVisible(search, visible);
-    for (NSInteger i = 0; i < 4; i++) {
-        UIView *btn = [root viewWithTag:kMMOverlayButtonBaseTag + i];
-        MMSetVisible(btn, visible);
-    }
+    MMSetVisible([root viewWithTag:kMMBackdropTag], visible);
+    MMSetVisible([root viewWithTag:kMMGlassTag], visible);
+    MMSetVisible([root viewWithTag:kMMSearchTag], visible);
+    for (NSInteger i = 0; i < 4; i++) MMSetVisible([root viewWithTag:kMMOverlayButtonBaseTag + i], visible);
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
@@ -577,7 +592,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     tabBar.selectedItem = [tabBar.items objectAtIndex:index];
     MMUpdateFloatingBar(vc);
 }
-- (void)handleSearchTap:(UIButton *)sender {
+- (void)tapSearch:(UIButton *)sender {
     UIViewController *vc = (UIViewController *)objc_getAssociatedObject(sender, &kMMVCKey);
     if (!vc) return;
     UIViewController *home = MMFindHomeController(vc);
