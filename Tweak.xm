@@ -7,35 +7,33 @@
 - (void)setSelectedIndex:(NSUInteger)index;
 @end
 
-@interface MMFloatingActionProxy : NSObject
-- (void)handleTabTap:(UIButton *)sender;
-- (void)handleSearchTap:(UIButton *)sender;
+@interface MMFloatingProxy : NSObject
+- (void)tapTab:(UIButton *)sender;
+- (void)tapSearch:(UIButton *)sender;
 @end
 
-static MMFloatingActionProxy *MMSharedActionProxy(void);
+static MMFloatingProxy *MMSharedProxy(void);
 
-static char kMMTabVCKey;
-static char kMMTabIndexKey;
-static char kMMTabBarKey;
+static char kMMVCKey;
+static char kMMIndexKey;
 
-static NSInteger const kMMBackdropTag = 997000;
-static NSInteger const kMMBackdropBlurTag = 997001;
-static NSInteger const kMMBackdropTintTag = 997002;
-static NSInteger const kMMGlassTag = 997003;
-static NSInteger const kMMGlassBlurTag = 997004;
-static NSInteger const kMMGlassTintTag = 997005;
-static NSInteger const kMMGlassBorderTag = 997006;
-static NSInteger const kMMGlassShineTag = 997007;
-static NSInteger const kMMCapsuleTag = 997008;
-static NSInteger const kMMCapsuleBlurTag = 997009;
-static NSInteger const kMMCapsuleTintTag = 997010;
-static NSInteger const kMMCapsuleBorderTag = 997011;
-static NSInteger const kMMButtonsHostTag = 997012;
-static NSInteger const kMMSearchHostTag = 997013;
-static NSInteger const kMMSearchBlurTag = 997014;
-static NSInteger const kMMSearchTintTag = 997015;
-static NSInteger const kMMSearchIconTag = 997016;
-static NSInteger const kMMSearchButtonTag = 997017;
+static NSInteger const kMMBackdropTag = 998000;
+static NSInteger const kMMBackdropBlurTag = 998001;
+static NSInteger const kMMBackdropTintTag = 998002;
+static NSInteger const kMMGlassTag = 998003;
+static NSInteger const kMMGlassBlurTag = 998004;
+static NSInteger const kMMGlassTintTag = 998005;
+static NSInteger const kMMGlassBorderTag = 998006;
+static NSInteger const kMMGlassShineTag = 998007;
+static NSInteger const kMMCapsuleTag = 998008;
+static NSInteger const kMMCapsuleBlurTag = 998009;
+static NSInteger const kMMCapsuleTintTag = 998010;
+static NSInteger const kMMCapsuleBorderTag = 998011;
+static NSInteger const kMMSearchTag = 998012;
+static NSInteger const kMMSearchBlurTag = 998013;
+static NSInteger const kMMSearchTintTag = 998014;
+static NSInteger const kMMSearchIconTag = 998015;
+static NSInteger const kMMOverlayButtonBaseTag = 998100;
 
 static BOOL kMMUpdating = NO;
 
@@ -59,12 +57,9 @@ static UITabBar *MMFindTabBar(UIViewController *vc) {
     @try {
         id tb = [vc valueForKey:@"tabBar"];
         if ([tb isKindOfClass:[UITabBar class]]) return (UITabBar *)tb;
-    } @catch (__unused NSException *e) {
-    }
+    } @catch (__unused NSException *e) {}
     for (UIView *sub in vc.view.subviews) {
         if ([sub isKindOfClass:[UITabBar class]]) return (UITabBar *)sub;
-        NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"MMTabBar"]) return (UITabBar *)sub;
     }
     return nil;
 }
@@ -119,67 +114,12 @@ static UIView *MMFindLabelContainingText(UIView *root, NSString *text) {
     return nil;
 }
 
-static UIImageView *MMFindImageView(UIView *root) {
-    if (!root) return nil;
-    if ([root isKindOfClass:[UIImageView class]]) {
-        UIImageView *iv = (UIImageView *)root;
-        if (iv.image) return iv;
-    }
-    for (UIView *sub in root.subviews) {
-        UIImageView *found = MMFindImageView(sub);
-        if (found) return found;
-    }
-    return nil;
-}
-
-static UIImage *MMBestImageFromItemView(UIView *itemView) {
-    if (!itemView) return nil;
-    UIImageView *iv = MMFindImageView(itemView);
-    if (iv.image) return iv.image;
-    @try {
-        id obj = [itemView valueForKey:@"imageView"];
-        if ([obj isKindOfClass:[UIImageView class]] && ((UIImageView *)obj).image) return ((UIImageView *)obj).image;
-    } @catch (__unused NSException *e) {}
-    @try {
-        id obj = [itemView valueForKey:@"_imageView"];
-        if ([obj isKindOfClass:[UIImageView class]] && ((UIImageView *)obj).image) return ((UIImageView *)obj).image;
-    } @catch (__unused NSException *e) {}
-    return nil;
-}
-
-static UIImage *MMBestImageFromTabBarItem(UITabBarItem *item, BOOL selected) {
-    if (!item) return nil;
-    UIImage *image = nil;
-    if (selected && item.selectedImage) image = item.selectedImage;
-    if (!image && item.image) image = item.image;
-    if (!image) {
-        @try { image = [item valueForKey:(selected ? @"_selectedImage" : @"_image")]; } @catch (__unused NSException *e) {}
-    }
-    if (!image) {
-        @try { image = [item valueForKey:@"_image"]; } @catch (__unused NSException *e) {}
-    }
-    return image;
-}
-
-static UILabel *MMFindLabel(UIView *root) {
-    if (!root) return nil;
-    if ([root isKindOfClass:[UILabel class]]) return (UILabel *)root;
-    for (UIView *sub in root.subviews) {
-        UILabel *found = MMFindLabel(sub);
-        if (found) return found;
-    }
-    return nil;
-}
-
-static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
+static BOOL MMShouldShow(UIViewController *vc) {
     if (!vc || !vc.isViewLoaded || !vc.view.window) return NO;
     id selected = nil;
     @try {
-        if ([vc respondsToSelector:@selector(selectedViewController)]) {
-            selected = [vc valueForKey:@"selectedViewController"];
-        }
-    } @catch (__unused NSException *e) {
-    }
+        if ([vc respondsToSelector:@selector(selectedViewController)]) selected = [vc valueForKey:@"selectedViewController"];
+    } @catch (__unused NSException *e) {}
     if ([selected isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)selected;
         UIViewController *root = nav.viewControllers.count > 0 ? nav.viewControllers.firstObject : nil;
@@ -194,22 +134,22 @@ static BOOL MMShouldShowFloatingBar(UIViewController *vc) {
     return YES;
 }
 
+static NSComparisonResult MMCompareViewX(id a, id b, void *context) {
+    CGFloat ax = CGRectGetMinX(((UIView *)a).frame);
+    CGFloat bx = CGRectGetMinX(((UIView *)b).frame);
+    if (ax < bx) return NSOrderedAscending;
+    if (ax > bx) return NSOrderedDescending;
+    return NSOrderedSame;
+}
+
 static NSArray *MMItemViews(UITabBar *tabBar) {
-    NSMutableArray *result = [NSMutableArray array];
+    NSMutableArray *arr = [NSMutableArray array];
     for (UIView *sub in tabBar.subviews) {
         NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"UITabBarButton"]) {
-            [result addObject:sub];
-        }
+        if ([name containsString:@"UITabBarButton"]) [arr addObject:sub];
     }
-    [result sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
-        CGFloat ax = CGRectGetMinX(a.frame);
-        CGFloat bx = CGRectGetMinX(b.frame);
-        if (ax < bx) return NSOrderedAscending;
-        if (ax > bx) return NSOrderedDescending;
-        return NSOrderedSame;
-    }];
-    return result;
+    [arr sortUsingFunction:MMCompareViewX context:NULL];
+    return arr;
 }
 
 static UIView *MMEnsureBackdrop(UIView *root) {
@@ -218,7 +158,6 @@ static UIView *MMEnsureBackdrop(UIView *root) {
         view = [UIView new];
         view.tag = kMMBackdropTag;
         view.userInteractionEnabled = NO;
-        view.backgroundColor = [UIColor clearColor];
         [root addSubview:view];
         UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:nil];
         blur.tag = kMMBackdropBlurTag;
@@ -238,8 +177,6 @@ static UIView *MMEnsureGlass(UIView *root) {
         glass = [UIView new];
         glass.tag = kMMGlassTag;
         glass.userInteractionEnabled = NO;
-        glass.backgroundColor = [UIColor clearColor];
-        glass.clipsToBounds = NO;
         [root addSubview:glass];
         UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:nil];
         blur.tag = kMMGlassBlurTag;
@@ -253,18 +190,15 @@ static UIView *MMEnsureGlass(UIView *root) {
         UIView *border = [UIView new];
         border.tag = kMMGlassBorderTag;
         border.userInteractionEnabled = NO;
-        border.backgroundColor = [UIColor clearColor];
         [glass addSubview:border];
         UIView *shine = [UIView new];
         shine.tag = kMMGlassShineTag;
         shine.userInteractionEnabled = NO;
-        shine.backgroundColor = [UIColor clearColor];
         shine.clipsToBounds = YES;
         [glass addSubview:shine];
         UIView *capsule = [UIView new];
         capsule.tag = kMMCapsuleTag;
         capsule.userInteractionEnabled = NO;
-        capsule.backgroundColor = [UIColor clearColor];
         capsule.clipsToBounds = YES;
         [glass addSubview:capsule];
         if (@available(iOS 13.0, *)) {
@@ -281,25 +215,17 @@ static UIView *MMEnsureGlass(UIView *root) {
         UIView *capsuleBorder = [UIView new];
         capsuleBorder.tag = kMMCapsuleBorderTag;
         capsuleBorder.userInteractionEnabled = NO;
-        capsuleBorder.backgroundColor = [UIColor clearColor];
         [capsule addSubview:capsuleBorder];
-        UIView *buttonsHost = [UIView new];
-        buttonsHost.tag = kMMButtonsHostTag;
-        buttonsHost.userInteractionEnabled = YES;
-        buttonsHost.backgroundColor = [UIColor clearColor];
-        [glass addSubview:buttonsHost];
     }
     return glass;
 }
 
-static UIView *MMEnsureSearchHost(UIView *root) {
-    UIView *host = [root viewWithTag:kMMSearchHostTag];
+static UIView *MMEnsureSearch(UIView *root) {
+    UIView *host = [root viewWithTag:kMMSearchTag];
     if (!host) {
         host = [UIView new];
-        host.tag = kMMSearchHostTag;
+        host.tag = kMMSearchTag;
         host.userInteractionEnabled = YES;
-        host.backgroundColor = [UIColor clearColor];
-        host.clipsToBounds = NO;
         [root addSubview:host];
         UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:nil];
         blur.tag = kMMSearchBlurTag;
@@ -315,39 +241,25 @@ static UIView *MMEnsureSearchHost(UIView *root) {
         icon.userInteractionEnabled = NO;
         icon.contentMode = UIViewContentModeScaleAspectFit;
         [host addSubview:icon];
-        UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
-        button.tag = kMMSearchButtonTag;
-        button.backgroundColor = [UIColor clearColor];
-        [button addTarget:MMSharedActionProxy() action:@selector(handleSearchTap:) forControlEvents:UIControlEventTouchUpInside];
-        [host addSubview:button];
+        UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+        btn.backgroundColor = [UIColor clearColor];
+        [btn addTarget:MMSharedProxy() action:@selector(handleSearchTap:) forControlEvents:UIControlEventTouchUpInside];
+        [host addSubview:btn];
     }
     return host;
 }
 
-static UIButton *MMEnsureTabButton(UIView *host, NSInteger index) {
-    UIButton *button = (UIButton *)[host viewWithTag:8000 + index];
-    if (!button) {
-        button = [UIButton buttonWithType:UIButtonTypeCustom];
-        button.tag = 8000 + index;
-        button.backgroundColor = [UIColor clearColor];
-        button.adjustsImageWhenHighlighted = NO;
-        button.exclusiveTouch = YES;
-        [button addTarget:MMSharedActionProxy() action:@selector(handleTabTap:) forControlEvents:UIControlEventTouchUpInside];
-        UIImageView *iconView = [UIImageView new];
-        iconView.tag = 100 + index;
-        iconView.contentMode = UIViewContentModeScaleAspectFit;
-        iconView.userInteractionEnabled = NO;
-        [button addSubview:iconView];
-        UILabel *titleLabel = [UILabel new];
-        titleLabel.tag = 200 + index;
-        titleLabel.textAlignment = NSTextAlignmentCenter;
-        titleLabel.adjustsFontSizeToFitWidth = YES;
-        titleLabel.minimumScaleFactor = 0.6;
-        titleLabel.userInteractionEnabled = NO;
-        [button addSubview:titleLabel];
-        [host addSubview:button];
+static UIButton *MMEnsureOverlayButton(UIView *root, NSInteger index) {
+    UIButton *btn = (UIButton *)[root viewWithTag:kMMOverlayButtonBaseTag + index];
+    if (!btn) {
+        btn = [UIButton buttonWithType:UIButtonTypeCustom];
+        btn.tag = kMMOverlayButtonBaseTag + index;
+        btn.backgroundColor = [UIColor clearColor];
+        btn.exclusiveTouch = YES;
+        [btn addTarget:MMSharedProxy() action:@selector(tapTab:) forControlEvents:UIControlEventTouchUpInside];
+        [root addSubview:btn];
     }
-    return button;
+    return btn;
 }
 
 static void MMStyleBackdrop(UIView *backdrop) {
@@ -369,11 +281,11 @@ static void MMStyleGlass(UIView *glass) {
     UIVisualEffectView *blur = (UIVisualEffectView *)[glass viewWithTag:kMMGlassBlurTag];
     blur.frame = glass.bounds;
     if (@available(iOS 13.0, *)) {
-        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(glass.traitCollection) ? UIBlurEffectStyleSystemUltraThinMaterialDark : UIBlurEffectStyleSystemThinMaterialLight)];
+        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(glass.traitCollection) ? UIBlurEffectStyleSystemThinMaterialDark : UIBlurEffectStyleSystemMaterialLight)];
     } else {
         blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
     }
-    MMSetRadius(blur, CGRectGetHeight(glass.bounds) * 0.5);
+    MMSetRadius(blur, 24.0);
     UIView *tint = [blur.contentView viewWithTag:kMMGlassTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -382,7 +294,7 @@ static void MMStyleGlass(UIView *glass) {
     glass.layer.shadowOpacity = MMIsDark(glass.traitCollection) ? 0.14 : 0.10;
     glass.layer.shadowRadius = 20.0;
     glass.layer.shadowOffset = CGSizeMake(0.0, 10.0);
-    glass.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:glass.bounds cornerRadius:CGRectGetHeight(glass.bounds) * 0.5].CGPath;
+    glass.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:glass.bounds cornerRadius:24.0].CGPath;
     UIView *border = [glass viewWithTag:kMMGlassBorderTag];
     border.frame = glass.bounds;
     border.layer.borderWidth = 0.8;
@@ -393,52 +305,46 @@ static void MMStyleGlass(UIView *glass) {
     MMSetRadius(shine, 23.0);
     CAGradientLayer *g = nil;
     for (CALayer *layer in shine.layer.sublayers) {
-        if ([layer isKindOfClass:[CAGradientLayer class]]) {
-            g = (CAGradientLayer *)layer;
-            break;
-        }
+        if ([layer isKindOfClass:[CAGradientLayer class]]) { g = (CAGradientLayer *)layer; break; }
     }
-    if (!g) {
-        g = [CAGradientLayer layer];
-        [shine.layer addSublayer:g];
-    }
+    if (!g) { g = [CAGradientLayer layer]; [shine.layer addSublayer:g]; }
     g.frame = shine.bounds;
     g.startPoint = CGPointMake(0.5, 0.0);
     g.endPoint = CGPointMake(0.5, 1.0);
     g.colors = @[(__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.16 : 0.24)].CGColor, (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.05].CGColor, (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor];
-    g.locations = @[@0.0, @0.20, @0.45];
-    g.cornerRadius = CGRectGetHeight(shine.bounds) * 0.5;
+    g.locations = @[@0.0,@0.20,@0.45];
+    g.cornerRadius = 23.0;
 }
 
 static void MMStyleCapsule(UIView *capsule, UIView *glass) {
-    MMSetRadius(capsule, CGRectGetHeight(capsule.bounds) * 0.5);
-    UIView *capsuleBlur = [capsule viewWithTag:kMMCapsuleBlurTag];
-    if ([capsuleBlur isKindOfClass:[UIVisualEffectView class]]) {
-        capsuleBlur.frame = capsule.bounds;
-        ((UIVisualEffectView *)capsuleBlur).effect = [UIBlurEffect effectWithStyle:(MMIsDark(glass.traitCollection) ? UIBlurEffectStyleSystemThinMaterialDark : UIBlurEffectStyleSystemThinMaterialLight)];
-        MMSetRadius(capsuleBlur, CGRectGetHeight(capsule.bounds) * 0.5);
+    MMSetRadius(capsule, 20.0);
+    UIView *blur = [capsule viewWithTag:kMMCapsuleBlurTag];
+    if ([blur isKindOfClass:[UIVisualEffectView class]]) {
+        blur.frame = capsule.bounds;
+        ((UIVisualEffectView *)blur).effect = [UIBlurEffect effectWithStyle:(MMIsDark(glass.traitCollection) ? UIBlurEffectStyleSystemThinMaterialDark : UIBlurEffectStyleSystemThinMaterialLight)];
+        MMSetRadius(blur, 20.0);
     }
-    UIView *capsuleTint = [capsule viewWithTag:kMMCapsuleTintTag];
-    capsuleTint.frame = capsule.bounds;
-    capsuleTint.backgroundColor = MMIsDark(glass.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.16];
-    MMSetRadius(capsuleTint, CGRectGetHeight(capsuleTint.bounds) * 0.5);
-    UIView *capsuleBorder = [capsule viewWithTag:kMMCapsuleBorderTag];
-    capsuleBorder.frame = capsule.bounds;
-    capsuleBorder.layer.borderWidth = 0.8;
-    capsuleBorder.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.18 : 0.30)].CGColor;
-    MMSetRadius(capsuleBorder, CGRectGetHeight(capsuleBorder.bounds) * 0.5);
+    UIView *tint = [capsule viewWithTag:kMMCapsuleTintTag];
+    tint.frame = capsule.bounds;
+    tint.backgroundColor = MMIsDark(glass.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.10] : [UIColor colorWithWhite:1.0 alpha:0.22];
+    MMSetRadius(tint, 20.0);
+    UIView *border = [capsule viewWithTag:kMMCapsuleBorderTag];
+    border.frame = capsule.bounds;
+    border.layer.borderWidth = 0.8;
+    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.20 : 0.36)].CGColor;
+    MMSetRadius(border, 20.0);
 }
 
 static CGRect MMComputeGlassFrame(UIViewController *vc, BOOL showSearch) {
     UIView *root = vc.view;
-    CGFloat screenW = CGRectGetWidth(root.bounds);
-    CGFloat screenH = CGRectGetHeight(root.bounds);
+    CGFloat h = CGRectGetHeight(root.bounds);
+    CGFloat w = CGRectGetWidth(root.bounds);
     CGFloat safeBottom = root.safeAreaInsets.bottom;
-    CGFloat glassHeight = 58.0;
+    CGFloat glassH = 58.0;
     CGFloat searchSize = 58.0;
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
-    CGFloat y = screenH - safeBottom - glassHeight - 8.0;
+    CGFloat y = h - safeBottom - glassH - 8.0;
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
         UIView *banner = label.superview ?: label;
@@ -447,13 +353,13 @@ static CGRect MMComputeGlassFrame(UIViewController *vc, BOOL showSearch) {
         CGFloat minY = CGRectGetMaxY(bannerRect) + 1.0;
         if (y < minY) y = minY;
     }
-    CGFloat width = screenW - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
-    return CGRectMake(margin, y, width, glassHeight);
+    CGFloat width = w - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
+    return CGRectMake(margin, y, width, glassH);
 }
 
-static void MMHideOriginalTabBar(UITabBar *tabBar) {
-    tabBar.alpha = 0.01;
+static void MMMakeTabBarTransparent(UITabBar *tabBar) {
     tabBar.hidden = NO;
+    tabBar.alpha = 0.01;
     tabBar.userInteractionEnabled = YES;
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
@@ -470,21 +376,54 @@ static void MMHideOriginalTabBar(UITabBar *tabBar) {
             [(id)tabBar performSelector:@selector(setScrollEdgeAppearance:) withObject:appearance];
         }
     }
-    for (UIView *sub in tabBar.subviews) {
-        NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"]) {
-            sub.hidden = YES;
-            sub.alpha = 0.0;
-        }
-    }
 }
 
-static void MMUpdateOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIView *glass) {
-    UIView *host = [glass viewWithTag:kMMButtonsHostTag];
-    host.frame = glass.bounds;
+static void MMLayoutSearch(UIViewController *vc, CGRect glassFrame) {
+    UIView *root = vc.view;
+    UIViewController *home = MMFindHomeController(vc);
+    UIView *searchBar = home ? MMFindSearchBarInView(home.view) : nil;
+    UIView *host = MMEnsureSearch(root);
+    if (!searchBar) {
+        host.hidden = YES;
+        host.alpha = 0.0;
+        return;
+    }
+    CGFloat size = 58.0;
+    host.frame = CGRectMake(CGRectGetMaxX(glassFrame) + 10.0, CGRectGetMinY(glassFrame), size, size);
+    host.hidden = NO;
+    host.alpha = 1.0;
+    objc_setAssociatedObject(host.subviews.lastObject, &kMMVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
+    UIVisualEffectView *blur = (UIVisualEffectView *)[host viewWithTag:kMMSearchBlurTag];
+    blur.frame = host.bounds;
+    if (@available(iOS 13.0, *)) {
+        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(host.traitCollection) ? UIBlurEffectStyleSystemThinMaterialDark : UIBlurEffectStyleSystemMaterialLight)];
+    } else {
+        blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
+    }
+    MMSetRadius(blur, 29.0);
+    UIView *tint = [blur.contentView viewWithTag:kMMSearchTintTag];
+    tint.frame = blur.contentView.bounds;
+    tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    tint.backgroundColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.18];
+    host.layer.shadowColor = [UIColor blackColor].CGColor;
+    host.layer.shadowOpacity = MMIsDark(host.traitCollection) ? 0.14 : 0.10;
+    host.layer.shadowRadius = 20.0;
+    host.layer.shadowOffset = CGSizeMake(0.0, 10.0);
+    host.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:host.bounds cornerRadius:29.0].CGPath;
+    MMSetRadius(host, 29.0);
+    UIImageView *icon = (UIImageView *)[host viewWithTag:kMMSearchIconTag];
+    icon.frame = CGRectMake(16.0, 16.0, 26.0, 26.0);
+    icon.tintColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
+    if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    UIButton *btn = (UIButton *)host.subviews.lastObject;
+    btn.frame = host.bounds;
+    [root bringSubviewToFront:host];
+}
+
+static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIView *glass) {
     NSArray *items = tabBar.items;
     NSArray *itemViews = MMItemViews(tabBar);
-    NSInteger count = MIN((NSInteger)items.count, (NSInteger)itemViews.count);
+    NSInteger count = MIN((NSInteger)items.count, 4);
     if (count <= 0) return;
     NSInteger selectedIndex = 0;
     if (tabBar.selectedItem) {
@@ -492,55 +431,79 @@ static void MMUpdateOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         if (idx != NSNotFound) selectedIndex = idx;
     }
     CGFloat sideInset = 10.0;
-    CGFloat interGap = 2.0;
-    CGFloat usableW = CGRectGetWidth(host.bounds) - sideInset * 2.0 - interGap * (count - 1);
+    CGFloat gap = 2.0;
+    CGFloat usableW = CGRectGetWidth(glass.bounds) - sideInset * 2.0 - gap * (count - 1);
     CGFloat slotW = floor(usableW / count);
-    CGFloat slotH = CGRectGetHeight(host.bounds);
+    CGFloat slotH = CGRectGetHeight(glass.bounds);
+    NSArray *fallback = @[@"微信",@"通讯录",@"发现",@"我"];
     for (NSInteger i = 0; i < count; i++) {
-        UIButton *button = MMEnsureTabButton(host, i);
-        CGFloat x = sideInset + i * (slotW + interGap);
-        CGFloat w = (i == count - 1) ? (CGRectGetWidth(host.bounds) - sideInset - x) : slotW;
-        button.frame = CGRectMake(x, 0.0, w, slotH);
-        objc_setAssociatedObject(button, &kMMTabVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
-        objc_setAssociatedObject(button, &kMMTabBarKey, tabBar, OBJC_ASSOCIATION_ASSIGN);
-        objc_setAssociatedObject(button, &kMMTabIndexKey, @(i), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        UIView *itemView = [itemViews objectAtIndex:i];
+        UIButton *btn = MMEnsureOverlayButton(vc.view, i);
+        CGFloat x = CGRectGetMinX(glass.frame) + sideInset + i * (slotW + gap);
+        CGFloat w = (i == count - 1) ? (CGRectGetMaxX(glass.frame) - sideInset - x) : slotW;
+        btn.frame = CGRectMake(x, CGRectGetMinY(glass.frame), w, slotH);
+        objc_setAssociatedObject(btn, &kMMVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
+        objc_setAssociatedObject(btn, &kMMIndexKey, @(i), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+        UIView *itemView = i < (NSInteger)itemViews.count ? itemViews[i] : nil;
+        UITabBarItem *item = i < (NSInteger)items.count ? items[i] : nil;
+
+        UIImageView *srcIcon = MMFindImageView(itemView);
         UILabel *srcLabel = MMFindLabel(itemView);
+
+        UIImageView *iconView = (UIImageView *)[btn viewWithTag:100 + i];
+        UILabel *titleLabel = (UILabel *)[btn viewWithTag:200 + i];
+        if (!iconView) {
+            iconView = [UIImageView new];
+            iconView.tag = 100 + i;
+            iconView.contentMode = UIViewContentModeScaleAspectFit;
+            iconView.userInteractionEnabled = NO;
+            [btn addSubview:iconView];
+        }
+        if (!titleLabel) {
+            titleLabel = [UILabel new];
+            titleLabel.tag = 200 + i;
+            titleLabel.textAlignment = NSTextAlignmentCenter;
+            titleLabel.adjustsFontSizeToFitWidth = YES;
+            titleLabel.minimumScaleFactor = 0.6;
+            titleLabel.userInteractionEnabled = NO;
+            [btn addSubview:titleLabel];
+        }
+
         UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
-        UIImageView *iconView = (UIImageView *)[button viewWithTag:100 + i];
-        UILabel *titleLabel = (UILabel *)[button viewWithTag:200 + i];
-        UIImage *image = MMBestImageFromItemView(itemView);
-        if (!image) {
-            UITabBarItem *item = [items objectAtIndex:i];
-            image = MMBestImageFromTabBarItem(item, i == selectedIndex);
+
+        UIImage *img = srcIcon.image;
+        if (!img && item) img = (i == selectedIndex && item.selectedImage) ? item.selectedImage : item.image;
+        if (!img && item) {
+            @try { img = [item valueForKey:(i == selectedIndex ? @"_selectedImage" : @"_image")]; } @catch (__unused NSException *e) {}
         }
-        iconView.image = image ? [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
+        iconView.image = img ? [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
         iconView.tintColor = color;
+
         NSString *title = srcLabel.text;
-        if (!title.length) {
-            UITabBarItem *item = [items objectAtIndex:i];
-            title = item.title ?: @"";
-        }
-        titleLabel.text = title;
+        if (!title.length && item.title.length) title = item.title;
+        if (!title.length && i < 4) title = fallback[i];
+        titleLabel.text = title ?: @"";
         titleLabel.textColor = color;
         titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
+
         CGFloat iconSize = 21.0;
         CGFloat titleH = 12.0;
-        CGFloat gap = 2.0;
-        CGFloat totalH = iconSize + gap + titleH;
+        CGFloat contentGap = 2.0;
+        CGFloat totalH = iconSize + contentGap + titleH;
         CGFloat top = floor((slotH - totalH) * 0.5);
         if (top < 4.0) top = 4.0;
         iconView.frame = CGRectMake(floor((w - iconSize) * 0.5), top, iconSize, iconSize);
-        titleLabel.frame = CGRectMake(0.0, CGRectGetMaxY(iconView.frame) + gap, w, titleH);
+        titleLabel.frame = CGRectMake(0.0, CGRectGetMaxY(iconView.frame) + contentGap, w, titleH);
     }
+
     UIView *capsule = [glass viewWithTag:kMMCapsuleTag];
-    UIButton *selectedButton = (UIButton *)[host viewWithTag:8000 + selectedIndex];
-    if (selectedButton) {
+    UIButton *selectedBtn = (UIButton *)[vc.view viewWithTag:kMMOverlayButtonBaseTag + selectedIndex];
+    if (selectedBtn) {
         CGFloat capH = CGRectGetHeight(glass.bounds) - 10.0;
-        CGFloat capW = MIN(CGRectGetWidth(selectedButton.frame) + 8.0, 62.0);
-        CGFloat capX = CGRectGetMidX(selectedButton.frame) - capW * 0.5;
+        CGFloat capW = MIN(CGRectGetWidth(selectedBtn.frame) + 8.0, 64.0);
+        CGFloat capX = CGRectGetMidX(selectedBtn.frame) - capW * 0.5 - CGRectGetMinX(glass.frame);
         CGFloat capY = (CGRectGetHeight(glass.bounds) - capH) * 0.5;
         if (capX < 4.0) capX = 4.0;
         if (capX + capW > CGRectGetWidth(glass.bounds) - 4.0) capX = CGRectGetWidth(glass.bounds) - 4.0 - capW;
@@ -550,103 +513,62 @@ static void MMUpdateOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
     } else {
         capsule.hidden = YES;
     }
-    [glass bringSubviewToFront:capsule];
-    [glass bringSubviewToFront:host];
 }
 
-static void MMUpdateSearchHost(UIViewController *vc, CGRect glassFrame) {
+static void MMHideOrShowFloating(UIViewController *vc, BOOL visible) {
     UIView *root = vc.view;
-    UIViewController *home = MMFindHomeController(vc);
-    UIView *searchBar = home ? MMFindSearchBarInView(home.view) : nil;
-    UIView *host = MMEnsureSearchHost(root);
-    if (!searchBar) {
-        host.hidden = YES;
-        host.alpha = 0.0;
-        return;
+    UIView *backdrop = [root viewWithTag:kMMBackdropTag];
+    UIView *glass = [root viewWithTag:kMMGlassTag];
+    UIView *search = [root viewWithTag:kMMSearchTag];
+    MMSetVisible(backdrop, visible);
+    MMSetVisible(glass, visible);
+    MMSetVisible(search, visible);
+    for (NSInteger i = 0; i < 4; i++) {
+        UIView *btn = [root viewWithTag:kMMOverlayButtonBaseTag + i];
+        MMSetVisible(btn, visible);
     }
-    CGFloat size = 58.0;
-    CGFloat gap = 10.0;
-    host.frame = CGRectMake(CGRectGetMaxX(glassFrame) + gap, CGRectGetMinY(glassFrame), size, size);
-    host.hidden = NO;
-    host.alpha = 1.0;
-    objc_setAssociatedObject([host viewWithTag:kMMSearchButtonTag], &kMMTabVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
-    UIVisualEffectView *blur = (UIVisualEffectView *)[host viewWithTag:kMMSearchBlurTag];
-    blur.frame = host.bounds;
-    if (@available(iOS 13.0, *)) {
-        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(host.traitCollection) ? UIBlurEffectStyleSystemUltraThinMaterialDark : UIBlurEffectStyleSystemThinMaterialLight)];
-    } else {
-        blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
-    }
-    MMSetRadius(blur, size * 0.5);
-    UIView *tint = [blur.contentView viewWithTag:kMMSearchTintTag];
-    tint.frame = blur.contentView.bounds;
-    tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(host.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.06] : [UIColor colorWithWhite:1.0 alpha:0.10];
-    host.layer.shadowColor = [UIColor blackColor].CGColor;
-    host.layer.shadowOpacity = MMIsDark(host.traitCollection) ? 0.12 : 0.08;
-    host.layer.shadowRadius = 18.0;
-    host.layer.shadowOffset = CGSizeMake(0.0, 8.0);
-    host.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:host.bounds cornerRadius:size * 0.5].CGPath;
-    MMSetRadius(host, size * 0.5);
-    UIImageView *icon = (UIImageView *)[host viewWithTag:kMMSearchIconTag];
-    icon.frame = CGRectMake(floor((size - 26.0) * 0.5), floor((size - 26.0) * 0.5), 26.0, 26.0);
-    icon.tintColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
-    if ([UIImage respondsToSelector:@selector(systemImageNamed:)]) {
-        icon.image = [[UIImage systemImageNamed:@"magnifyingglass"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    } else {
-        icon.image = nil;
-    }
-    UIButton *button = (UIButton *)[host viewWithTag:kMMSearchButtonTag];
-    button.frame = host.bounds;
-    [root bringSubviewToFront:host];
-}
-
-static void MMSetVisible(UIView *view, BOOL visible) {
-    if (!view) return;
-    view.hidden = !visible;
-    view.alpha = visible ? 1.0 : 0.0;
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
     if (!vc || kMMUpdating) return;
     kMMUpdating = YES;
-    UIView *root = vc.view;
     UITabBar *tabBar = MMFindTabBar(vc);
-    UIView *backdrop = MMEnsureBackdrop(root);
-    UIView *glass = MMEnsureGlass(root);
-    UIView *searchHost = MMEnsureSearchHost(root);
-    if (!root || !tabBar || !MMShouldShowFloatingBar(vc)) {
-        MMSetVisible(backdrop, NO);
-        MMSetVisible(glass, NO);
-        MMSetVisible(searchHost, NO);
+    if (!tabBar || !MMShouldShow(vc)) {
         if (tabBar) tabBar.alpha = 1.0;
+        MMHideOrShowFloating(vc, NO);
         kMMUpdating = NO;
         return;
     }
     UIViewController *home = MMFindHomeController(vc);
     BOOL showSearch = home ? (MMFindSearchBarInView(home.view) != nil) : NO;
     CGRect glassFrame = MMComputeGlassFrame(vc, showSearch);
-    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(glassFrame) - 8.0, CGRectGetWidth(root.bounds), CGRectGetHeight(root.bounds) - CGRectGetMinY(glassFrame) + 8.0);
+    UIView *backdrop = MMEnsureBackdrop(vc.view);
+    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(glassFrame) - 8.0, CGRectGetWidth(vc.view.bounds), CGRectGetHeight(vc.view.bounds) - CGRectGetMinY(glassFrame) + 8.0);
     MMStyleBackdrop(backdrop);
+    UIView *glass = MMEnsureGlass(vc.view);
     glass.frame = glassFrame;
     MMStyleGlass(glass);
-    MMHideOriginalTabBar(tabBar);
-    MMUpdateOverlayButtons(vc, tabBar, glass);
-    MMUpdateSearchHost(vc, glassFrame);
-    [root bringSubviewToFront:backdrop];
-    [root bringSubviewToFront:glass];
-    [root bringSubviewToFront:searchHost];
-    MMSetVisible(backdrop, YES);
-    MMSetVisible(glass, YES);
+    MMMakeTabBarTransparent(tabBar);
+    MMLayoutOverlayButtons(vc, tabBar, glass);
+    MMLayoutSearch(vc, glassFrame);
+    [vc.view bringSubviewToFront:backdrop];
+    [vc.view bringSubviewToFront:glass];
+    for (NSInteger i = 0; i < 4; i++) {
+        UIView *btn = [vc.view viewWithTag:kMMOverlayButtonBaseTag + i];
+        if (btn) [vc.view bringSubviewToFront:btn];
+    }
+    UIView *search = [vc.view viewWithTag:kMMSearchTag];
+    if (search && !search.hidden) [vc.view bringSubviewToFront:search];
+    MMHideOrShowFloating(vc, YES);
     kMMUpdating = NO;
 }
 
-@implementation MMFloatingActionProxy
-- (void)handleTabTap:(UIButton *)sender {
-    UIViewController *vc = (UIViewController *)objc_getAssociatedObject(sender, &kMMTabVCKey);
-    UITabBar *tabBar = (UITabBar *)objc_getAssociatedObject(sender, &kMMTabBarKey);
-    NSNumber *idxNum = (NSNumber *)objc_getAssociatedObject(sender, &kMMTabIndexKey);
-    if (!vc || !tabBar || !idxNum) return;
+@implementation MMFloatingProxy
+- (void)tapTab:(UIButton *)sender {
+    UIViewController *vc = (UIViewController *)objc_getAssociatedObject(sender, &kMMVCKey);
+    NSNumber *idxNum = (NSNumber *)objc_getAssociatedObject(sender, &kMMIndexKey);
+    UITabBar *tabBar = MMFindTabBar(vc);
+    if (!vc || !idxNum || !tabBar) return;
     NSInteger index = idxNum.integerValue;
     if (index < 0 || index >= (NSInteger)tabBar.items.count) return;
     if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
@@ -656,7 +578,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     MMUpdateFloatingBar(vc);
 }
 - (void)handleSearchTap:(UIButton *)sender {
-    UIViewController *vc = (UIViewController *)objc_getAssociatedObject(sender, &kMMTabVCKey);
+    UIViewController *vc = (UIViewController *)objc_getAssociatedObject(sender, &kMMVCKey);
     if (!vc) return;
     UIViewController *home = MMFindHomeController(vc);
     if (!home) home = vc;
@@ -666,12 +588,10 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
 }
 @end
 
-static MMFloatingActionProxy *MMSharedActionProxy(void) {
-    static MMFloatingActionProxy *proxy = nil;
+static MMFloatingProxy *MMSharedProxy(void) {
+    static MMFloatingProxy *proxy = nil;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        proxy = [MMFloatingActionProxy new];
-    });
+    dispatch_once(&onceToken, ^{ proxy = [MMFloatingProxy new]; });
     return proxy;
 }
 
