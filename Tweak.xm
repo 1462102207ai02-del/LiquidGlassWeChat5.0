@@ -17,6 +17,8 @@ static MMFloatingProxy *MMSharedProxy(void);
 static char kMMVCKey;
 static char kMMIndexKey;
 static char kMMItemViewKey;
+static char kMMLockedGlassFrameKey;
+static char kMMLastRootSizeKey;
 
 static NSInteger const kMMBackdropTag = 999000;
 static NSInteger const kMMBackdropBlurTag = 999001;
@@ -363,7 +365,7 @@ static void MMStyleCapsule(UIView *capsule, UIView *glass) {
     MMSetRadius(border, 20.0);
 }
 
-static CGRect MMComputeGlassFrame(UIViewController *vc, BOOL showSearch) {
+static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
     UIView *root = vc.view;
     CGFloat h = CGRectGetHeight(root.bounds);
     CGFloat w = CGRectGetWidth(root.bounds);
@@ -383,6 +385,31 @@ static CGRect MMComputeGlassFrame(UIViewController *vc, BOOL showSearch) {
     }
     CGFloat width = w - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
     return CGRectMake(margin, y, width, glassH);
+}
+
+static CGRect MMGlassFrame(UIViewController *vc, BOOL showSearch) {
+    CGSize rootSize = vc.view.bounds.size;
+    NSValue *sizeValue = objc_getAssociatedObject(vc, &kMMLastRootSizeKey);
+    NSValue *frameValue = objc_getAssociatedObject(vc, &kMMLockedGlassFrameKey);
+
+    if (!sizeValue || !CGSizeEqualToSize([sizeValue CGSizeValue], rootSize) || !frameValue) {
+        CGRect frame = MMUnlockedGlassFrame(vc, showSearch);
+        objc_setAssociatedObject(vc, &kMMLockedGlassFrameKey, [NSValue valueWithCGRect:frame], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(vc, &kMMLastRootSizeKey, [NSValue valueWithCGSize:rootSize], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        return frame;
+    }
+
+    CGRect locked = [frameValue CGRectValue];
+    CGFloat newWidth = rootSize.width - 16.0 * 2.0 - (showSearch ? (58.0 + 10.0) : 0.0);
+    locked.size.width = newWidth;
+    locked.origin.x = 16.0;
+    objc_setAssociatedObject(vc, &kMMLockedGlassFrameKey, [NSValue valueWithCGRect:locked], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return locked;
+}
+
+static void MMInvalidateLockedFrame(UIViewController *vc) {
+    objc_setAssociatedObject(vc, &kMMLockedGlassFrameKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(vc, &kMMLastRootSizeKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 static void MMMakeTabBarTransparent(UITabBar *tabBar) {
@@ -581,7 +608,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     }
     UIViewController *home = MMFindHomeController(vc);
     BOOL showSearch = home ? (MMFindSearchBarInView(home.view) != nil) : NO;
-    CGRect glassFrame = MMComputeGlassFrame(vc, showSearch);
+    CGRect glassFrame = MMGlassFrame(vc, showSearch);
     UIView *backdrop = MMEnsureBackdrop(vc.view);
     backdrop.frame = CGRectMake(0.0, CGRectGetMinY(glassFrame) - 8.0, CGRectGetWidth(vc.view.bounds), CGRectGetHeight(vc.view.bounds) - CGRectGetMinY(glassFrame) + 8.0);
     MMStyleBackdrop(backdrop);
@@ -645,6 +672,8 @@ static MMFloatingProxy *MMSharedProxy(void) {
 
 - (void)viewDidLoad {
     %orig;
+    kMMPrepared = NO;
+    MMInvalidateLockedFrame((UIViewController *)self);
     MMPrepareTabBarEarly((UIViewController *)self);
 }
 
@@ -672,6 +701,7 @@ static MMFloatingProxy *MMSharedProxy(void) {
 
 - (void)viewSafeAreaInsetsDidChange {
     %orig;
+    MMInvalidateLockedFrame((UIViewController *)self);
     MMUpdateFloatingBar((UIViewController *)self);
 }
 
