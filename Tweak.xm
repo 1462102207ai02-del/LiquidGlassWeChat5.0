@@ -150,18 +150,27 @@ static BOOL MMShouldShow(UIViewController *vc) {
     @try {
         if ([vc respondsToSelector:@selector(selectedViewController)]) selected = [vc valueForKey:@"selectedViewController"];
     } @catch (__unused NSException *e) {}
+
     if ([selected isKindOfClass:[UINavigationController class]]) {
         UINavigationController *nav = (UINavigationController *)selected;
         UIViewController *root = nav.viewControllers.count > 0 ? nav.viewControllers.firstObject : nil;
         UIViewController *top = nav.topViewController ?: nav.visibleViewController;
-        if (root && top && top != root) return NO;
+        if (!root || !top || top != root) return NO;
         if (nav.presentedViewController) return NO;
-    } else if ([selected isKindOfClass:[UIViewController class]]) {
+        NSString *rootName = NSStringFromClass([root class]);
+        if (![rootName isEqualToString:@"NewMainFrameViewController"]) return NO;
+        return YES;
+    }
+
+    if ([selected isKindOfClass:[UIViewController class]]) {
         UIViewController *child = (UIViewController *)selected;
         if (child.presentedViewController) return NO;
+        NSString *childName = NSStringFromClass([child class]);
+        if (![childName isEqualToString:@"NewMainFrameViewController"]) return NO;
+        return YES;
     }
-    if (vc.presentedViewController) return NO;
-    return YES;
+
+    return NO;
 }
 
 static NSInteger MMCompareViewX(id a, id b, void *context) {
@@ -374,15 +383,25 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
     CGFloat searchSize = 58.0;
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
-    CGFloat y = h - safeBottom - glassH - 8.0;
+
+    CGFloat bottomGap = 12.0;
+    CGFloat y = h - safeBottom - glassH - bottomGap;
+
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
-        UIView *banner = label.superview ?: label;
+        UIView *banner = label;
+        while (banner.superview && CGRectGetHeight(banner.superview.bounds) <= 90.0) {
+            banner = banner.superview;
+        }
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat minY = CGRectGetMaxY(bannerRect) + 1.0;
+        CGFloat minY = CGRectGetMaxY(bannerRect) + 6.0;
         if (y < minY) y = minY;
     }
+
+    CGFloat maxY = h - safeBottom - glassH - bottomGap;
+    if (y > maxY) y = maxY;
+
     CGFloat width = w - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
     return CGRectMake(margin, y, width, glassH);
 }
@@ -587,10 +606,20 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
 
 static void MMHideOrShowFloating(UIViewController *vc, BOOL visible) {
     UIView *root = vc.view;
-    MMSetVisible([root viewWithTag:kMMBackdropTag], visible);
-    MMSetVisible([root viewWithTag:kMMGlassTag], visible);
-    MMSetVisible([root viewWithTag:kMMSearchTag], visible);
-    for (NSInteger i = 0; i < 4; i++) MMSetVisible([root viewWithTag:kMMOverlayButtonBaseTag + i], visible);
+    UIView *backdrop = [root viewWithTag:kMMBackdropTag];
+    UIView *glass = [root viewWithTag:kMMGlassTag];
+    UIView *search = [root viewWithTag:kMMSearchTag];
+    MMSetVisible(backdrop, visible);
+    MMSetVisible(glass, visible);
+    MMSetVisible(search, visible);
+    backdrop.userInteractionEnabled = NO;
+    glass.userInteractionEnabled = NO;
+    search.userInteractionEnabled = visible;
+    for (NSInteger i = 0; i < 4; i++) {
+        UIView *btn = [root viewWithTag:kMMOverlayButtonBaseTag + i];
+        MMSetVisible(btn, visible);
+        btn.userInteractionEnabled = visible;
+    }
 }
 
 static void MMUpdateFloatingBar(UIViewController *vc) {
