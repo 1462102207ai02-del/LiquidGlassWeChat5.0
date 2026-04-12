@@ -121,12 +121,44 @@ static UIView *MMFindLabelContainingText(UIView *root, NSString *text) {
 
 static UIImageView *MMFindImageView(UIView *root) {
     if (!root) return nil;
-    if ([root isKindOfClass:[UIImageView class]]) return (UIImageView *)root;
+    if ([root isKindOfClass:[UIImageView class]]) {
+        UIImageView *iv = (UIImageView *)root;
+        if (iv.image) return iv;
+    }
     for (UIView *sub in root.subviews) {
         UIImageView *found = MMFindImageView(sub);
         if (found) return found;
     }
     return nil;
+}
+
+static UIImage *MMBestImageFromItemView(UIView *itemView) {
+    if (!itemView) return nil;
+    UIImageView *iv = MMFindImageView(itemView);
+    if (iv.image) return iv.image;
+    @try {
+        id obj = [itemView valueForKey:@"imageView"];
+        if ([obj isKindOfClass:[UIImageView class]] && ((UIImageView *)obj).image) return ((UIImageView *)obj).image;
+    } @catch (__unused NSException *e) {}
+    @try {
+        id obj = [itemView valueForKey:@"_imageView"];
+        if ([obj isKindOfClass:[UIImageView class]] && ((UIImageView *)obj).image) return ((UIImageView *)obj).image;
+    } @catch (__unused NSException *e) {}
+    return nil;
+}
+
+static UIImage *MMBestImageFromTabBarItem(UITabBarItem *item, BOOL selected) {
+    if (!item) return nil;
+    UIImage *image = nil;
+    if (selected && item.selectedImage) image = item.selectedImage;
+    if (!image && item.image) image = item.image;
+    if (!image) {
+        @try { image = [item valueForKey:(selected ? @"_selectedImage" : @"_image")]; } @catch (__unused NSException *e) {}
+    }
+    if (!image) {
+        @try { image = [item valueForKey:@"_image"]; } @catch (__unused NSException *e) {}
+    }
+    return image;
 }
 
 static UILabel *MMFindLabel(UIView *root) {
@@ -322,18 +354,18 @@ static void MMStyleBackdrop(UIView *backdrop) {
     UIVisualEffectView *blur = (UIVisualEffectView *)[backdrop viewWithTag:kMMBackdropBlurTag];
     blur.frame = backdrop.bounds;
     if (@available(iOS 13.0, *)) {
-        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(backdrop.traitCollection) ? UIBlurEffectStyleSystemUltraThinMaterialDark : UIBlurEffectStyleSystemUltraThinMaterialLight)];
+        blur.effect = [UIBlurEffect effectWithStyle:(MMIsDark(backdrop.traitCollection) ? UIBlurEffectStyleSystemThinMaterialDark : UIBlurEffectStyleSystemMaterialLight)];
     } else {
         blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
     }
     UIView *tint = [blur.contentView viewWithTag:kMMBackdropTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(backdrop.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.02] : [UIColor colorWithWhite:1.0 alpha:0.05];
+    tint.backgroundColor = MMIsDark(backdrop.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.12];
 }
 
 static void MMStyleGlass(UIView *glass) {
-    MMSetRadius(glass, CGRectGetHeight(glass.bounds) * 0.5);
+    MMSetRadius(glass, 24.0);
     UIVisualEffectView *blur = (UIVisualEffectView *)[glass viewWithTag:kMMGlassBlurTag];
     blur.frame = glass.bounds;
     if (@available(iOS 13.0, *)) {
@@ -345,20 +377,20 @@ static void MMStyleGlass(UIView *glass) {
     UIView *tint = [blur.contentView viewWithTag:kMMGlassTintTag];
     tint.frame = blur.contentView.bounds;
     tint.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tint.backgroundColor = MMIsDark(glass.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.05] : [UIColor colorWithWhite:1.0 alpha:0.10];
+    tint.backgroundColor = MMIsDark(glass.traitCollection) ? [UIColor colorWithWhite:1.0 alpha:0.08] : [UIColor colorWithWhite:1.0 alpha:0.18];
     glass.layer.shadowColor = [UIColor blackColor].CGColor;
-    glass.layer.shadowOpacity = MMIsDark(glass.traitCollection) ? 0.12 : 0.08;
-    glass.layer.shadowRadius = 18.0;
-    glass.layer.shadowOffset = CGSizeMake(0.0, 8.0);
+    glass.layer.shadowOpacity = MMIsDark(glass.traitCollection) ? 0.14 : 0.10;
+    glass.layer.shadowRadius = 20.0;
+    glass.layer.shadowOffset = CGSizeMake(0.0, 10.0);
     glass.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:glass.bounds cornerRadius:CGRectGetHeight(glass.bounds) * 0.5].CGPath;
     UIView *border = [glass viewWithTag:kMMGlassBorderTag];
     border.frame = glass.bounds;
     border.layer.borderWidth = 0.8;
-    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.16 : 0.26)].CGColor;
-    MMSetRadius(border, CGRectGetHeight(border.bounds) * 0.5);
+    border.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.20 : 0.34)].CGColor;
+    MMSetRadius(border, 24.0);
     UIView *shine = [glass viewWithTag:kMMGlassShineTag];
     shine.frame = CGRectInset(glass.bounds, 1.0, 1.0);
-    MMSetRadius(shine, CGRectGetHeight(shine.bounds) * 0.5);
+    MMSetRadius(shine, 23.0);
     CAGradientLayer *g = nil;
     for (CALayer *layer in shine.layer.sublayers) {
         if ([layer isKindOfClass:[CAGradientLayer class]]) {
@@ -373,7 +405,7 @@ static void MMStyleGlass(UIView *glass) {
     g.frame = shine.bounds;
     g.startPoint = CGPointMake(0.5, 0.0);
     g.endPoint = CGPointMake(0.5, 1.0);
-    g.colors = @[(__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.12 : 0.18)].CGColor, (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.03].CGColor, (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor];
+    g.colors = @[(__bridge id)[UIColor colorWithWhite:1.0 alpha:(MMIsDark(glass.traitCollection) ? 0.16 : 0.24)].CGColor, (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.05].CGColor, (__bridge id)[UIColor colorWithWhite:1.0 alpha:0.0].CGColor];
     g.locations = @[@0.0, @0.20, @0.45];
     g.cornerRadius = CGRectGetHeight(shine.bounds) * 0.5;
 }
@@ -402,11 +434,11 @@ static CGRect MMComputeGlassFrame(UIViewController *vc, BOOL showSearch) {
     CGFloat screenW = CGRectGetWidth(root.bounds);
     CGFloat screenH = CGRectGetHeight(root.bounds);
     CGFloat safeBottom = root.safeAreaInsets.bottom;
-    CGFloat glassHeight = 64.0;
-    CGFloat searchSize = 64.0;
+    CGFloat glassHeight = 58.0;
+    CGFloat searchSize = 58.0;
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
-    CGFloat y = screenH - safeBottom - glassHeight - 14.0;
+    CGFloat y = screenH - safeBottom - glassHeight - 8.0;
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
         UIView *banner = label.superview ?: label;
@@ -480,11 +512,10 @@ static void MMUpdateOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
         UIImageView *iconView = (UIImageView *)[button viewWithTag:100 + i];
         UILabel *titleLabel = (UILabel *)[button viewWithTag:200 + i];
-        UIImage *image = srcIcon.image;
+        UIImage *image = MMBestImageFromItemView(itemView);
         if (!image) {
             UITabBarItem *item = [items objectAtIndex:i];
-            image = (i == selectedIndex && item.selectedImage) ? item.selectedImage : item.image;
-            if (!image) image = item.image;
+            image = MMBestImageFromTabBarItem(item, i == selectedIndex);
         }
         iconView.image = image ? [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
         iconView.tintColor = color;
@@ -496,8 +527,8 @@ static void MMUpdateOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         titleLabel.text = title;
         titleLabel.textColor = color;
         titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
-        CGFloat iconSize = 22.0;
-        CGFloat titleH = 13.0;
+        CGFloat iconSize = 21.0;
+        CGFloat titleH = 12.0;
         CGFloat gap = 2.0;
         CGFloat totalH = iconSize + gap + titleH;
         CGFloat top = floor((slotH - totalH) * 0.5);
@@ -534,7 +565,7 @@ static void MMUpdateSearchHost(UIViewController *vc, CGRect glassFrame) {
         host.alpha = 0.0;
         return;
     }
-    CGFloat size = 64.0;
+    CGFloat size = 58.0;
     CGFloat gap = 10.0;
     host.frame = CGRectMake(CGRectGetMaxX(glassFrame) + gap, CGRectGetMinY(glassFrame), size, size);
     host.hidden = NO;
@@ -596,7 +627,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     UIViewController *home = MMFindHomeController(vc);
     BOOL showSearch = home ? (MMFindSearchBarInView(home.view) != nil) : NO;
     CGRect glassFrame = MMComputeGlassFrame(vc, showSearch);
-    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(glassFrame) - 4.0, CGRectGetWidth(root.bounds), CGRectGetHeight(root.bounds) - CGRectGetMinY(glassFrame) + 4.0);
+    backdrop.frame = CGRectMake(0.0, CGRectGetMinY(glassFrame) - 8.0, CGRectGetWidth(root.bounds), CGRectGetHeight(root.bounds) - CGRectGetMinY(glassFrame) + 8.0);
     MMStyleBackdrop(backdrop);
     glass.frame = glassFrame;
     MMStyleGlass(glass);
