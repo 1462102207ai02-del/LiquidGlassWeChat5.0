@@ -155,18 +155,15 @@ static BOOL MMShouldShow(UIViewController *vc) {
         UINavigationController *nav = (UINavigationController *)selected;
         UIViewController *root = nav.viewControllers.count > 0 ? nav.viewControllers.firstObject : nil;
         UIViewController *top = nav.topViewController ?: nav.visibleViewController;
-        if (!root || !top || top != root) return NO;
+        if (!root || !top) return NO;
+        if (top != root) return NO;
         if (nav.presentedViewController) return NO;
-        NSString *rootName = NSStringFromClass([root class]);
-        if (![rootName isEqualToString:@"NewMainFrameViewController"]) return NO;
         return YES;
     }
 
     if ([selected isKindOfClass:[UIViewController class]]) {
         UIViewController *child = (UIViewController *)selected;
         if (child.presentedViewController) return NO;
-        NSString *childName = NSStringFromClass([child class]);
-        if (![childName isEqualToString:@"NewMainFrameViewController"]) return NO;
         return YES;
     }
 
@@ -384,23 +381,20 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
 
-    CGFloat bottomGap = 12.0;
-    CGFloat y = h - safeBottom - glassH - bottomGap;
+    CGFloat bottomGap = 14.0;
+    CGFloat yFromBottom = h - safeBottom - glassH - bottomGap;
+    CGFloat y = yFromBottom;
 
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
-        UIView *banner = label;
-        while (banner.superview && CGRectGetHeight(banner.superview.bounds) <= 90.0) {
-            banner = banner.superview;
-        }
+        UIView *banner = label.superview ?: label;
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat minY = CGRectGetMaxY(bannerRect) + 6.0;
-        if (y < minY) y = minY;
+        CGFloat yFromBanner = CGRectGetMaxY(bannerRect) + 4.0;
+        if (yFromBanner > y) y = yFromBanner;
     }
 
-    CGFloat maxY = h - safeBottom - glassH - bottomGap;
-    if (y > maxY) y = maxY;
+    if (y > yFromBottom) y = yFromBottom;
 
     CGFloat width = w - margin * 2.0 - (showSearch ? (searchSize + gap) : 0.0);
     return CGRectMake(margin, y, width, glassH);
