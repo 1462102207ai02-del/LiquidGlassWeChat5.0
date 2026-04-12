@@ -16,6 +16,7 @@ static MMFloatingProxy *MMSharedProxy(void);
 
 static char kMMVCKey;
 static char kMMIndexKey;
+static char kMMItemViewKey;
 
 static NSInteger const kMMBackdropTag = 998000;
 static NSInteger const kMMBackdropBlurTag = 998001;
@@ -73,7 +74,10 @@ static UIImageView *MMFindImageView(UIView *root) {
 
 static UILabel *MMFindLabel(UIView *root) {
     if (!root) return nil;
-    if ([root isKindOfClass:[UILabel class]]) return (UILabel *)root;
+    if ([root isKindOfClass:[UILabel class]]) {
+        UILabel *label = (UILabel *)root;
+        if (label.text.length > 0) return label;
+    }
     for (UIView *sub in root.subviews) {
         UILabel *found = MMFindLabel(sub);
         if (found) return found;
@@ -389,7 +393,7 @@ static CGRect MMComputeGlassFrame(UIViewController *vc, BOOL showSearch) {
 static void MMMakeTabBarTransparent(UITabBar *tabBar) {
     tabBar.hidden = NO;
     tabBar.alpha = 0.01;
-    tabBar.userInteractionEnabled = YES;
+    tabBar.userInteractionEnabled = NO;
     tabBar.backgroundImage = [UIImage new];
     tabBar.shadowImage = [UIImage new];
     tabBar.backgroundColor = [UIColor clearColor];
@@ -405,6 +409,17 @@ static void MMMakeTabBarTransparent(UITabBar *tabBar) {
             [(id)tabBar performSelector:@selector(setScrollEdgeAppearance:) withObject:appearance];
         }
     }
+}
+
+static void MMPrepareTabBarEarly(UIViewController *vc) {
+    UITabBar *tabBar = MMFindTabBar(vc);
+    if (!tabBar) return;
+    tabBar.alpha = 0.01;
+    tabBar.hidden = NO;
+    tabBar.backgroundImage = [UIImage new];
+    tabBar.shadowImage = [UIImage new];
+    tabBar.backgroundColor = [UIColor clearColor];
+    tabBar.barTintColor = [UIColor clearColor];
 }
 
 static void MMLayoutSearch(UIViewController *vc, CGRect glassFrame) {
@@ -473,9 +488,12 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         objc_setAssociatedObject(btn, &kMMVCKey, vc, OBJC_ASSOCIATION_ASSIGN);
         objc_setAssociatedObject(btn, &kMMIndexKey, @(i), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         UIView *itemView = i < (NSInteger)itemViews.count ? [itemViews objectAtIndex:i] : nil;
+        objc_setAssociatedObject(btn, &kMMItemViewKey, itemView, OBJC_ASSOCIATION_ASSIGN);
         UITabBarItem *item = i < (NSInteger)items.count ? [items objectAtIndex:i] : nil;
+
         UIImageView *srcIcon = MMFindImageView(itemView);
         UILabel *srcLabel = MMFindLabel(itemView);
+
         UIImageView *iconView = (UIImageView *)[btn viewWithTag:100 + i];
         UILabel *titleLabel = (UILabel *)[btn viewWithTag:200 + i];
         if (!iconView) {
@@ -494,22 +512,30 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
             titleLabel.userInteractionEnabled = NO;
             [btn addSubview:titleLabel];
         }
+
         UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
+
         UIImage *img = srcIcon.image;
         if (!img && item) img = (i == selectedIndex && item.selectedImage) ? item.selectedImage : item.image;
         if (!img && item) {
             @try { img = [item valueForKey:(i == selectedIndex ? @"_selectedImage" : @"_image")]; } @catch (__unused NSException *e) {}
         }
+        if (!img && item) {
+            @try { img = [item valueForKey:@"_image"]; } @catch (__unused NSException *e) {}
+        }
+
         iconView.image = img ? [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
         iconView.tintColor = color;
+
         NSString *title = srcLabel.text;
         if (!title.length && item.title.length) title = item.title;
         if (!title.length && i < 4) title = [fallback objectAtIndex:i];
         titleLabel.text = title ?: @"";
         titleLabel.textColor = color;
         titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
+
         CGFloat iconSize = 21.0;
         CGFloat titleH = 12.0;
         CGFloat contentGap = 2.0;
@@ -519,6 +545,7 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         iconView.frame = CGRectMake(floor((w - iconSize) * 0.5), top, iconSize, iconSize);
         titleLabel.frame = CGRectMake(0.0, CGRectGetMaxY(iconView.frame) + contentGap, w, titleH);
     }
+
     UIView *capsule = [glass viewWithTag:kMMCapsuleTag];
     UIButton *selectedBtn = (UIButton *)[vc.view viewWithTag:kMMOverlayButtonBaseTag + selectedIndex];
     if (selectedBtn) {
@@ -547,25 +574,34 @@ static void MMHideOrShowFloating(UIViewController *vc, BOOL visible) {
 static void MMUpdateFloatingBar(UIViewController *vc) {
     if (!vc || kMMUpdating) return;
     kMMUpdating = YES;
+
     UITabBar *tabBar = MMFindTabBar(vc);
     if (!tabBar || !MMShouldShow(vc)) {
-        if (tabBar) tabBar.alpha = 1.0;
+        if (tabBar) {
+            tabBar.alpha = 1.0;
+            tabBar.userInteractionEnabled = YES;
+        }
         MMHideOrShowFloating(vc, NO);
         kMMUpdating = NO;
         return;
     }
+
     UIViewController *home = MMFindHomeController(vc);
     BOOL showSearch = home ? (MMFindSearchBarInView(home.view) != nil) : NO;
     CGRect glassFrame = MMComputeGlassFrame(vc, showSearch);
+
     UIView *backdrop = MMEnsureBackdrop(vc.view);
     backdrop.frame = CGRectMake(0.0, CGRectGetMinY(glassFrame) - 8.0, CGRectGetWidth(vc.view.bounds), CGRectGetHeight(vc.view.bounds) - CGRectGetMinY(glassFrame) + 8.0);
     MMStyleBackdrop(backdrop);
+
     UIView *glass = MMEnsureGlass(vc.view);
     glass.frame = glassFrame;
     MMStyleGlass(glass);
+
     MMMakeTabBarTransparent(tabBar);
     MMLayoutOverlayButtons(vc, tabBar, glass);
     MMLayoutSearch(vc, glassFrame);
+
     [vc.view bringSubviewToFront:backdrop];
     [vc.view bringSubviewToFront:glass];
     for (NSInteger i = 0; i < 4; i++) {
@@ -574,24 +610,42 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     }
     UIView *search = [vc.view viewWithTag:kMMSearchTag];
     if (search && !search.hidden) [vc.view bringSubviewToFront:search];
+
     MMHideOrShowFloating(vc, YES);
     kMMUpdating = NO;
 }
 
 @implementation MMFloatingProxy
+
 - (void)tapTab:(UIButton *)sender {
     UIViewController *vc = (UIViewController *)objc_getAssociatedObject(sender, &kMMVCKey);
     NSNumber *idxNum = (NSNumber *)objc_getAssociatedObject(sender, &kMMIndexKey);
+    UIView *itemView = (UIView *)objc_getAssociatedObject(sender, &kMMItemViewKey);
     UITabBar *tabBar = MMFindTabBar(vc);
     if (!vc || !idxNum || !tabBar) return;
     NSInteger index = idxNum.integerValue;
     if (index < 0 || index >= (NSInteger)tabBar.items.count) return;
-    if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
-        ((void (*)(id, SEL, NSUInteger))objc_msgSend)(vc, @selector(setSelectedIndex:), (NSUInteger)index);
+
+    if ([itemView isKindOfClass:[UIControl class]]) {
+        [(UIControl *)itemView sendActionsForControlEvents:UIControlEventTouchUpInside];
+    } else {
+        for (UIGestureRecognizer *gr in itemView.gestureRecognizers) {
+            if ([gr isKindOfClass:[UITapGestureRecognizer class]] && gr.enabled) {
+                gr.enabled = NO;
+                gr.enabled = YES;
+            }
+        }
+        if ([vc respondsToSelector:@selector(setSelectedIndex:)]) {
+            ((void (*)(id, SEL, NSUInteger))objc_msgSend)(vc, @selector(setSelectedIndex:), (NSUInteger)index);
+        }
+        tabBar.selectedItem = [tabBar.items objectAtIndex:index];
     }
-    tabBar.selectedItem = [tabBar.items objectAtIndex:index];
-    MMUpdateFloatingBar(vc);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MMUpdateFloatingBar(vc);
+    });
 }
+
 - (void)tapSearch:(UIButton *)sender {
     UIViewController *vc = (UIViewController *)objc_getAssociatedObject(sender, &kMMVCKey);
     if (!vc) return;
@@ -601,6 +655,7 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
         ((void (*)(id, SEL))objc_msgSend)(home, @selector(onTapOnSearchButton));
     }
 }
+
 @end
 
 static MMFloatingProxy *MMSharedProxy(void) {
@@ -611,10 +666,41 @@ static MMFloatingProxy *MMSharedProxy(void) {
 }
 
 %hook MainTabBarViewController
-- (void)viewDidLoad { %orig; MMUpdateFloatingBar((UIViewController *)self); }
-- (void)viewDidLayoutSubviews { %orig; MMUpdateFloatingBar((UIViewController *)self); }
-- (void)viewDidAppear:(BOOL)animated { %orig(animated); MMUpdateFloatingBar((UIViewController *)self); }
-- (void)viewSafeAreaInsetsDidChange { %orig; MMUpdateFloatingBar((UIViewController *)self); }
-- (void)setSelectedIndex:(NSUInteger)index { %orig(index); MMUpdateFloatingBar((UIViewController *)self); }
-- (void)setSelectedViewController:(UIViewController *)selectedViewController { %orig(selectedViewController); MMUpdateFloatingBar((UIViewController *)self); }
+
+- (void)viewDidLoad {
+    %orig;
+    MMPrepareTabBarEarly((UIViewController *)self);
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    %orig(animated);
+    MMPrepareTabBarEarly((UIViewController *)self);
+}
+
+- (void)viewDidLayoutSubviews {
+    %orig;
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig(animated);
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)viewSafeAreaInsetsDidChange {
+    %orig;
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)setSelectedIndex:(NSUInteger)index {
+    %orig(index);
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
+- (void)setSelectedViewController:(UIViewController *)selectedViewController {
+    %orig(selectedViewController);
+    MMUpdateFloatingBar((UIViewController *)self);
+}
+
 %end
