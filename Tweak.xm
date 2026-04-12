@@ -132,6 +132,14 @@ static NSString *MMBestItemTitle(UIView *itemView, UITabBarItem *item, NSInteger
     return title ?: @"";
 }
 
+static UIImage *MMFallbackSymbolImage(NSInteger index) {
+    if (![UIImage respondsToSelector:@selector(systemImageNamed:)]) return nil;
+    NSArray *names = @[@"message.fill", @"person.2.fill", @"safari.fill", @"person.fill"];
+    if (index < 0 || index >= (NSInteger)names.count) return nil;
+    UIImage *img = [UIImage systemImageNamed:names[index]];
+    return [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+}
+
 static UITabBar *MMFindTabBar(UIViewController *vc) {
     if (!vc) return nil;
     @try {
@@ -431,7 +439,7 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
 
-    CGFloat bottomGap = 4.0;
+    CGFloat bottomGap = 2.0;
     CGFloat yFromBottom = h - safeBottom - glassH - bottomGap;
     CGFloat y = yFromBottom;
 
@@ -490,9 +498,9 @@ static void MMMakeTabBarTransparent(UITabBar *tabBar) {
     tabBar.clipsToBounds = YES;
     for (UIView *sub in tabBar.subviews) {
         NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"]) {
+        sub.alpha = 0.0;
+        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"] || [name containsString:@"UITabBarButton"]) {
             sub.hidden = YES;
-            sub.alpha = 0.0;
         }
     }
     if (NSClassFromString(@"UITabBarAppearance")) {
@@ -519,9 +527,9 @@ static void MMPrepareTabBarEarly(UIViewController *vc) {
     tabBar.barTintColor = [UIColor clearColor];
     for (UIView *sub in tabBar.subviews) {
         NSString *name = NSStringFromClass([sub class]);
-        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"]) {
+        sub.alpha = 0.0;
+        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"] || [name containsString:@"UITabBarButton"]) {
             sub.hidden = YES;
-            sub.alpha = 0.0;
         }
     }
 }
@@ -617,6 +625,7 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
         UIImage *img = srcImage;
+        if (!img) img = MMFallbackSymbolImage(i);
         iconView.image = img ? [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
         iconView.tintColor = color;
         titleLabel.text = srcTitle ?: @"";
@@ -813,4 +822,21 @@ static MMFloatingProxy *MMSharedProxy(void) {
     MMUpdateFloatingBar((UIViewController *)self);
 }
 
+%end
+
+
+%hook UITabBar
+- (void)layoutSubviews {
+    %orig;
+    self.alpha = 0.001;
+    self.userInteractionEnabled = NO;
+    self.hidden = NO;
+    for (UIView *sub in self.subviews) {
+        NSString *name = NSStringFromClass([sub class]);
+        sub.alpha = 0.0;
+        if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"] || [name containsString:@"UITabBarButton"]) {
+            sub.hidden = YES;
+        }
+    }
+}
 %end
