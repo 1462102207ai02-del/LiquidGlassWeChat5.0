@@ -506,7 +506,6 @@ static void MMUpdateOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         objc_setAssociatedObject(button, &kMMTabIndexKey, @(i), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         UIView *itemView = [itemViews objectAtIndex:i];
         UILabel *srcLabel = MMFindLabel(itemView);
-        UIImageView *srcIcon = MMFindImageView(itemView);
         UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
