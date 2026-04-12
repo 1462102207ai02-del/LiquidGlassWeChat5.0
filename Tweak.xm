@@ -583,7 +583,6 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
     CGFloat usableW = CGRectGetWidth(glass.bounds) - sideInset * 2.0 - gap * (count - 1);
     CGFloat slotW = floor(usableW / count);
     CGFloat slotH = CGRectGetHeight(glass.bounds);
-    NSArray *fallback = @[@"微信",@"通讯录",@"发现",@"我"];
     for (NSInteger i = 0; i < count; i++) {
         UIButton *btn = MMEnsureOverlayButton(vc.view, i);
         CGFloat x = CGRectGetMinX(glass.frame) + sideInset + i * (slotW + gap);
