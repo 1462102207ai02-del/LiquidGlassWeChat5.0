@@ -82,6 +82,56 @@ static UILabel *MMFindLabel(UIView *root) {
     return nil;
 }
 
+static UIImage *MMBestItemImage(UIView *itemView, UITabBarItem *item, BOOL selected) {
+    UIImage *img = nil;
+    @try {
+        id iv = [itemView valueForKey:@"imageView"];
+        if ([iv isKindOfClass:[UIImageView class]]) img = ((UIImageView *)iv).image;
+    } @catch (__unused NSException *e) {}
+    if (!img) {
+        @try {
+            id iv = [itemView valueForKey:@"_imageView"];
+            if ([iv isKindOfClass:[UIImageView class]]) img = ((UIImageView *)iv).image;
+        } @catch (__unused NSException *e) {}
+    }
+    if (!img) {
+        UIImageView *iv = MMFindImageView(itemView);
+        img = iv.image;
+    }
+    if (!img && item) img = selected && item.selectedImage ? item.selectedImage : item.image;
+    if (!img && item) {
+        @try { img = [item valueForKey:(selected ? @"_selectedImage" : @"_image")]; } @catch (__unused NSException *e) {}
+    }
+    if (!img && item) {
+        @try { img = [item valueForKey:@"_image"]; } @catch (__unused NSException *e) {}
+    }
+    return img;
+}
+
+static NSString *MMBestItemTitle(UIView *itemView, UITabBarItem *item, NSInteger index) {
+    NSString *title = nil;
+    @try {
+        id label = [itemView valueForKey:@"textLabel"];
+        if ([label isKindOfClass:[UILabel class]]) title = ((UILabel *)label).text;
+    } @catch (__unused NSException *e) {}
+    if (!title.length) {
+        @try {
+            id label = [itemView valueForKey:@"_textLabel"];
+            if ([label isKindOfClass:[UILabel class]]) title = ((UILabel *)label).text;
+        } @catch (__unused NSException *e) {}
+    }
+    if (!title.length) {
+        UILabel *label = MMFindLabel(itemView);
+        title = label.text;
+    }
+    if (!title.length && item.title.length) title = item.title;
+    if (!title.length) {
+        NSArray *fallback = @[@"微信", @"通讯录", @"发现", @"我"];
+        if (index >= 0 && index < (NSInteger)fallback.count) title = fallback[index];
+    }
+    return title ?: @"";
+}
+
 static UITabBar *MMFindTabBar(UIViewController *vc) {
     if (!vc) return nil;
     @try {
@@ -381,16 +431,19 @@ static CGRect MMUnlockedGlassFrame(UIViewController *vc, BOOL showSearch) {
     CGFloat margin = 16.0;
     CGFloat gap = 10.0;
 
-    CGFloat bottomGap = 8.0;
+    CGFloat bottomGap = 4.0;
     CGFloat yFromBottom = h - safeBottom - glassH - bottomGap;
     CGFloat y = yFromBottom;
 
     UIView *label = MMFindLabelContainingText(root, @"折叠置顶聊天");
     if (label) {
-        UIView *banner = label.superview ?: label;
+        UIView *banner = label;
+        while (banner.superview && CGRectGetWidth(banner.bounds) < w * 0.70) {
+            banner = banner.superview;
+        }
         UIView *ref = banner.superview ?: root;
         CGRect bannerRect = [ref convertRect:banner.frame toView:root];
-        CGFloat yFromBanner = CGRectGetMaxY(bannerRect) + 6.0;
+        CGFloat yFromBanner = CGRectGetMaxY(bannerRect) + 1.0;
         if (yFromBanner > y) y = yFromBanner;
     }
 
@@ -541,8 +594,8 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         UIView *itemView = i < (NSInteger)itemViews.count ? [itemViews objectAtIndex:i] : nil;
         objc_setAssociatedObject(btn, &kMMItemViewKey, itemView, OBJC_ASSOCIATION_ASSIGN);
         UITabBarItem *item = i < (NSInteger)items.count ? [items objectAtIndex:i] : nil;
-        UIImageView *srcIcon = MMFindImageView(itemView);
-        UILabel *srcLabel = MMFindLabel(itemView);
+        UIImage *srcImage = MMBestItemImage(itemView, item, i == selectedIndex);
+        NSString *srcTitle = MMBestItemTitle(itemView, item, i);
         UIImageView *iconView = (UIImageView *)[btn viewWithTag:100 + i];
         UILabel *titleLabel = (UILabel *)[btn viewWithTag:200 + i];
         if (!iconView) {
@@ -564,20 +617,10 @@ static void MMLayoutOverlayButtons(UIViewController *vc, UITabBar *tabBar, UIVie
         UIColor *normalColor = [UIColor colorWithRed:0.42 green:0.44 blue:0.48 alpha:0.92];
         UIColor *selectedColor = [UIColor colorWithRed:0.00 green:0.76 blue:0.30 alpha:1.0];
         UIColor *color = (i == selectedIndex) ? selectedColor : normalColor;
-        UIImage *img = srcIcon.image;
-        if (!img && item) img = (i == selectedIndex && item.selectedImage) ? item.selectedImage : item.image;
-        if (!img && item) {
-            @try { img = [item valueForKey:(i == selectedIndex ? @"_selectedImage" : @"_image")]; } @catch (__unused NSException *e) {}
-        }
-        if (!img && item) {
-            @try { img = [item valueForKey:@"_image"]; } @catch (__unused NSException *e) {}
-        }
+        UIImage *img = srcImage;
         iconView.image = img ? [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
         iconView.tintColor = color;
-        NSString *title = srcLabel.text;
-        if (!title.length && item && item.title.length) title = item.title;
-        if (!title.length && i < 4) title = [fallback objectAtIndex:i];
-        titleLabel.text = title ?: @"";
+        titleLabel.text = srcTitle ?: @"";
         titleLabel.textColor = color;
         titleLabel.font = [UIFont systemFontOfSize:11.0 weight:(i == selectedIndex ? UIFontWeightSemibold : UIFontWeightRegular)];
         CGFloat iconSize = 21.0;
@@ -639,12 +682,16 @@ static void MMUpdateFloatingBar(UIViewController *vc) {
     if (!tabBar || !MMShouldShow(vc)) {
         if (tabBar) {
             tabBar.alpha = 0.001;
+            tabBar.hidden = NO;
             tabBar.userInteractionEnabled = NO;
             for (UIView *sub in tabBar.subviews) {
                 NSString *name = NSStringFromClass([sub class]);
                 if ([name containsString:@"BarBackground"] || [name containsString:@"_UIBarBackground"] || [name containsString:@"Backdrop"]) {
                     sub.hidden = YES;
                     sub.alpha = 0.0;
+                } else if ([name containsString:@"UITabBarButton"]) {
+                    sub.alpha = 0.0;
+                    sub.hidden = YES;
                 }
             }
         }
@@ -742,7 +789,10 @@ static MMFloatingProxy *MMSharedProxy(void) {
 }
 
 - (void)viewDidAppear:(BOOL)animated {
+    MMPrepareTabBarEarly((UIViewController *)self);
+    MMUpdateFloatingBar((UIViewController *)self);
     %orig(animated);
+    MMPrepareTabBarEarly((UIViewController *)self);
     MMUpdateFloatingBar((UIViewController *)self);
 }
 
@@ -758,7 +808,9 @@ static MMFloatingProxy *MMSharedProxy(void) {
 }
 
 - (void)setSelectedViewController:(UIViewController *)selectedViewController {
+    MMPrepareTabBarEarly((UIViewController *)self);
     %orig(selectedViewController);
+    MMPrepareTabBarEarly((UIViewController *)self);
     MMUpdateFloatingBar((UIViewController *)self);
 }
 
